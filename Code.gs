@@ -13,7 +13,7 @@ const TZ = 'Europe/Paris';
 
 const SCHEMA = {
   Equipe:       ['id', 'nom', 'role', 'actif'],
-  Taches:       ['id', 'titre', 'description', 'assigne', 'priorite', 'statut', 'echeance', 'lieu', 'creePar', 'creeLe', 'majLe', 'majPar'],
+  Taches:       ['id', 'titre', 'description', 'assigne', 'priorite', 'statut', 'echeance', 'lieu', 'creePar', 'creeLe', 'majLe', 'majPar', 'faitPar'],
   Commentaires: ['id', 'tacheId', 'auteur', 'date', 'texte'],
   Nacelle:      ['id', 'nom', 'debut', 'fin', 'lieu', 'motif', 'creeLe', 'majPar'],
   Regisseurs:   ['id', 'regisseur', 'dateDebut', 'dateFin', 'statut', 'salon', 'note', 'majPar'],
@@ -63,6 +63,7 @@ function handle_(p) {
       case 'all':    return out_({ ok: true, data: readAll_() });
       case 'save':   return out_({ ok: true, data: withLock_(function () { return save_(p.sheet, p.item, p.user); }) });
       case 'delete': return out_({ ok: true, data: withLock_(function () { return remove_(p.sheet, p.id, p.user); }) });
+      case 'partFaite': return out_({ ok: true, data: withLock_(function () { return partFaite_(p.id, p.user, p.fait); }) });
       case 'importBudget': return out_({ ok: true, data: withLock_(function () { return importBudget_(p.data, p.user); }) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
@@ -93,7 +94,8 @@ function readAll_() {
 
 /* ---------- Écriture ---------- */
 
-function save_(name, item, user) {
+function save_(name, item, user, opts) {
+  opts = opts || {};
   if (!SCHEMA[name]) throw new Error('Onglet non modifiable : ' + name);
   if (!item || typeof item !== 'object') throw new Error('Données manquantes');
   user = clean_(user, 80);
@@ -123,6 +125,8 @@ function save_(name, item, user) {
       if (!o.titre) throw new Error('Titre obligatoire');
       if (!cur) { o.creePar = user; o.creeLe = now; }
       if (!o.statut) o.statut = 'À faire';
+      if (!opts.part) o.faitPar = cur ? (cur.faitPar || '') : ''; // les parts ne changent que par « Ma part faite »
+      parts_(o, cur, !!opts.part);
       o.majLe = now; o.majPar = user;
       break;
     case 'Commentaires':
@@ -188,6 +192,36 @@ function save_(name, item, user) {
 
   journal_(user, cur ? 'modification' : 'ajout', name, o.id, summary_(name, o));
   return o;
+}
+
+/* ---------- Tâches à plusieurs : chacun coche sa part ---------- */
+
+function list_(s) {
+  return String(s || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+}
+
+// faitPar = personnes qui ont fini leur part. Tâche terminée quand toutes les personnes attribuées ont fini.
+function parts_(o, cur, part) {
+  const a = list_(o.assigne);
+  let f = a.length > 1 ? list_(o.faitPar).filter(function (n) { return a.indexOf(n) >= 0; }) : [];
+  if (!part && cur && cur.statut === 'Terminé' && o.statut !== 'Terminé') f = []; // tâche rouverte : on repart de zéro
+  if (a.length > 1 && f.length === a.length) o.statut = 'Terminé';
+  else if (part && o.statut === 'Terminé') o.statut = 'En cours';             // une part décochée
+  else if (part && f.length && o.statut === 'À faire') o.statut = 'En cours';
+  o.faitPar = f.join(', ');
+}
+
+function partFaite_(id, user, fait) {
+  user = clean_(user, 80);
+  if (!user) throw new Error("Choisis d'abord ton nom (bouton 👤)");
+  const cur = rows_(sheet_('Taches')).filter(function (r) { return r.id === String(id); })[0];
+  if (!cur) throw new Error('Tâche introuvable (supprimée ?)');
+  if (list_(cur.assigne).indexOf(user) < 0) throw new Error(user + " n'est pas attribué à cette tâche");
+  const f = list_(cur.faitPar).filter(function (n) { return n !== user; });
+  if (fait) f.push(user);
+  const item = Object.assign({}, cur, { faitPar: f.join(', ') });
+  delete item._row;
+  return save_('Taches', item, user, { part: true });
 }
 
 function remove_(name, id, user) {
@@ -314,7 +348,7 @@ function journal_(user, action, name, id, detail) {
 function summary_(name, o) {
   switch (name) {
     case 'Equipe': return o.nom + ' (' + o.role + ', actif : ' + o.actif + ')';
-    case 'Taches': return o.titre + ' · ' + o.statut + (o.assigne ? ' · ' + o.assigne : '');
+    case 'Taches': return o.titre + ' · ' + o.statut + (o.assigne ? ' · ' + o.assigne : '') + (o.faitPar ? ' · fait : ' + o.faitPar : '');
     case 'Commentaires': return (o.texte || '').slice(0, 80);
     case 'Nacelle': return o.nom + ' ' + fr_(o.debut) + ' → ' + fr_(o.fin);
     case 'Regisseurs': return o.regisseur + ' ' + o.statut + ' ' + o.dateDebut + ' → ' + o.dateFin;

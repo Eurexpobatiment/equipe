@@ -74,6 +74,11 @@ input.search{min-width:0;flex:1 1 160px;max-width:280px}
 .tag-u{font-size:11px;font-weight:700;color:#fff;background:var(--accent);border-radius:4px;padding:1px 5px}
 .adv{margin-top:8px;border:1px solid var(--line);background:#f8f9fb;border-radius:7px;padding:4px 9px;font-size:12.5px;cursor:pointer}
 .adv:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.adv.ok{margin-left:6px;border-color:#2a9d5c;color:#1f7a47;background:#eefaf3}.adv.ok:hover{background:#2a9d5c;color:#fff}
+.adv.undo{margin-left:6px;color:var(--muted)}
+.pill.fini{background:#dcf3e5;color:#1f7a47;font-weight:600}
+.parts{font-size:12px;color:var(--muted)}
+.tparts{margin-top:14px}.tparts h3{font-size:14px;margin:0 0 6px}.tparts .adv{margin-top:0}
 
 /* Nacelle */
 .days{display:flex;flex-direction:column;gap:10px}
@@ -475,7 +480,7 @@ function nacConflict(o){
 function render(){
   $('#apptitle').textContent=CONFIG.titre;
   $('#meBtn').textContent='👤 '+(me||'Qui es-tu ?');
-  const mine=D.Taches.filter(t=>isMine(t)&&t.statut!=='Terminé').length;
+  const mine=D.Taches.filter(aFaire).length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
@@ -614,6 +619,30 @@ async function eqAdd(){
 /* ================== TÂCHES ================== */
 const asg=t=>String(t.assigne||'').split(',').map(x=>x.trim()).filter(Boolean); // une ou plusieurs personnes, « Julien, Karim »
 const isMine=t=>!!me&&asg(t).includes(me);
+const fait=t=>{const a=asg(t);return a.length>1?String(t.faitPar||'').split(',').map(x=>x.trim()).filter(n=>a.includes(n)):[]}; // qui a fini sa part
+const aFaire=t=>isMine(t)&&t.statut!=='Terminé'&&!fait(t).includes(me); // compteur « mes tâches »
+function partsHtml(t){ // personnes attribuées, avec ✓ pour celles qui ont fini leur part
+  const a=asg(t), f=fait(t), multi=a.length>1&&t.statut!=='Terminé';
+  if(!a.length) return '<span class="pill ghost">Non attribuée</span>';
+  return a.map(n=>multi&&f.includes(n)?pill(n).replace('class="pill"','class="pill fini" title="Part terminée"').replace('</span>',' ✓</span>'):pill(n)).join('')
+    +(multi?`<span class="parts">${f.length}/${a.length} parts faites</span>`:'');
+}
+function partBtn(t){ // bouton « Ma part faite » pour une tâche à plusieurs
+  if(asg(t).length<2||t.statut==='Terminé'||!isMine(t)) return '';
+  return fait(t).includes(me)
+    ?`<button class="adv undo" onclick="event.stopPropagation();maPart('${t.id}',false,this)">↩ Annuler ma part</button>`
+    :`<button class="adv ok" onclick="event.stopPropagation();maPart('${t.id}',true,this)">✓ Ma part faite</button>`;
+}
+async function maPart(id,ok,btn){
+  if(!me) return toast("Choisis d'abord ton nom (bouton 👤)",1);
+  if(btn){btn.disabled=true;btn.textContent='…'}
+  try{
+    const r=await api('partFaite',{id,fait:ok});
+    const i=D.Taches.findIndex(x=>x.id===r.id); if(i<0)D.Taches.push(r); else D.Taches[i]=r;
+    if($('#tparts'))$('#tparts').innerHTML=partsHtml(r)+partBtn(r);
+    render(); toast(r.statut==='Terminé'?'Tout le monde a fini : tâche terminée ✓':ok?'Ta part est notée ✓':'Ta part est décochée');
+  }catch(e){toast(e.message,1);render()}
+}
 function vTaches(el){
   const names=people(); const f=UI.tFiltre;
   let L=D.Taches.slice();
@@ -637,15 +666,16 @@ function card(t){
   const st=t.statut||'À faire', done=st==='Terminé';
   const late=t.echeance&&!done&&t.echeance<today();
   const nc=D.Commentaires.filter(c=>c.tacheId===t.id).length;
-  const next={'À faire':'En cours','En cours':'Terminé'}[st];
+  const multi=asg(t).length>1;
+  const next={'À faire':'En cours','En cours':multi?'':'Terminé'}[st]; // à plusieurs : terminé quand chacun a coché sa part
   const d=(t.description||'');
   return `<div class="card p${PRIO.indexOf(t.priorite||'Normale')} ${done?'done':''}" onclick="editTache('${t.id}')">
     <div class="ct">${t.priorite==='Urgente'&&!done?'<span class="tag-u">URGENT</span> ':''}${esc(t.titre)}</div>
     ${d?`<div class="cd">${esc(d.length>140?d.slice(0,140)+'…':d)}</div>`:''}
-    <div class="meta">${asg(t).length?asg(t).map(pill).join(''):'<span class="pill ghost">Non attribuée</span>'}
+    <div class="meta">${partsHtml(t)}
       ${t.echeance?`<span class="${late?'late':''}">📅 ${fD(t.echeance)}${late?' · en retard':''}</span>`:''}
       ${t.lieu?`<span>📍 ${esc(t.lieu)}</span>`:''}${nc?`<span>💬 ${nc}</span>`:''}</div>
-    ${next?`<button class="adv" onclick="event.stopPropagation();advance('${t.id}',this)">→ ${next}${next==='En cours'&&!asg(t).length?' (je la prends)':''}</button>`:''}
+    ${next?`<button class="adv" onclick="event.stopPropagation();advance('${t.id}',this)">→ ${next}${next==='En cours'&&!asg(t).length?' (je la prends)':''}</button>`:''}${partBtn(t)}
   </div>`;
 }
 async function advance(id,btn){
@@ -664,7 +694,8 @@ function comsHtml(tid){
 function editTache(id){
   const t=id?D.Taches.find(x=>x.id===id):{assigne:UI.tFiltre==='Moi'?me:''};
   if(id&&!t) return;
-  const extra=id?`<div class="made">Créée par ${esc(t.creePar||'?')} le ${fDT(t.creeLe)}${t.majPar?` · modifiée par ${esc(t.majPar)} le ${fDT(t.majLe)}`:''}</div>
+  const extra=id?`${asg(t).length>1?`<div class="tparts"><h3>Avancement par personne</h3><div id="tparts" class="meta">${partsHtml(t)}${partBtn(t)}</div>
+    <p class="hint">La tâche passe en « Terminé » quand chaque personne a coché « Ma part faite ». On peut aussi la clôturer d'office avec le statut ci-dessus.</p></div>`:''}<div class="made">Créée par ${esc(t.creePar||'?')} le ${fDT(t.creeLe)}${t.majPar?` · modifiée par ${esc(t.majPar)} le ${fDT(t.majLe)}`:''}</div>
     <div class="coms"><h3>Échanges &amp; avancement</h3><div id="clist">${comsHtml(id)}</div>
     <div class="cadd"><textarea id="ctxt" rows="2" placeholder="Ajouter un commentaire, un point d'avancement…"></textarea><button class="btn pri" id="csend">Envoyer</button></div></div>`:'';
   openForm('Taches',t,id?'Tâche':'Nouvelle tâche',{extra,after:()=>{
@@ -808,7 +839,7 @@ async function dtLoad(force){
   catch(e){DT.err=e.message;if(/code/i.test(e.message)){dtSetCode('');DT.list=null}}
   DT.loading=false; if(tab==='Demandes'&&!$('.ov')) render(); else renderTabsOnly();
 }
-function renderTabsOnly(){const mine=D.Taches.filter(t=>isMine(t)&&t.statut!=='Terminé').length;
+function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('')}
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
@@ -1198,16 +1229,22 @@ function demoSeed(){
     EDL:[{id:id(),date:addDays(t,1),heure:'09:00',salon:'Salon démo',type:'Entrée',halls:'Hall 2.1, Hall 2.2',responsable:'Sophie',statut:'Planifié'},
          {id:id(),date:addDays(t,-4),heure:'14:00',salon:'Salon précédent',type:'Sortie',halls:'Hall 6',responsable:'Marc',statut:'Fait avec réserves',note:'3 réserves sols'}]};
 }
+function demoParts(o,cur,part){const a=asg(o);let f=a.length>1?String(o.faitPar||'').split(',').map(x=>x.trim()).filter(n=>a.includes(n)):[];
+  if(!part&&cur&&cur.statut==='Terminé'&&o.statut!=='Terminé')f=[];
+  if(a.length>1&&f.length===a.length)o.statut='Terminé';else if(part&&o.statut==='Terminé')o.statut='En cours';else if(part&&f.length&&o.statut==='À faire')o.statut='En cours';
+  o.faitPar=f.join(', ')}
 function demoApi(a,p){if(!DB)DB=demoSeed();return new Promise((res,rej)=>setTimeout(()=>{try{res(JSON.parse(JSON.stringify(demoHandle(a,p))))}catch(e){rej(e)}},120))}
 function demoHandle(a,p){
   if(a==='all') return DB;
+  if(a==='partFaite'){const cur=DB.Taches.find(x=>x.id===p.id);if(!cur)throw new Error('Tâche introuvable');if(!asg(cur).includes(p.user))throw new Error(p.user+" n'est pas attribué à cette tâche");
+    const f=fait(cur).filter(n=>n!==p.user);if(p.fait)f.push(p.user);return demoHandle('save',{sheet:'Taches',user:p.user,part:1,item:{...cur,faitPar:f.join(', ')}})}
   if(a==='importBudget'){const id=()=>Math.random().toString(36).slice(2,10);p.data.lignes.forEach(l=>{const o={...l,id:id()};delete o.mvts;DB.BudgetLignes.push(o);(l.mvts||[]).forEach(m=>DB.BudgetMvts.push({...m,id:id(),ligneId:o.id,montant:String(m.montant)}))});(p.data.inventaire||[]).forEach(x=>DB.Inventaire.push({...x,id:id()}));(p.data.sap||[]).forEach(x=>DB.SAP.push({...x,id:id()}));return {ok:1}}
   const L=DB[p.sheet]; if(!L) throw new Error('Onglet inconnu');
   if(a==='save'){
     const cur=p.item.id?L.find(x=>x.id===p.item.id):null; const o={...(cur||{}),...p.item}; const now=nowISO();
     if(p.sheet==='Nacelle'){if(o.fin<=o.debut)throw new Error('La fin doit être après le début');const c=L.find(b=>b.id!==o.id&&o.debut<b.fin&&b.debut<o.fin);if(c)throw new Error(`Nacelle déjà réservée par ${c.nom} du ${fDT(c.debut)} au ${fDT(c.fin)}`)}
     if(!cur){o.id=Math.random().toString(36).slice(2,10);if(p.sheet==='Taches'){o.creePar=p.user;o.creeLe=now}if(p.sheet==='Commentaires')o.date=now}
-    if(p.sheet==='Taches')o.majLe=now; if(p.sheet!=='Equipe'&&p.sheet!=='Commentaires')o.majPar=p.user;
+    if(p.sheet==='Taches'){if(!p.part)o.faitPar=cur?cur.faitPar||'':'';demoParts(o,cur,p.part);o.majLe=now} if(p.sheet!=='Equipe'&&p.sheet!=='Commentaires')o.majPar=p.user;
     if(cur)Object.assign(cur,o);else L.push(o); return o;
   }
   if(a==='delete'){DB[p.sheet]=L.filter(x=>x.id!==p.id);if(p.sheet==='Taches')DB.Commentaires=DB.Commentaires.filter(c=>c.tacheId!==p.id);if(p.sheet==='BudgetLignes')DB.BudgetMvts=DB.BudgetMvts.filter(m=>m.ligneId!==p.id);return {id:p.id}}
