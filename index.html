@@ -113,6 +113,23 @@ table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;
 .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px}
 
+/* Vue mois (calendrier) */
+.mcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mcal .mh{padding:6px 4px;text-align:center;font-size:12px;font-weight:600;color:#475569;background:#fafbfc;border-bottom:1px solid var(--line);text-transform:capitalize}
+.mcal .mc{min-height:92px;border-right:1px solid #f0f2f5;border-bottom:1px solid #f0f2f5;padding:3px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.mcal .mc:nth-child(7n){border-right:0}
+.mcal .mc:hover{background:#f8f9fb}
+.mcal .mc.we{background:#f9fafb}
+.mcal .mc.out{opacity:.4}
+.mcal .mc.past .ev{opacity:.7}
+.mcal .mc .dn{font-size:12px;font-weight:600;color:#475569;padding:1px 3px;align-self:flex-start;border-radius:10px}
+.mcal .mc.today .dn{background:var(--navy);color:#fff;padding:1px 7px}
+.mcal .ev{display:block;font-size:11px;line-height:17px;border-radius:4px;color:#fff;padding:0 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mcal .more{font-size:11px;color:var(--muted);padding:0 3px}
+.grid.month td.c{min-width:30px}.grid.month td.c span{font-size:10px;margin:2px;line-height:30px}
+.grid.month thead th{font-size:11px}
+@media (max-width:820px){.mcal .mc{min-height:64px;padding:2px}.mcal .ev{font-size:9.5px;line-height:15px;padding:0 2px}.mcal .mh{font-size:11px}}
+
 /* Agenda (cloisons, EDL) */
 .ag-day{margin-bottom:14px}
 .ag-day h3{font-size:13px;text-transform:capitalize;color:#475569;margin:0 0 6px 2px}
@@ -414,7 +431,7 @@ let me = lsGet('equipe.me') || '';
 let tab = lsGet('equipe.tab') || 'Taches';
 if (!TABS.some(t=>t.id===tab)) tab='Taches';
 let loaded = false;
-const UI = {tFiltre:'Tous', tTout:false, nWeek:0, rWeek:0, ag:{Cloisons:{m:'avenir',q:''},EDL:{m:'avenir',q:''}}};
+const UI = {tFiltre:'Tous', tTout:false, nWeek:0, rWeek:0, nView:'sem', nMonth:0, rView:'sem', rMonth:0, ag:{Cloisons:{m:'avenir',q:'',mo:0},EDL:{m:'avenir',q:'',mo:0}}};
 
 /* ---------- outils ---------- */
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -429,6 +446,21 @@ const parseD=s=>{const [y,m,d]=String(s).slice(0,10).split('-').map(Number);retu
 const addDays=(s,n)=>{const d=parseD(s);d.setDate(d.getDate()+n);return ymd(d)};
 const monday=(off=0)=>{const d=new Date();d.setDate(d.getDate()-((d.getDay()+6)%7)+off*7);return ymd(d)};
 const fD=(s,o={weekday:'short',day:'numeric',month:'short'})=>s?parseD(s).toLocaleDateString('fr-FR',o):'';
+// Vue mois : off = décalage en mois par rapport au mois courant
+const monthStart=(off=0)=>{const d=new Date();return ymd(new Date(d.getFullYear(),d.getMonth()+off,1))};
+const monthDays=ms=>{const d=parseD(ms);return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()};
+const fMonth=ms=>{const t=fD(ms,{month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1)};
+// Calendrier mensuel lun→dim. evs(d) renvoie une liste de {html,col,title,click} ; dayClick(d) = action au clic sur la case
+function monthCal(ms,evs,dayClick,max=3){
+  const t=today(), m=ms.slice(0,7), start=addDays(ms,-((parseD(ms).getDay()+6)%7));
+  const nW=Math.ceil((((parseD(ms).getDay()+6)%7)+monthDays(ms))/7);
+  const head=['lun','mar','mer','jeu','ven','sam','dim'].map(x=>`<div class="mh">${x}</div>`).join('');
+  const cells=[...Array(nW*7)].map((_,i)=>{const d=addDays(start,i),w=parseD(d).getDay(),L=evs(d);
+    const shown=L.slice(0,max).map(e=>`<span class="ev" style="background:${e.col}" title="${esc(e.title||'')}"${e.click?` onclick="event.stopPropagation();${e.click}"`:''}>${e.html}</span>`).join('');
+    return `<div class="mc ${w===0||w===6?'we':''} ${d.slice(0,7)!==m?'out':''} ${d===t?'today':''} ${d<t?'past':''}" onclick="${dayClick(d)}"><span class="dn">${parseD(d).getDate()}</span>${shown}${L.length>max?`<span class="more">+${L.length-max} autre${L.length-max>1?'s':''}</span>`:''}</div>`}).join('');
+  return `<div class="mcal">${head}${cells}</div>`;
+}
+const viewCtl=(cur,setter)=>`<div class="seg-ctl">${[['sem','Semaine'],['mois','Mois']].map(([k,l])=>`<button class="${cur===k?'on':''}" onclick="${setter}='${k}';render()">${l}</button>`).join('')}</div>`;
 const fDT=s=>s?fD(s)+' '+s.slice(11,16):'';
 const mins=s=>(+s.slice(11,13))*60+(+s.slice(14,16));
 const hue=s=>{let h=7;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h};
@@ -712,6 +744,7 @@ async function delCom(cid,tid){try{await delItem('Commentaires',cid);const l=$('
 
 /* ================== NACELLE ================== */
 function vNacelle(el){
+  if(UI.nView==='mois') return vNacelleMois(el);
   const ws=monday(UI.nWeek), days=[...Array(7)].map((_,i)=>addDays(ws,i)), t=today(), H0=6, H1=22, span=(H1-H0)*60;
   const now=nowISO();
   const mineNext=D.Nacelle.filter(b=>b.nom===me&&b.fin>=now).sort((a,b)=>a.debut.localeCompare(b.debut)).slice(0,3);
@@ -734,12 +767,26 @@ function vNacelle(el){
       <button class="btn sm" onclick="newNac('${d}')">+ Réserver</button></div>
       <div class="tl">${ticks}${segs}${nowLine}</div>${list||'<div class="free">Libre</div>'}</div>`;
   }).join('');
-  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>
+  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${viewCtl('sem','UI.nView')}
     <button class="btn" onclick="UI.nWeek--;render()">‹</button><button class="btn" onclick="UI.nWeek=0;render()">Cette semaine</button><button class="btn" onclick="UI.nWeek++;render()">›</button>
     <button class="btn pri" onclick="newNac()">+ Réserver la nacelle</button></div>
     <p class="hint">Semaine du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(addDays(ws,6),{day:'numeric',month:'long',year:'numeric'})} · frise de 6 h à 22 h</p>
     ${mineNext.length?`<div class="mine"><b>Tes prochaines réservations :</b> ${mineNext.map(b=>`<a href="#" onclick="editNac('${b.id}');return false">${fDT(b.debut)} → ${b.fin.slice(0,10)===b.debut.slice(0,10)?b.fin.slice(11):fDT(b.fin)}</a>`).join(' · ')}</div>`:''}
     <div class="days">${rows}</div>`;
+}
+function vNacelleMois(el){
+  const ms=monthStart(UI.nMonth);
+  const evs=d=>{const d0=d+'T00:00',d1=addDays(d,1)+'T00:00';
+    return D.Nacelle.filter(b=>b.debut<d1&&b.fin>d0).sort((a,b)=>a.debut.localeCompare(b.debut)).map(b=>{
+      const h=b.debut.slice(0,10)===d?b.debut.slice(11,13).replace(/^0/,'')+'h'+(b.debut.slice(14,16)==='00'?'':b.debut.slice(14,16)):'…';
+      return {html:esc(h+' '+b.nom),col:pcol(b.nom),title:`${b.nom} · ${fDT(b.debut)} → ${fDT(b.fin)}${b.lieu?' · '+b.lieu:''}${b.motif?' · '+b.motif:''}`,click:`editNac('${b.id}')`}})};
+  // clic sur un jour : ouvre la semaine correspondante
+  const toWeek=d=>`UI.nView='sem';UI.nWeek=Math.round((parseD('${addDays(d,-((parseD(d).getDay()+6)%7))}')-parseD(monday()))/6048e5);render()`;
+  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${viewCtl('mois','UI.nView')}
+    <button class="btn" onclick="UI.nMonth--;render()">‹</button><button class="btn" onclick="UI.nMonth=0;render()">Ce mois</button><button class="btn" onclick="UI.nMonth++;render()">›</button>
+    <button class="btn pri" onclick="newNac()">+ Réserver la nacelle</button></div>
+    <p class="hint"><b>${fMonth(ms)}</b> · touche une réservation pour la modifier, ou un jour pour voir sa semaine en détail.</p>
+    ${monthCal(ms,evs,toWeek)}`;
 }
 function newNac(d){
   const t=today(), base=d||t;
@@ -753,20 +800,22 @@ function editNac(id){const b=D.Nacelle.find(x=>x.id===id);if(b)openForm('Nacelle
 
 /* ================== RÉGISSEURS ================== */
 function vReg(el){
-  const ws=monday(UI.rWeek), N=14, days=[...Array(N)].map((_,i)=>addDays(ws,i)), t=today();
+  const mo=UI.rView==='mois', ws=mo?monthStart(UI.rMonth):monday(UI.rWeek), N=mo?monthDays(ws):14, days=[...Array(N)].map((_,i)=>addDays(ws,i)), t=today();
   const hasRole=D.Equipe.some(e=>e.role==='Régisseur'&&e.actif!=='non');
   const regs=hasRole?people('Régisseur'):[];
   const find=(r,d)=>D.Regisseurs.filter(x=>x.regisseur===r&&x.dateDebut<=d&&(x.dateFin||x.dateDebut)>=d).pop();
   const we=d=>{const w=parseD(d).getDay();return w===0||w===6};
   const head=days.map(d=>`<th class="${we(d)?'we':''} ${d===t?'td':''}">${fD(d,{weekday:'short'}).replace('.','')}<br>${parseD(d).getDate()}</th>`).join('');
   const body=regs.map(r=>`<tr><th class="name">${pill(r)}</th>${days.map(d=>{const e=find(r,d);
-    return `<td class="c ${we(d)?'we':''}" onclick="${e?`editReg('${e.id}')`:`newReg(this.dataset.r,'${d}')`}" data-r="${esc(r)}" title="${e?esc(r+' · '+e.statut+(e.salon?' · '+e.salon:'')+(e.note?' · '+e.note:'')):'Ajouter'}">${e?`<span style="background:${ST_REG[e.statut]||'#64748b'}">${esc(e.salon&&e.statut==='Salon'?e.salon:e.statut).slice(0,7)}</span>`:''}</td>`}).join('')}</tr>`).join('');
+    return `<td class="c ${we(d)?'we':''}" onclick="${e?`editReg('${e.id}')`:`newReg(this.dataset.r,'${d}')`}" data-r="${esc(r)}" title="${e?esc(r+' · '+e.statut+(e.salon?' · '+e.salon:'')+(e.note?' · '+e.note:'')):'Ajouter'}">${e?`<span style="background:${ST_REG[e.statut]||'#64748b'}">${esc(e.salon&&e.statut==='Salon'?e.salon:e.statut).slice(0,mo?4:7)}</span>`:''}</td>`}).join('')}</tr>`).join('');
   const foot=days.map(d=>`<td class="${we(d)?'we':''}">${regs.filter(r=>{const e=find(r,d);return e&&REG_PRESENT.includes(e.statut)}).length}</td>`).join('');
-  el.innerHTML=`<div class="bar"><h2>Présence des régisseurs</h2>
-    <button class="btn" onclick="UI.rWeek-=2;render()">‹</button><button class="btn" onclick="UI.rWeek=0;render()">Aujourd'hui</button><button class="btn" onclick="UI.rWeek+=2;render()">›</button>
+  const nav=mo?`<button class="btn" onclick="UI.rMonth--;render()">‹</button><button class="btn" onclick="UI.rMonth=0;render()">Ce mois</button><button class="btn" onclick="UI.rMonth++;render()">›</button>`
+    :`<button class="btn" onclick="UI.rWeek-=2;render()">‹</button><button class="btn" onclick="UI.rWeek=0;render()">Aujourd'hui</button><button class="btn" onclick="UI.rWeek+=2;render()">›</button>`;
+  el.innerHTML=`<div class="bar"><h2>Présence des régisseurs</h2>${viewCtl(mo?'mois':'sem','UI.rView')}
+    ${nav}
     <button class="btn" onclick="UI.eqRole='Régisseur';goTab('Equipe')">👥 Gérer les régisseurs</button><button class="btn pri" onclick="newReg()">+ Ajouter une période</button></div>
-    <p class="hint">Du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(addDays(ws,N-1),{day:'numeric',month:'long',year:'numeric'})} · touche une case pour la remplir ou la modifier.</p>${hasRole?'':`<div class="mine">Aucun régisseur pour l'instant : ajoute-les dans l'onglet Équipe avec le rôle « Régisseur ». <button class="btn sm pri" onclick="UI.eqRole='Régisseur';goTab('Equipe')">👥 Ajouter des régisseurs</button></div>`}
-    ${regs.length?`<div class="gridwrap"><table class="grid"><thead><tr><th class="name">Régisseur</th>${head}</tr></thead><tbody>${body}</tbody>
+    <p class="hint">${mo?`<b>${fMonth(ws)}</b>`:`Du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(addDays(ws,N-1),{day:'numeric',month:'long',year:'numeric'})}`} · touche une case pour la remplir ou la modifier.</p>${hasRole?'':`<div class="mine">Aucun régisseur pour l'instant : ajoute-les dans l'onglet Équipe avec le rôle « Régisseur ». <button class="btn sm pri" onclick="UI.eqRole='Régisseur';goTab('Equipe')">👥 Ajouter des régisseurs</button></div>`}
+    ${regs.length?`<div class="gridwrap"><table class="grid${mo?' month':''}"><thead><tr><th class="name">Régisseur</th>${head}</tr></thead><tbody>${body}</tbody>
       <tfoot><tr><td class="name" style="text-align:left;padding-left:10px;position:sticky;left:0">Présents</td>${foot}</tr></tfoot></table></div>`:''}
     <div class="legend">${Object.entries(ST_REG).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join('')}</div>`;
 }
@@ -787,7 +836,7 @@ const AG={
 function vAgenda(el,sheet){
   const st=UI.ag[sheet], A=AG[sheet];
   el.innerHTML=`<div class="bar"><h2>${A.titre}</h2>
-    <div class="seg-ctl">${[['avenir','À venir'],['passes','Passés'],['tout','Tout']].map(([k,l])=>`<button class="${st.m===k?'on':''}" onclick="UI.ag['${sheet}'].m='${k}';render()">${l}</button>`).join('')}</div>
+    <div class="seg-ctl">${[['avenir','À venir'],['passes','Passés'],['tout','Tout'],['mois','📅 Mois']].map(([k,l])=>`<button class="${st.m===k?'on':''}" onclick="UI.ag['${sheet}'].m='${k}';render()">${l}</button>`).join('')}</div>
     <input class="search" type="search" placeholder="Rechercher (salon, hall…)" value="${esc(st.q)}" oninput="UI.ag['${sheet}'].q=this.value;agList('${sheet}')">
     <button class="btn pri" onclick="newAg('${sheet}')">${A.nouveau}</button></div><div id="aglist"></div>`;
   agList(sheet);
@@ -795,6 +844,20 @@ function vAgenda(el,sheet){
 function agList(sheet){
   const st=UI.ag[sheet], A=AG[sheet], t=today();
   let L=D[sheet].slice();
+  if(st.m==='mois'){
+    const ms=monthStart(st.mo||0), q=(st.q||'').toLowerCase();
+    if(q)L=L.filter(x=>Object.values(x).join(' ').toLowerCase().includes(q));
+    const key=x=>(x.heure||'99:99');
+    const evs=d=>L.filter(x=>x.date===d).sort((a,b)=>key(a).localeCompare(key(b))).map(x=>{
+      const lab=sheet==='Cloisons'?[x.mouvement,x.hall].filter(Boolean).join(' '):[x.type,x.salon].filter(Boolean).join(' · ');
+      return {html:esc((x.heure?(+x.heure.slice(0,2))+'h'+(x.heure.slice(3,5)==='00'?'':x.heure.slice(3,5))+' ':'')+lab),col:ST_COL[x.statut]||'#64748b',
+        title:[x.heure,sheet==='Cloisons'?[x.mouvement,x.cloison,x.hall,x.salon].filter(Boolean).join(' · '):[x.salon,x.type,x.halls].filter(Boolean).join(' · '),x.responsable&&'👤 '+x.responsable,x.statut].filter(Boolean).join(' · '),
+        click:`editAg('${sheet}','${x.id}')`}});
+    $('#aglist').innerHTML=`<div class="bar" style="margin-bottom:6px"><button class="btn" onclick="UI.ag['${sheet}'].mo--;agList('${sheet}')">‹</button><button class="btn" onclick="UI.ag['${sheet}'].mo=0;agList('${sheet}')">Ce mois</button><button class="btn" onclick="UI.ag['${sheet}'].mo++;agList('${sheet}')">›</button><b style="margin-left:6px">${fMonth(ms)}</b></div>
+      <p class="hint">Touche un élément pour le modifier, ou un jour vide pour en ajouter un.</p>
+      ${monthCal(ms,evs,d=>`newAg('${sheet}','${d}')`,4)}`;
+    return;
+  }
   if(st.m==='avenir')L=L.filter(x=>x.date>=t); else if(st.m==='passes')L=L.filter(x=>x.date<t);
   if(st.q){const q=st.q.toLowerCase();L=L.filter(x=>Object.values(x).join(' ').toLowerCase().includes(q))}
   const key=x=>(x.date||'')+(x.heure||'99:99');
@@ -806,7 +869,7 @@ function agList(sheet){
       <button class="st" style="background:${ST_COL[x.statut]||'#64748b'}" title="${A.next[x.statut]?'Passer à « '+A.next[x.statut]+' »':''}" onclick="event.stopPropagation();agNext('${sheet}','${x.id}',this)">${esc(x.statut||'')}</button></div>`).join('')}</div>`).join('')
     ||`<p class="empty">${st.q?'Aucun résultat.':st.m==='avenir'?'Rien de prévu.':'Rien à afficher.'}</p>`;
 }
-function newAg(sheet){openForm(sheet,{date:today(),responsable:''},AG[sheet].form)}
+function newAg(sheet,d){openForm(sheet,{date:d||today(),responsable:''},AG[sheet].form)}
 function editAg(sheet,id){const x=D[sheet].find(i=>i.id===id);if(x)openForm(sheet,x,AG[sheet].form,{extra:x.majPar?`<div class="made">Dernière modification par ${esc(x.majPar)}</div>`:''})}
 async function agNext(sheet,id,btn){
   const x=D[sheet].find(i=>i.id===id), n=x&&AG[sheet].next[x.statut]; if(!n){editAg(sheet,id);return}
