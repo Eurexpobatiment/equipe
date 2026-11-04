@@ -1014,6 +1014,13 @@ function salons(){ // salons déduits des états des lieux (entrée → sortie)
     if(x.date<s.d0)s.d0=x.date;if(x.date>s.d1)s.d1=x.date;(x.halls||'').split(/[,;]/).map(h=>h.trim()).filter(Boolean).forEach(h=>s.halls.add(h))});
   return Object.values(m).map(s=>({...s,halls:[...s.halls].join(', ')})).sort((a,b)=>a.d0.localeCompare(b.d0));
 }
+function salEdl(nom){ // un salon du planning vient des états des lieux : on les ouvre pour modifier / supprimer
+  const L=D.EDL.filter(x=>(x.salon||'').trim()===nom).sort((a,b)=>(a.date+(a.heure||'')).localeCompare(b.date+(b.heure||'')));
+  if(L.length===1) return editAg('EDL',L[0].id);
+  modal(`<h2>🎪 ${esc(nom)}</h2><p class="hint">Ce salon n'est pas un chantier : il apparaît dans le planning d'après ses états des lieux. Touche un état des lieux pour le modifier ou le supprimer.</p>
+    <div class="eqlist">${L.map(x=>`<div class="eqrow" style="cursor:pointer" onclick="closeModal(true);editAg('EDL','${x.id}')"><span><b>${esc(x.type||'État des lieux')}</b> · ${fD(x.date)}${x.heure?' '+esc(x.heure):''}<small> ${esc([x.halls,x.statut].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+}
 function chFiltered(){
   const st=UI.ch, q=st.q.toLowerCase();
   return D.Chantiers.filter(c=>(st.fin||CH_ACTIF(c.statut))&&(!st.esp||espList(c.espace).includes(st.esp))&&(!st.type||c.type===st.type)&&(!st.resp||c.responsable===st.resp)
@@ -1079,7 +1086,7 @@ function chPlanning(el){
       <div class="seg-ctl">${[4,8,13,26].map(w=>`<button class="${st.weeks===w?'on':''}" onclick="UI.ch.weeks=${w};render()">${w===13?'3 mois':w===26?'6 mois':w+' sem.'}</button>`).join('')}</div>
       <span class="sp"></span><label class="chk">Regrouper par <select class="sel" onchange="UI.ch.group=this.value;render()">${[['espace','Espace'],['type','Type de travaux'],['responsable','Responsable'],['entreprise','Entreprise']].map(([k,l])=>`<option value="${k}" ${st.group===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
     <div class="gantt" style="--n:${N}"><div class="ghead"><div class="glab">${fD(d0,{day:'numeric',month:'short'})} → ${fD(d1,{day:'numeric',month:'short',year:'numeric'})}</div><div class="gtrack gweeks">${weeks}</div></div>
-      ${sal.length?`<div class="ggrp">Salons (d'après les états des lieux)</div>`+sal.map(s=>{const p=span(s.d0,s.d1);return row(esc(s.nom),esc(s.halls),p?`<div class="gsalon" style="left:${p.l}%;width:${p.w}%" title="${esc(s.nom+' · '+fD(s.d0)+' → '+fD(s.d1)+(s.halls?' · '+s.halls:''))}"><span>${esc(s.nom)}</span></div>`:'','sal')}).join(''):''}
+      ${sal.length?`<div class="ggrp">Salons (d'après les états des lieux)</div>`+sal.map(s=>{const p=span(s.d0,s.d1);return row(esc(s.nom),esc(s.halls),p?`<div class="gsalon" style="left:${p.l}%;width:${p.w}%;cursor:pointer" data-s="${esc(s.nom)}" onclick="salEdl(this.dataset.s)" title="${esc(s.nom+' · '+fD(s.d0)+' → '+fD(s.d1)+(s.halls?' · '+s.halls:'')+' · touche pour modifier ses états des lieux')}"><span>${esc(s.nom)}</span></div>`:'','sal')}).join(''):''}
       ${Object.keys(groups).sort((a,b)=>{if(st.group!=='espace')return a.localeCompare(b,'fr');const ix=x=>{const i=ESPACES().indexOf(x);return i<0?999:i};return ix(a)-ix(b)||a.localeCompare(b,'fr')}).map(g=>`<div class="ggrp">${esc(g)} <span class="n">${groups[g].length}</span></div>`+groups[g].map(c=>row(`<a onclick="chEdit('${c.id}')">${esc(c.titre)}</a>`,esc([st.group!=='espace'&&espList(c.espace).join(', '),st.group==='espace'&&espList(c.espace).length>1&&('+ '+espList(c.espace).length+' espaces'),c.zone,st.group!=='entreprise'&&c.entreprise].filter(Boolean).join(' · ')),bar(c))).join('')).join('')
         ||`<div class="empty" style="padding:16px">Aucun chantier sur cette période. <a href="#" onclick="chNew();return false">Ajouter un chantier</a></div>`}
     </div>
