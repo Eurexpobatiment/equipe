@@ -17,7 +17,7 @@ const SCHEMA = {
   Commentaires: ['id', 'tacheId', 'auteur', 'date', 'texte'],
   Nacelle:      ['id', 'nom', 'debut', 'fin', 'lieu', 'motif', 'creeLe', 'majPar'],
   Regisseurs:   ['id', 'regisseur', 'dateDebut', 'dateFin', 'statut', 'salon', 'note', 'majPar'],
-  Cloisons:     ['id', 'date', 'heure', 'hall', 'mouvement', 'cloison', 'salon', 'responsable', 'statut', 'note', 'majPar'],
+  Cloisons:     ['id', 'date', 'heure', 'hall', 'mouvement', 'cloison', 'salon', 'responsable', 'statut', 'note', 'majPar', 'dateFin', 'heureFin'],
   EDL:          ['id', 'date', 'heure', 'salon', 'type', 'halls', 'responsable', 'statut', 'note', 'majPar'],
   BudgetLignes: ['id', 'type', 'famille', 'code', 'prestataire', 'intitule', 'budget', 'bc', 'horsTotal', 'note', 'ordre', 'majPar'],
   BudgetMvts:   ['id', 'ligneId', 'date', 'nature', 'numero', 'montant', 'libelle', 'creeLe', 'majPar'],
@@ -181,7 +181,15 @@ function save_(name, item, user, opts) {
       if (!cur) o.creeLe = now;
       o.majLe = now; o.majPar = user;
       break;
-    default: // Cloisons, EDL
+    case 'Cloisons':
+      if (!RE_DATE.test(o.date || '')) throw new Error('Date de début obligatoire');
+      if (!o.dateFin) o.dateFin = o.date;
+      if (!RE_DATE.test(o.dateFin)) throw new Error('Date de fin invalide');
+      if (o.dateFin < o.date) throw new Error('La date de fin est avant la date de début');
+      if (o.dateFin === o.date && o.heure && o.heureFin && o.heureFin < o.heure) throw new Error("L'heure de fin est avant l'heure de début");
+      o.majPar = user;
+      break;
+    default: // EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       o.majPar = user;
   }
@@ -352,7 +360,7 @@ function summary_(name, o) {
     case 'Commentaires': return (o.texte || '').slice(0, 80);
     case 'Nacelle': return o.nom + ' ' + fr_(o.debut) + ' → ' + fr_(o.fin);
     case 'Regisseurs': return o.regisseur + ' ' + o.statut + ' ' + o.dateDebut + ' → ' + o.dateFin;
-    case 'Cloisons': return o.date + ' ' + o.hall + ' ' + o.mouvement + ' ' + o.statut;
+    case 'Cloisons': return o.date + (o.dateFin && o.dateFin !== o.date ? ' → ' + o.dateFin : '') + ' ' + o.hall + ' ' + o.mouvement + ' ' + o.statut;
     case 'EDL': return o.date + ' ' + o.salon + ' ' + o.type + ' ' + o.statut;
     case 'BudgetLignes': return o.type + ' ' + o.code + ' ' + o.intitule + ' · budget ' + o.budget;
     case 'BudgetMvts': return o.nature + ' ' + o.montant + ' € ' + (o.numero || '') + ' ' + (o.libelle || '');
