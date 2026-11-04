@@ -27,7 +27,7 @@ Les données sont dans un Google Sheet, et la page est hébergée sur GitHub Pag
 
 ## Fonctionnement
 - **Connexion** : à la première ouverture, chacun choisit son nom (ou l'ajoute). Le nom est mémorisé sur son téléphone, et le bouton 👤 permet d'en changer.
-- **Équipe** (bouton 👤) : ajouter ou retirer des membres et donner les rôles. Seules les personnes qui ont le rôle **Régisseur** apparaissent dans le planning de présence.
+- **Équipe** (onglet 👥) : ajouter ou retirer des membres et donner les rôles. Seules les personnes qui ont le rôle **Régisseur** apparaissent dans le planning de présence. Le bouton 👤 en haut sert à changer d'utilisateur.
 - **Tâches** : trois colonnes, À faire, En cours et Terminé. Le bouton « → En cours » attribue la tâche à celui qui la prend si personne ne l'avait. Chaque tâche a un fil d'échanges.
 - **Nacelle** : réservation par plage horaire libre, sur une ou plusieurs journées. Si le créneau en chevauche un autre, l'appli refuse et indique qui a déjà réservé. Le contrôle est fait aussi côté serveur, donc deux personnes ne peuvent pas réserver le même créneau en même temps.
 - **Régisseurs** : un tableau sur 2 semaines. Touche une case pour saisir une période (Présent, Salon, Astreinte, Formation, Repos, Congé, Absent). La dernière ligne compte les présents de chaque jour.

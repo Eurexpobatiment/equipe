@@ -142,6 +142,16 @@ table.eq{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:14px}
 table.eq td{padding:6px 4px;border-bottom:1px solid var(--line)}
 table.eq tr.off td:first-child{color:var(--muted);text-decoration:line-through}
 table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
+.eqadd{display:flex;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:6px}
+.eqadd input{flex:1 1 200px;border:1px solid #d5d9e2;border-radius:8px;padding:9px 10px;font-size:15px}
+.eqh{font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:#475569;margin:18px 2px 8px;display:flex;gap:6px;align-items:center}
+.eqh .n{background:#fff;border-radius:10px;padding:0 7px;font-size:12px;color:var(--muted)}
+.eqlist{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.eqrow{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #f0f2f5}
+.eqrow:first-child{border-top:0}
+.eqrow.off{opacity:.6}
+.eqrow .sel{padding:5px 8px}
+.me-tag{font-size:11px;background:var(--navy);color:#fff;border-radius:8px;padding:1px 6px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw}
 .toast.ko{background:var(--red)}
 .loading{text-align:center;color:var(--muted);padding:40px}
@@ -162,7 +172,7 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
     <img src="logo.png" alt="GL events Lyon" onerror="this.style.display='none'">
     <h1><span id="apptitle">Équipe</span><small>Eurexpo · tâches &amp; plannings</small></h1>
     <span class="dot" id="sync" title="Synchronisation"></span>
-    <button class="hbtn" id="meBtn" onclick="openEquipe()">👤</button>
+    <button class="hbtn" id="meBtn" onclick="pickUser()" title="Changer d'utilisateur">👤</button>
   </header>
   <nav id="tabs"></nav>
   <div class="demo" id="demo" hidden>Mode démo : les données ne sont pas enregistrées. Renseigne l'adresse Apps Script dans CONFIG.apiUrl.</div>
@@ -236,7 +246,8 @@ const TABS = [
   {id:'Nacelle',l:'🏗️ Nacelle'},
   {id:'Regisseurs',l:'🎧 Régisseurs'},
   {id:'Cloisons',l:'🧱 Cloisons'},
-  {id:'EDL',l:'📋 États des lieux'}];
+  {id:'EDL',l:'📋 États des lieux'},
+  {id:'Equipe',l:'👥 Équipe'}];
 
 /* ---------- état ---------- */
 const DEMO = !CONFIG.apiUrl;
@@ -314,7 +325,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${t.id==='Taches'&&mine?`<span class="badge">${mine}</span>`:''}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL')})[tab](el);
+  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe})[tab](el);
   hallsDatalist();
   if((!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -388,31 +399,56 @@ function pickUser(){
   const ns=people();
   modal(`<h2>Qui es-tu ?</h2><p class="hint">Choisis ton nom, il sera mémorisé sur cet appareil.</p>
     <div class="who">${ns.map(n=>`<button class="btn big" data-n="${esc(n)}" onclick="setMe(this.dataset.n)">${pill(n)}</button>`).join('')||'<p class="empty">Personne pour l\'instant : ajoute ton nom.</p>'}</div>
-    <div class="cadd"><input id="newme" placeholder="Pas dans la liste ? Ton prénom et nom"><button class="btn pri" onclick="addMe()">Ajouter</button></div>
+    <div class="cadd"><input id="newme" placeholder="Pas dans la liste ? Ton prénom et nom" onkeydown="if(event.key==='Enter')addMe()"><button class="btn pri" id="newmeb" onclick="addMe()">Ajouter</button></div>
     ${me&&ns.includes(me)?'<div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button></div>':''}`, !(me&&ns.includes(me)));
 }
 function setMe(n){me=n;lsSet('equipe.me',n);closeModal(true);render()}
 async function addMe(){
   const n=$('#newme').value.trim(); if(!n) return;
   const ex=D.Equipe.find(e=>e.nom.toLowerCase()===n.toLowerCase());
+  const done=setBusy($('#newmeb'),'Ajout…');
   try{ if(ex){ if(ex.actif==='non') await saveItem('Equipe',{...ex,actif:'oui'}); setMe(ex.nom); }
        else { const r=await saveItem('Equipe',{nom:n,role:'Technicien',actif:'oui'}); setMe(r.nom); } }
-  catch(e){toast(e.message,1)}
+  catch(e){done();toast(e.message,1)}
 }
-function openEquipe(){
-  if(!me){pickUser();return}
-  const rows=D.Equipe.slice().sort((a,b)=>(a.actif==='non')-(b.actif==='non')||a.nom.localeCompare(b.nom,'fr'));
-  modal(`<h2>Équipe</h2><p class="hint">Les personnes avec le rôle « Régisseur » apparaissent dans le planning de présence.</p>
-    <table class="eq">${rows.map(e=>`<tr class="${e.actif==='non'?'off':''}"><td>${pill(e.nom)}</td>
-      <td><select onchange="eqSet('${e.id}','role',this.value)">${CONFIG.roles.map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select></td>
-      <td style="text-align:right"><button class="btn sm" onclick="eqSet('${e.id}','actif','${e.actif==='non'?'oui':'non'}')">${e.actif==='non'?'Réactiver':'Retirer'}</button></td></tr>`).join('')}</table>
-    <div class="cadd"><input id="eqn" placeholder="Nouveau membre"><select id="eqr" style="width:auto">${CONFIG.roles.map(r=>`<option ${r==='Technicien'?'selected':''}>${r}</option>`).join('')}</select><button class="btn pri" onclick="eqAdd()">Ajouter</button></div>
-    <div class="acts" style="margin-top:16px"><button class="btn" onclick="pickUser()">Changer d'utilisateur</button><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+function openEquipe(){goTab('Equipe')}
+function setBusy(btn,txt){if(!btn)return()=>{};const o=btn.innerHTML;btn.disabled=true;btn.textContent=txt||'…';return()=>{btn.disabled=false;btn.innerHTML=o}}
+
+/* ================== ÉQUIPE ================== */
+function vEquipe(el){
+  const act=D.Equipe.filter(e=>e.actif!=='non').sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+  const off=D.Equipe.filter(e=>e.actif==='non').sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+  const roleSel=e=>`<select class="sel sm" onchange="eqSet('${e.id}','role',this.value,this)">${CONFIG.roles.map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select>`;
+  const row=e=>`<div class="eqrow">${pill(e.nom)}${e.nom===me?'<small class="me-tag">toi</small>':''}<span class="sp"></span>${roleSel(e)}
+    <button class="btn sm" onclick="eqSet('${e.id}','actif','non',this)">Retirer</button></div>`;
+  el.innerHTML=`<div class="bar"><h2>Équipe</h2><button class="btn" onclick="pickUser()">👤 Changer d'utilisateur</button></div>
+    <div class="eqadd"><input id="eqn" placeholder="Prénom et nom du nouveau membre" autocomplete="off" onkeydown="if(event.key==='Enter')eqAdd()">
+      <select id="eqr" class="sel">${CONFIG.roles.map(r=>`<option ${r===(UI.eqRole||'Technicien')?'selected':''}>${r}</option>`).join('')}</select>
+      <button class="btn pri" id="eqb" onclick="eqAdd()">+ Ajouter</button></div>
+    <p class="hint">Les personnes avec le rôle <b>Régisseur</b> apparaissent dans le planning de présence. Une fois ajouté, chacun choisit son nom en ouvrant l'appli sur son téléphone.</p>
+    ${CONFIG.roles.map(r=>{const L=act.filter(e=>e.role===r);return `<h3 class="eqh">${r}s <span class="n">${L.length}</span></h3><div class="eqlist">${L.map(row).join('')||'<p class="empty">Personne pour l\'instant.</p>'}</div>`}).join('')}
+    ${act.filter(e=>!CONFIG.roles.includes(e.role)).map(row).join('')}
+    ${off.length?`<h3 class="eqh">Retirés <span class="n">${off.length}</span></h3><div class="eqlist">${off.map(e=>`<div class="eqrow off">${pill(e.nom)}<span class="sp"></span><button class="btn sm" onclick="eqSet('${e.id}','actif','oui',this)">Réactiver</button></div>`).join('')}</div>`:''}`;
 }
-async function eqSet(id,k,v){const e=D.Equipe.find(x=>x.id===id);if(!e)return;try{await saveItem('Equipe',{...e,[k]:v});openEquipe()}catch(err){toast(err.message,1)}}
-async function eqAdd(){const n=$('#eqn').value.trim();if(!n)return;
-  if(D.Equipe.some(e=>e.nom.toLowerCase()===n.toLowerCase()))return toast(n+' est déjà dans la liste',1);
-  try{await saveItem('Equipe',{nom:n,role:$('#eqr').value,actif:'oui'});openEquipe()}catch(e){toast(e.message,1)}}
+async function eqSet(id,k,v,btn){
+  const e=D.Equipe.find(x=>x.id===id);if(!e)return;
+  const done=setBusy(btn,'…');
+  try{await saveItem('Equipe',{...e,[k]:v});toast(k==='role'?`${e.nom} : ${v}`:(v==='non'?`${e.nom} retiré(e)`:`${e.nom} réactivé(e)`))}
+  catch(err){done();toast(err.message,1);render()}
+}
+async function eqAdd(){
+  const inp=$('#eqn'), n=inp.value.trim(), role=$('#eqr').value; if(!n){inp.focus();return}
+  UI.eqRole=role;
+  const ex=D.Equipe.find(e=>e.nom.toLowerCase()===n.toLowerCase());
+  if(ex&&ex.actif!=='non') return toast(n+' est déjà dans l\'équipe',1);
+  const done=setBusy($('#eqb'),'Ajout en cours…'); inp.disabled=true;
+  try{
+    if(ex) await saveItem('Equipe',{...ex,actif:'oui',role});
+    else await saveItem('Equipe',{nom:n,role,actif:'oui'});
+    toast(`${n} ajouté(e) ✓`);
+    const i=$('#eqn'); if(i) i.focus();
+  }catch(e){done();inp.disabled=false;toast(e.message,1)}
+}
 
 /* ================== TÂCHES ================== */
 function vTaches(el){
@@ -525,7 +561,7 @@ function editNac(id){const b=D.Nacelle.find(x=>x.id===id);if(b)openForm('Nacelle
 function vReg(el){
   const ws=monday(UI.rWeek), N=14, days=[...Array(N)].map((_,i)=>addDays(ws,i)), t=today();
   const hasRole=D.Equipe.some(e=>e.role==='Régisseur'&&e.actif!=='non');
-  const regs=people('Régisseur');
+  const regs=hasRole?people('Régisseur'):[];
   const find=(r,d)=>D.Regisseurs.filter(x=>x.regisseur===r&&x.dateDebut<=d&&(x.dateFin||x.dateDebut)>=d).pop();
   const we=d=>{const w=parseD(d).getDay();return w===0||w===6};
   const head=days.map(d=>`<th class="${we(d)?'we':''} ${d===t?'td':''}">${fD(d,{weekday:'short'}).replace('.','')}<br>${parseD(d).getDate()}</th>`).join('');
@@ -534,10 +570,10 @@ function vReg(el){
   const foot=days.map(d=>`<td class="${we(d)?'we':''}">${regs.filter(r=>{const e=find(r,d);return e&&REG_PRESENT.includes(e.statut)}).length}</td>`).join('');
   el.innerHTML=`<div class="bar"><h2>Présence des régisseurs</h2>
     <button class="btn" onclick="UI.rWeek-=2;render()">‹</button><button class="btn" onclick="UI.rWeek=0;render()">Aujourd'hui</button><button class="btn" onclick="UI.rWeek+=2;render()">›</button>
-    <button class="btn pri" onclick="newReg()">+ Ajouter une période</button></div>
-    <p class="hint">Du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(addDays(ws,N-1),{day:'numeric',month:'long',year:'numeric'})} · touche une case pour la remplir ou la modifier.${hasRole?'':' <b>Astuce :</b> donne le rôle « Régisseur » aux bonnes personnes (bouton 👤 en haut) pour n\'afficher qu\'elles.'}</p>
+    <button class="btn" onclick="UI.eqRole='Régisseur';goTab('Equipe')">👥 Gérer les régisseurs</button><button class="btn pri" onclick="newReg()">+ Ajouter une période</button></div>
+    <p class="hint">Du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(addDays(ws,N-1),{day:'numeric',month:'long',year:'numeric'})} · touche une case pour la remplir ou la modifier.</p>${hasRole?'':`<div class="mine">Aucun régisseur pour l'instant : ajoute-les dans l'onglet Équipe avec le rôle « Régisseur ». <button class="btn sm pri" onclick="UI.eqRole='Régisseur';goTab('Equipe')">👥 Ajouter des régisseurs</button></div>`}
     ${regs.length?`<div class="gridwrap"><table class="grid"><thead><tr><th class="name">Régisseur</th>${head}</tr></thead><tbody>${body}</tbody>
-      <tfoot><tr><td class="name" style="text-align:left;padding-left:10px;position:sticky;left:0">Présents</td>${foot}</tr></tfoot></table></div>`:'<p class="empty">Aucun membre dans l\'équipe.</p>'}
+      <tfoot><tr><td class="name" style="text-align:left;padding-left:10px;position:sticky;left:0">Présents</td>${foot}</tr></tfoot></table></div>`:''}
     <div class="legend">${Object.entries(ST_REG).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join('')}</div>`;
 }
 const regValidate=o=>o.dateFin<o.dateDebut?'La date de fin est avant la date de début':'';
