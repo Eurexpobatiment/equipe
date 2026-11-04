@@ -360,7 +360,7 @@ const FORMS = {
     {k:'dateFin',l:'Date de fin',t:'date',req:1},
     {k:'heureFin',l:'Heure de fin',t:'time'},
     {k:'hall',l:'Hall',t:'hall',req:1},
-    {k:'mouvement',l:'Mouvement',t:'select',o:['Ouverture','Fermeture','Déplacement','Autre'],def:'Ouverture'},
+    {k:'mouvement',l:'Mouvement',t:'select',o:['À sortir','À ranger','Déplacement','Autre'],def:'À sortir'},
     {k:'cloison',l:'Cloison / repère',t:'text'},
     {k:'salon',l:'Salon',t:'text'},
     {k:'responsable',l:'Responsable',t:'person'},
@@ -487,6 +487,8 @@ async function loadAll(silent){
   try{
     const d=await api('all');
     for(const k in D) D[k]=d[k]||[];
+    // anciens libellés : Fermeture → À sortir, Ouverture → À ranger
+    D.Cloisons.forEach(x=>{x.mouvement=({'Fermeture':'À sortir','Ouverture':'À ranger'})[x.mouvement]||x.mouvement});
     loaded=true; setSync(true); render();
   }catch(e){ setSync(false); if(!silent) toast(e.message,1); if(!loaded) $('#view').innerHTML=`<div class="loading">Impossible de charger les données.<br>${esc(e.message)}<br><br><button class="btn" onclick="loadAll()">Réessayer</button></div>`; }
 }
@@ -1293,8 +1295,8 @@ function demoSeed(){
                 {id:id(),regisseur:'Marc',dateDebut:m,dateFin:addDays(m,2),statut:'Présent'},
                 {id:id(),regisseur:'Marc',dateDebut:addDays(m,3),dateFin:addDays(m,4),statut:'Congé'},
                 {id:id(),regisseur:'Nadia',dateDebut:addDays(m,5),dateFin:addDays(m,6),statut:'Astreinte'}],
-    Cloisons:[{id:id(),date:addDays(t,2),heure:'07:00',dateFin:addDays(t,3),heureFin:'12:00',hall:'Hall 2.1',mouvement:'Ouverture',cloison:'C3',salon:'Salon démo',responsable:'Karim',statut:'Prévu'},
-              {id:id(),date:addDays(t,6),heure:'18:00',hall:'Hall 2.1',mouvement:'Fermeture',cloison:'C3',salon:'Salon démo',statut:'Prévu'}],
+    Cloisons:[{id:id(),date:addDays(t,2),heure:'07:00',dateFin:addDays(t,3),heureFin:'12:00',hall:'Hall 2.1',mouvement:'À ranger',cloison:'C3',salon:'Salon démo',responsable:'Karim',statut:'Prévu'},
+              {id:id(),date:addDays(t,6),heure:'18:00',hall:'Hall 2.1',mouvement:'À sortir',cloison:'C3',salon:'Salon démo',statut:'Prévu'}],
     BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],
     Chantiers:[{id:id(),titre:'Remplacement éclairage LED',espace:'Hall 4.2',zone:'Côté quai',type:'Éclairage',entreprise:'DALKIA',responsable:'Julien',dateDebut:addDays(m,1),dateFin:addDays(m,9),statut:'En cours',avancement:'40',montant:'12500',nacelle:'oui',horaires:'7h-12h'},
       {id:id(),titre:'Reprise peinture couloir',espace:'Hall 4.2',type:'Peinture',entreprise:'RAMPON',responsable:'Karim',dateDebut:addDays(m,6),dateFin:addDays(m,12),statut:'Prévu',montant:'4800'},
