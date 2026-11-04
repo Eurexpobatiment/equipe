@@ -3,6 +3,7 @@
   "short_name": "Équipe",
   "description": "Tâches, nacelle, régisseurs, cloisons et états des lieux de l'équipe Eurexpo",
   "lang": "fr",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

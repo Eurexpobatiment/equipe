@@ -663,6 +663,7 @@ function demoHandle(a,p){
 /* ================== DÉMARRAGE ================== */
 $('#demo').hidden=!DEMO;
 render(); loadAll();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 setInterval(()=>{if(!document.hidden&&!$('.ov'))loadAll(true)},CONFIG.refreshSec*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('.ov'))loadAll(true)});
 </script>
