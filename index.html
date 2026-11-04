@@ -222,6 +222,42 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .dtinfo{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:#f6f7fa;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:14px}
 .dtinfo span{display:block;font-size:11.5px;color:var(--muted)}
 a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#fff}
+.chf .sel{max-width:190px}
+.oudate{text-transform:capitalize;margin-left:6px}
+.ougrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.ouesp{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+.ouesp h3{margin:0 0 8px;font-size:14px;color:var(--navy);display:flex;gap:6px;align-items:center}
+.ouesp h3 .n{background:#eef1f6;border-radius:10px;padding:0 7px;font-size:11px;color:var(--muted)}
+.oucard{border-left:4px solid #ccc;background:#f8f9fb;border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.oucard:hover{background:#eef2f8}.ouent{font-weight:700;font-size:15px}.outit{font-size:14px}.oucard small{color:var(--muted);font-size:12.5px}
+.gantt{background:#fff;border:1px solid var(--line);border-radius:12px;overflow-x:auto;font-size:13px}
+.grow,.ghead{display:grid;grid-template-columns:220px minmax(640px,1fr);border-top:1px solid #f0f2f5;min-height:34px}
+.ghead{border-top:0;position:sticky;top:0;background:#fafbfc;z-index:2}
+.glab{padding:6px 10px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line);position:sticky;left:0;background:inherit;z-index:1;min-width:0;background:#fff}
+.ghead .glab{background:#fafbfc;font-size:12px;color:var(--muted)}
+.glab a{cursor:pointer;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.glab a:hover{color:var(--blue)}
+.glab small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gtrack{position:relative}
+.gweeks{height:34px}
+.gw{position:absolute;top:0;bottom:0;padding:9px 6px;font-size:11.5px;color:#475569;white-space:nowrap;overflow:hidden;border-left:1px solid var(--line)}
+.gwe{position:absolute;top:0;bottom:0;background:#f4f5f8}
+.gsep{position:absolute;top:0;bottom:0;width:1px;background:#e6e9ef}
+.gtoday{position:absolute;top:0;bottom:0;width:2px;background:var(--accent);z-index:1}
+.gbar{position:absolute;top:6px;bottom:6px;border-radius:6px;color:#fff;font-size:11.5px;line-height:22px;padding:0 6px;cursor:pointer;overflow:hidden;white-space:nowrap;min-width:6px;box-shadow:0 1px 2px rgba(0,0,0,.15);z-index:1}
+.gbar span{position:relative}.gbar i{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.22)}
+.gbar.st-Terminé,.gbar.st-Annulé,.gbar.st-Reporté{opacity:.45}.gbar.st-Suspendu{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.25) 0 6px,transparent 6px 12px)!important}
+.gbar:hover{filter:brightness(1.1)}
+.ggrp{padding:6px 10px;background:#f3f5f9;font-weight:700;font-size:12.5px;color:var(--navy);border-top:1px solid var(--line);position:sticky;left:0}
+.ggrp .n{background:#fff;border-radius:10px;padding:0 7px;font-size:11px;color:var(--muted);font-weight:600}
+.grow.sal .glab{background:#fbf8ef}
+.gsalon{position:absolute;top:6px;bottom:6px;border-radius:6px;background:repeating-linear-gradient(45deg,#f2e3b3 0 8px,#ecd89a 8px 16px);color:#6b5200;font-size:11.5px;font-weight:600;line-height:22px;padding:0 6px;overflow:hidden;white-space:nowrap}
+.lg-sal{background:repeating-linear-gradient(45deg,#f2e3b3 0 4px,#ecd89a 4px 8px)!important}
+.dotc{width:10px;height:10px;border-radius:50%;display:inline-block}
+.eqrow.chr{cursor:pointer;align-items:flex-start}.eqrow.chr:hover{background:#f8f9fb}
+.chav{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:70px}.chav small{font-size:11px;color:var(--muted)}
+.bsub .badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:#fff;font-size:11px;line-height:18px;text-align:center}
+@media (max-width:820px){.kpis.kc{grid-template-columns:1fr 1fr;gap:6px}.kc .kpi{padding:6px 10px}.kc .kpi b{font-size:17px}.kc .kpi span{font-size:10px}
+.grow,.ghead{grid-template-columns:130px minmax(560px,1fr)}.chf .sel{max-width:none;flex:1 1 45%}}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw}
 .toast.ko{background:var(--red)}
 .loading{text-align:center;color:var(--muted);padding:40px}
@@ -248,7 +284,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
   <div class="demo" id="demo" hidden>Mode démo : les données ne sont pas enregistrées. Renseigne l'adresse Apps Script dans CONFIG.apiUrl.</div>
 </div>
 <main id="view"><div class="loading">Chargement…</div></main>
-<datalist id="dl-halls"></datalist><datalist id="dl-familles"></datalist><datalist id="dl-presta"></datalist><datalist id="dl-avanc"></datalist><datalist id="dl-resp"></datalist>
+<datalist id="dl-halls"></datalist><datalist id="dl-familles"></datalist><datalist id="dl-presta"></datalist><datalist id="dl-avanc"></datalist><datalist id="dl-resp"></datalist><datalist id="dl-espaces"></datalist><datalist id="dl-codes"></datalist>
 
 <script>
 /* ================== CONFIGURATION ================== */
@@ -328,7 +364,25 @@ const FORMS = {
     {k:'commentaire',l:'Commentaire',t:'textarea'}],
   SAP: [
     {k:'societe',l:'Société',req:1,full:1},
-    {k:'sap',l:'N° SAP',full:1}]
+    {k:'sap',l:'N° SAP',full:1}],
+  Chantiers: [
+    {k:'titre',l:'Chantier / travaux',req:1,full:1},
+    {k:'espace',l:'Espace',t:'dl',dl:'dl-espaces',req:1},
+    {k:'zone',l:'Zone / précision (niveau, local, repère…)'},
+    {k:'type',l:'Type de travaux',t:'select',o:['','Électricité','Éclairage','CVC / Chauffage','Plomberie / Sanitaires','Peinture','Sols','Menuiserie / Vitrerie','Serrurerie / Portes','Couverture / Étanchéité','Maçonnerie / VRD','Cloisons mobiles','Sécurité incendie','Courants faibles / Vidéo','Espaces verts','Signalétique','Nettoyage','Autre']},
+    {k:'entreprise',l:'Entreprise',t:'dl',dl:'dl-presta'},
+    {k:'dateDebut',l:'Début',t:'date',req:1},
+    {k:'dateFin',l:'Fin',t:'date',req:1},
+    {k:'horaires',l:'Horaires (ex. nuit, 7h-12h, hors salon)'},
+    {k:'responsable',l:'Responsable',t:'person'},
+    {k:'statut',l:'Statut',t:'select',o:['Prévu','En cours','Suspendu','Reporté','Terminé','Annulé'],def:'Prévu'},
+    {k:'avancement',l:'Avancement',t:'select',o:['0','10','20','30','40','50','60','70','80','90','100']},
+    {k:'montant',l:'Montant (€ HT)',t:'money'},
+    {k:'codeBudget',l:'Ligne budgétaire',t:'dl',dl:'dl-codes'},
+    {k:'demande',l:'N° demande de travaux'},
+    {k:'nacelle',l:'Nacelle nécessaire',t:'select',o:['','oui']},
+    {k:'contraintes',l:'Contraintes (consignation, coupure, accès, coactivité…)',t:'textarea'},
+    {k:'note',l:'Note',t:'textarea'}]
 };
 
 const TABS = [
@@ -337,13 +391,14 @@ const TABS = [
   {id:'Regisseurs',l:'🎧 Régisseurs'},
   {id:'Cloisons',l:'🧱 Cloisons'},
   {id:'EDL',l:'📋 États des lieux'},
-  {id:'Travaux',l:'🛠️ Travaux'},
+  {id:'Demandes',l:'📨 Demandes'},
+  {id:'Travaux',l:'🚧 Travaux'},
   {id:'Budget',l:'💶 Budget'},
   {id:'Equipe',l:'👥 Équipe'}];
 
 /* ---------- état ---------- */
 const DEMO = !CONFIG.apiUrl;
-let D = {Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[]};
+let D = {Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[]};
 let me = lsGet('equipe.me') || '';
 let tab = lsGet('equipe.tab') || 'Taches';
 if (!TABS.some(t=>t.id===tab)) tab='Taches';
@@ -418,7 +473,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravaux})[tab](el);
+  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Demandes:vTravaux})[tab](el);
   hallsDatalist(); budgetDatalists();
   if((!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -738,13 +793,13 @@ async function dtLoad(force){
   DT.loading=true;
   try{DT.list=await dtApi('list');DT.err='';DT.at=Date.now()}
   catch(e){DT.err=e.message;if(/code/i.test(e.message)){dtSetCode('');DT.list=null}}
-  DT.loading=false; if(tab==='Travaux'&&!$('.ov')) render(); else renderTabsOnly();
+  DT.loading=false; if(tab==='Demandes'&&!$('.ov')) render(); else renderTabsOnly();
 }
 function renderTabsOnly(){const mine=D.Taches.filter(t=>t.assigne===me&&t.statut!=='Terminé').length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('')}
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
-  if(id==='Travaux'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
+  if(id==='Demandes'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
   return '';
 }
 const dtBadge=s=>`<span class="st" style="background:${DT.col[s]||'#9aa3b2'}">${esc(s||'—')}</span>`;
@@ -802,6 +857,7 @@ function dtOpen(id){
     </div>
     <div class="err" id="ferr"></div>
     <div class="acts"><a class="btn" href="${DT.app}#/bat/${encodeURIComponent(d.id)}" target="_blank" rel="noopener">Fiche complète ↗</a>
+      <button class="btn" onclick="chFromDemande('${esc(d.id)}')">🚧 Planifier un chantier</button>
       ${tache?`<button class="btn" onclick="closeModal();goTab('Taches');editTache('${tache.id}')">✅ Voir la tâche</button>`:`<button class="btn" id="dt_t">✅ Créer une tâche</button>`}
       <span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn pri" id="dt_save">Enregistrer</button></div>
     <p class="hint">Le message au demandeur, la réponse ligne par ligne et la note interne se font dans la fiche complète. Ici, le changement de statut n'envoie pas d'e-mail au demandeur.</p>`);
@@ -817,6 +873,142 @@ function dtOpen(id){
       assigne:$('#dt_ch').value||'',priorite:{Urgente:'Urgente',Haute:'Haute',Basse:'Basse'}[$('#dt_pr').value]||'Normale',statut:'À faire',echeance:$('#dt_dp').value||d.dateImperative||'',lieu:d.lieu||''});
       toast('Tâche créée ✓');closeModal();goTab('Taches');editTache(t.id)}catch(e){done();toast(e.message,1)}
   };
+}
+
+/* ================== TRAVAUX : CHANTIERS + PLANNING ================== */
+const CH_TYPES={'Électricité':'#e09a2b','Éclairage':'#c9a400','CVC / Chauffage':'#e63946','Plomberie / Sanitaires':'#3a6ea5','Peinture':'#8e5bd1','Sols':'#a0522d',
+  'Menuiserie / Vitrerie':'#6b8e23','Serrurerie / Portes':'#5b5fc7','Couverture / Étanchéité':'#2f4f4f','Maçonnerie / VRD':'#8b7355','Cloisons mobiles':'#0f766e',
+  'Sécurité incendie':'#b3202c','Courants faibles / Vidéo':'#1f77b4','Espaces verts':'#2a9d5c','Signalétique':'#ff7f50','Nettoyage':'#7f8c8d','Autre':'#64748b'};
+const CH_ST={'Prévu':'#3a6ea5','En cours':'#0f766e','Suspendu':'#e09a2b','Reporté':'#9aa3b2','Terminé':'#2a9d5c','Annulé':'#6b7280'};
+const CH_ACTIF=s=>!['Terminé','Annulé'].includes(s||'Prévu');
+const ESPACES=()=>[...new Set([...CONFIG.halls,'Centre de congrès','Bureaux / administratif','Parvis','Parkings','Voiries / extérieurs','Toitures','Locaux techniques','Sous-sol / galeries techniques',...D.Chantiers.map(c=>c.espace)].filter(Boolean))];
+const chCol=c=>CH_TYPES[c.type]||'#64748b';
+function chConflicts(c){
+  if(!CH_ACTIF(c.statut)||!c.espace) return [];
+  const e=c.espace.trim().toLowerCase();
+  return D.Chantiers.filter(o=>o.id!==c.id&&CH_ACTIF(o.statut)&&(o.espace||'').trim().toLowerCase()===e&&o.dateDebut<=c.dateFin&&c.dateDebut<=o.dateFin);
+}
+function salons(){ // salons déduits des états des lieux (entrée → sortie)
+  const m={}; D.EDL.forEach(x=>{if(!x.salon||x.statut==='Annulé')return;const k=x.salon.trim();const s=m[k]||(m[k]={nom:k,d0:x.date,d1:x.date,halls:new Set()});
+    if(x.date<s.d0)s.d0=x.date;if(x.date>s.d1)s.d1=x.date;(x.halls||'').split(/[,;]/).map(h=>h.trim()).filter(Boolean).forEach(h=>s.halls.add(h))});
+  return Object.values(m).map(s=>({...s,halls:[...s.halls].join(', ')})).sort((a,b)=>a.d0.localeCompare(b.d0));
+}
+function chFiltered(){
+  const st=UI.ch, q=st.q.toLowerCase();
+  return D.Chantiers.filter(c=>(st.fin||CH_ACTIF(c.statut))&&(!st.esp||c.espace===st.esp)&&(!st.type||c.type===st.type)&&(!st.resp||c.responsable===st.resp)
+    &&(!q||[c.titre,c.espace,c.zone,c.type,c.entreprise,c.responsable,c.demande,c.note,c.contraintes].join(' ').toLowerCase().includes(q)));
+}
+function vTravauxHub(el){
+  const st=UI.ch||(UI.ch={sub:'Ou',q:'',esp:'',type:'',resp:'',fin:false,group:'espace',weeks:8,off:0,day:today()});
+  if(st.sub==='Demandes') st.sub='Ou';
+  const t=today(), act=D.Chantiers.filter(c=>CH_ACTIF(c.statut));
+  const enCours=act.filter(c=>c.dateDebut<=t&&c.dateFin>=t).length, aVenir=act.filter(c=>c.dateDebut>t&&c.dateDebut<=addDays(t,30)).length;
+  const conf=act.filter(c=>chConflicts(c).length).length, mt=act.reduce((a,c)=>a+num(c.montant),0);
+  el.innerHTML=`<div class="bar"><h2>Travaux sur le parc</h2><button class="btn" onclick="chExport()">⬇️ Excel</button><button class="btn pri" onclick="chNew()">+ Chantier</button></div>
+    <div class="seg-ctl bsub">${[['Ou','📍 Qui est où'],['Planning','📅 Planning'],['Liste','📋 Chantiers']].map(([k,l])=>`<button class="${st.sub===k?'on':''}" onclick="UI.ch.sub='${k}';render()">${l}</button>`).join('')}</div>
+    ${true?`<div class="kpis kc"><div class="kpi"><span>En cours aujourd'hui</span><b>${enCours}</b></div><div class="kpi"><span>À venir (30 j)</span><b>${aVenir}</b></div>
+      <div class="kpi ${conf?'neg':''}" ${conf?`onclick="UI.ch.sub='Liste';UI.ch.conf=1;render()"`:''}><span>Chevauchements</span><b>${conf}</b></div><div class="kpi"><span>Montant des chantiers actifs</span><b>${eur(mt)}</b></div></div>
+    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (chantier, entreprise…)" value="${esc(st.q)}" oninput="UI.ch.q=this.value;bRefreshTable()">
+      <select class="sel" onchange="UI.ch.esp=this.value;render()"><option value="">Tous les espaces</option>${ESPACES().map(e=>`<option ${e===st.esp?'selected':''}>${esc(e)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.ch.type=this.value;render()"><option value="">Tous les types</option>${Object.keys(CH_TYPES).map(e=>`<option ${e===st.type?'selected':''}>${esc(e)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.ch.resp=this.value;render()"><option value="">Tous les responsables</option>${people().map(e=>`<option ${e===st.resp?'selected':''}>${esc(e)}</option>`).join('')}</select>
+      <label class="chk"><input type="checkbox" ${st.fin?'checked':''} onchange="UI.ch.fin=this.checked;render()"> Terminés / annulés</label></div>`:''}
+    <div id="chview"></div>`;
+  ({Ou:chOu,Planning:chPlanning,Liste:chListe})[st.sub]($('#chview'));
+}
+function chOu(el){
+  const st=UI.ch, d=st.day||(st.day=today());
+  const L=chFiltered().filter(c=>c.dateDebut<=d&&c.dateFin>=d&&!['Annulé','Reporté'].includes(c.statut));
+  const g={}; L.forEach(c=>{const k=c.espace||'Sans espace';(g[k]=g[k]||[]).push(c)});
+  const ents=[...new Set(L.map(c=>c.entreprise).filter(Boolean))];
+  const sal=salons().filter(s=>s.d0<=d&&s.d1>=d);
+  const nac=D.Nacelle.filter(b=>b.debut.slice(0,10)<=d&&b.fin.slice(0,10)>=d);
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.ch.day=addDays(UI.ch.day,-1);render()">‹</button>
+      <input type="date" class="sel" value="${d}" onchange="UI.ch.day=this.value||today();render()">
+      <button class="btn" onclick="UI.ch.day=addDays(UI.ch.day,1);render()">›</button><button class="btn" onclick="UI.ch.day=today();render()">Aujourd'hui</button>
+      <b class="oudate">${fD(d,{weekday:'long',day:'numeric',month:'long'})}</b></div>
+    <div class="mine"><b>${ents.length} entreprise${ents.length>1?'s':''} sur le parc</b>${ents.length?' : '+ents.map(esc).join(', '):''} · ${L.length} chantier${L.length>1?'s':''}
+      ${sal.length?`<br>🎪 Salon${sal.length>1?'s':''} : ${sal.map(s=>esc(s.nom)+(s.halls?' ('+esc(s.halls)+')':'')).join(', ')}`:''}
+      ${nac.length?`<br>🏗️ Nacelle : ${nac.map(b=>esc(b.nom)+' '+(b.debut.slice(0,10)===d?b.debut.slice(11):'…')+'–'+(b.fin.slice(0,10)===d?b.fin.slice(11):'…')+(b.lieu?' · '+esc(b.lieu):'')).join(' ; ')}`:''}</div>
+    <div class="ougrid">${Object.keys(g).sort((a,b)=>a.localeCompare(b,'fr',{numeric:true})).map(e=>`<div class="ouesp"><h3>📍 ${esc(e)} <span class="n">${g[e].length}</span></h3>
+      ${g[e].map(c=>{const cf=chConflicts(c).length;return `<div class="oucard" onclick="chEdit('${c.id}')" style="border-left-color:${chCol(c)}">
+        <div class="ouent">${esc(c.entreprise||'Entreprise non renseignée')}${cf?' <span title="Plusieurs chantiers sur cet espace">⚠️</span>':''}</div>
+        <div class="outit">${esc(c.titre)}</div>
+        <small>${[c.zone&&'📌 '+esc(c.zone),c.type&&`<span style="color:${chCol(c)};font-weight:600">${esc(c.type)}</span>`,c.horaires&&'🕒 '+esc(c.horaires),c.responsable&&'👤 '+esc(c.responsable),c.nacelle==='oui'&&'🏗️ nacelle'].filter(Boolean).join(' · ')}</small>
+        <small>Du ${fD(c.dateDebut)} au ${fD(c.dateFin)}${c.statut&&c.statut!=='Prévu'?' · '+esc(c.statut):''}</small></div>`}).join('')}</div>`).join('')
+      ||`<p class="empty">Aucune entreprise prévue sur le parc ce jour-là. <a href="#" onclick="chNew({dateDebut:'${d}',dateFin:'${d}'});return false">Ajouter un chantier</a></p>`}</div>`;
+}
+function chPlanning(el){
+  const st=UI.ch, N=st.weeks*7, d0=monday(st.off), d1=addDays(d0,N-1), t=today(), pc=i=>i/N*100;
+  const idx=d=>Math.round((parseD(d)-parseD(d0))/864e5);
+  const span=(a,b)=>{const s=Math.max(0,idx(a)),e=Math.min(N-1,idx(b));return e<s?null:{l:pc(s),w:pc(e-s+1)}};
+  const weeks=[...Array(st.weeks)].map((_,i)=>{const w=addDays(d0,i*7);const dt=parseD(w);const on=new Date(dt);on.setDate(on.getDate()+3);const y=new Date(on.getFullYear(),0,4);const wn=1+Math.round(((on-y)/864e5-3+((y.getDay()+6)%7))/7);
+    return `<div class="gw" style="left:${pc(i*7)}%;width:${pc(7)}%"><b>S${wn}</b> ${fD(w,{day:'numeric',month:'short'})}</div>`}).join('');
+  const bg=[...Array(N)].map((_,i)=>{const d=addDays(d0,i),w=parseD(d).getDay();return (w===0||w===6)?`<i class="gwe" style="left:${pc(i)}%;width:${pc(1)}%"></i>`:''}).join('')
+    +(t>=d0&&t<=d1?`<i class="gtoday" style="left:${pc(idx(t)+.5)}%"></i>`:'')+[...Array(st.weeks)].map((_,i)=>`<i class="gsep" style="left:${pc(i*7)}%"></i>`).join('');
+  const L=chFiltered().filter(c=>c.dateDebut<=d1&&c.dateFin>=d0).sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut));
+  const key={espace:c=>c.espace||'Sans espace',type:c=>c.type||'Autre',responsable:c=>c.responsable||'Sans responsable',entreprise:c=>c.entreprise||'Sans entreprise'}[st.group];
+  const groups={}; L.forEach(c=>(groups[key(c)]=groups[key(c)]||[]).push(c));
+  const sal=salons().filter(s=>s.d0<=d1&&s.d1>=d0);
+  const row=(label,sub,bars,cls='')=>`<div class="grow ${cls}"><div class="glab">${label}${sub?`<small>${sub}</small>`:''}</div><div class="gtrack">${bg}${bars}</div></div>`;
+  const bar=c=>{const s=span(c.dateDebut,c.dateFin);if(!s)return '';const cf=chConflicts(c).length;
+    return `<div class="gbar st-${esc((c.statut||'Prévu').replace(/\s/g,''))}" style="left:${s.l}%;width:${s.w}%;background:${chCol(c)}" title="${esc(c.titre+' · '+(c.espace||'')+' · '+fD(c.dateDebut)+' → '+fD(c.dateFin)+(c.entreprise?' · '+c.entreprise:'')+' · '+(c.statut||'Prévu'))}" onclick="chEdit('${c.id}')">
+      ${c.avancement?`<i style="width:${num(c.avancement)}%"></i>`:''}<span>${cf?'⚠️ ':''}${esc(c.titre)}</span></div>`};
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.ch.off-=Math.max(1,UI.ch.weeks/2|0);render()">‹</button><button class="btn" onclick="UI.ch.off=0;render()">Aujourd'hui</button><button class="btn" onclick="UI.ch.off+=Math.max(1,UI.ch.weeks/2|0);render()">›</button>
+      <div class="seg-ctl">${[4,8,13,26].map(w=>`<button class="${st.weeks===w?'on':''}" onclick="UI.ch.weeks=${w};render()">${w===13?'3 mois':w===26?'6 mois':w+' sem.'}</button>`).join('')}</div>
+      <span class="sp"></span><label class="chk">Regrouper par <select class="sel" onchange="UI.ch.group=this.value;render()">${[['espace','Espace'],['type','Type de travaux'],['responsable','Responsable'],['entreprise','Entreprise']].map(([k,l])=>`<option value="${k}" ${st.group===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
+    <div class="gantt" style="--n:${N}"><div class="ghead"><div class="glab">${fD(d0,{day:'numeric',month:'short'})} → ${fD(d1,{day:'numeric',month:'short',year:'numeric'})}</div><div class="gtrack gweeks">${weeks}</div></div>
+      ${sal.length?`<div class="ggrp">Salons (d'après les états des lieux)</div>`+sal.map(s=>{const p=span(s.d0,s.d1);return row(esc(s.nom),esc(s.halls),p?`<div class="gsalon" style="left:${p.l}%;width:${p.w}%" title="${esc(s.nom+' · '+fD(s.d0)+' → '+fD(s.d1)+(s.halls?' · '+s.halls:''))}"><span>${esc(s.nom)}</span></div>`:'','sal')}).join(''):''}
+      ${Object.keys(groups).sort((a,b)=>a.localeCompare(b,'fr')).map(g=>`<div class="ggrp">${esc(g)} <span class="n">${groups[g].length}</span></div>`+groups[g].map(c=>row(`<a onclick="chEdit('${c.id}')">${esc(c.titre)}</a>`,esc([st.group!=='espace'&&c.espace,c.zone,st.group!=='entreprise'&&c.entreprise].filter(Boolean).join(' · ')),bar(c))).join('')).join('')
+        ||`<div class="empty" style="padding:16px">Aucun chantier sur cette période. <a href="#" onclick="chNew();return false">Ajouter un chantier</a></div>`}
+    </div>
+    <div class="legend">${Object.entries(CH_TYPES).filter(([k])=>D.Chantiers.some(c=>c.type===k)).map(([k,c])=>`<span><i style="background:${c}"></i>${esc(k)}</span>`).join('')}<span><i class="lg-sal"></i>Salon</span><span>⚠️ chevauchement sur le même espace</span></div>`;
+}
+function chListe(el){
+  const st=UI.ch; let L=chFiltered(); if(st.conf){L=L.filter(c=>chConflicts(c).length);}
+  const order=['En cours','Prévu','Suspendu','Reporté','Terminé','Annulé'], t=today();
+  const g={}; L.forEach(c=>{const k=c.statut||'Prévu';(g[k]=g[k]||[]).push(c)});
+  el.innerHTML=(st.conf?`<div class="mine">Seuls les chantiers qui se chevauchent sur un même espace sont affichés. <button class="btn sm" onclick="UI.ch.conf=0;render()">Tout afficher</button></div>`:'')+
+    (order.filter(k=>g[k]).map(k=>`<h3 class="eqh"><span class="dotc" style="background:${CH_ST[k]}"></span>${k} <span class="n">${g[k].length}</span></h3><div class="eqlist">${g[k].sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)).map(c=>{const cf=chConflicts(c);const late=CH_ACTIF(c.statut)&&c.dateFin<t;
+      return `<div class="eqrow chr" onclick="chEdit('${c.id}')" style="border-left:4px solid ${chCol(c)}">
+        <span class="bt"><b>${cf.length?'<span title="Chevauche : '+esc(cf.map(o=>o.titre).join(', '))+'">⚠️</span> ':''}${esc(c.titre)}</b>
+        <small>${esc([c.espace,c.zone].filter(Boolean).join(' · '))}${c.type?` · <span style="color:${chCol(c)};font-weight:600">${esc(c.type)}</span>`:''}${c.entreprise?' · 🏢 '+esc(c.entreprise):''}${c.responsable?' · 👤 '+esc(c.responsable):''}${c.nacelle==='oui'?' · 🏗️ nacelle':''}${c.demande?' · 📨 '+esc(c.demande):''}</small>
+        <small class="${late?'late':''}">📅 ${fD(c.dateDebut)}${c.dateFin!==c.dateDebut?' → '+fD(c.dateFin):''}${c.horaires?' · 🕒 '+esc(c.horaires):''}${late?' · date de fin dépassée':''}</small></span>
+        <span class="sp"></span><span class="chav">${barHtml(num(c.avancement)/100)}<small>${num(c.avancement)} %</small></span>${c.montant?`<b class="r">${eur(num(c.montant))}</b>`:''}</div>`}).join('')}</div>`).join('')||'<p class="empty">Aucun chantier. <a href="#" onclick="chNew();return false">Ajouter un chantier</a></p>');
+}
+const chVal=o=>o.dateFin&&o.dateFin<o.dateDebut?'La date de fin est avant la date de début':o.montant&&!isPureNum(o.montant)?'Montant : saisis un nombre':'';
+function chNew(pre={}){const t=today();openForm('Chantiers',{dateDebut:t,dateFin:t,statut:'Prévu',responsable:'',...pre},'Nouveau chantier',{validate:chVal,after:chAfter})}
+function chEdit(id){
+  const c=D.Chantiers.find(x=>x.id===id); if(!c) return;
+  const cf=chConflicts(c);
+  const nac=D.Nacelle.filter(b=>b.debut.slice(0,10)<=c.dateFin&&b.fin.slice(0,10)>=c.dateDebut&&(b.motif||'').includes(c.titre));
+  const extra=`${cf.length?`<div class="overs"><b>⚠️ Chevauche sur ${esc(c.espace)} :</b>${cf.map(o=>`<div class="ov1" onclick="chEdit('${o.id}')"><span>${esc(o.titre)}<small> ${fD(o.dateDebut)} → ${fD(o.dateFin)}${o.entreprise?' · '+esc(o.entreprise):''}</small></span></div>`).join('')}</div>`:''}
+    <div class="acts">${c.nacelle==='oui'?(nac.length?`<span class="hint">🏗️ Nacelle réservée : ${nac.map(b=>fDT(b.debut)+' → '+fDT(b.fin)).join(', ')}</span>`:`<button class="btn" onclick="chNacelle('${c.id}')">🏗️ Réserver la nacelle</button>`):''}
+      <button class="btn" onclick="chTache('${c.id}')">✅ Créer une tâche</button></div>
+    <div class="made">Créé le ${fDT(c.creeLe)}${c.majPar?' · modifié par '+esc(c.majPar)+' le '+fDT(c.majLe):''}</div>`;
+  openForm('Chantiers',c,'Chantier',{validate:chVal,extra,after:chAfter});
+}
+function chAfter(){ // la date de fin suit la date de début si elle était avant
+  const a=$('#f_dateDebut'),b=$('#f_dateFin'); if(a&&b) a.addEventListener('change',()=>{if(!b.value||b.value<a.value)b.value=a.value});
+}
+function chNacelle(id){const c=D.Chantiers.find(x=>x.id===id);if(!c)return;
+  openForm('Nacelle',{nom:people().includes(c.responsable)?c.responsable:me,debut:c.dateDebut+'T08:00',fin:c.dateFin+'T17:00',lieu:[c.espace,c.zone].filter(Boolean).join(' · '),motif:'Chantier : '+c.titre},'Réserver la nacelle',{validate:nacConflict})}
+async function chTache(id){const c=D.Chantiers.find(x=>x.id===id);if(!c)return;
+  try{const t=await saveItem('Taches',{titre:('Chantier · '+c.titre).slice(0,280),description:[c.type,c.entreprise&&('Entreprise : '+c.entreprise),'Du '+fD(c.dateDebut)+' au '+fD(c.dateFin),c.contraintes].filter(Boolean).join('\n'),
+    assigne:people().includes(c.responsable)?c.responsable:'',priorite:'Normale',statut:'À faire',echeance:c.dateDebut,lieu:[c.espace,c.zone].filter(Boolean).join(' · ')});
+    toast('Tâche créée ✓');closeModal();goTab('Taches');editTache(t.id)}catch(e){toast(e.message,1)}}
+function chFromDemande(id){const d=DT.list&&DT.list.find(x=>x.id===id);if(!d)return;closeModal(true);
+  UI.ch=UI.ch||{sub:'Ou',q:'',esp:'',type:'',resp:'',fin:false,group:'espace',weeks:8,off:0,day:today()};
+  goTab('Travaux');
+  chNew({titre:d.intitule,espace:d.lieu||'',demande:d.numero,dateDebut:d.datePrevue||d.dateDebut||today(),dateFin:d.dateFin||d.datePrevue||d.dateDebut||today(),responsable:people().includes(d.chargeDe)?d.chargeDe:'',note:[d.demandeur,d.service].filter(Boolean).join(' · ')});}
+async function loadXLSX(){if(window.XLSX)return;toast('Préparation du fichier…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
+async function chExport(){
+  try{await loadXLSX();
+    const rows=D.Chantiers.slice().sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)).map(c=>({'Chantier':c.titre,'Espace':c.espace,'Zone':c.zone,'Type':c.type,'Entreprise':c.entreprise,'Responsable':c.responsable,'Début':c.dateDebut,'Fin':c.dateFin,'Horaires':c.horaires,'Statut':c.statut,'Avancement %':num(c.avancement),'Montant HT':c.montant?num(c.montant):'','Code budget':c.codeBudget,'Demande':c.demande,'Nacelle':c.nacelle,'Contraintes':c.contraintes,'Note':c.note,'Chevauchement':chConflicts(c).map(o=>o.titre).join(' / ')}));
+    const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'Chantier':''}]);
+    ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(45,Math.max(10,k.length+2,...rows.map(r=>String(r[k]??'').length+1)))}));
+    XLSX.utils.book_append_sheet(wb,ws,'Chantiers'); XLSX.writeFile(wb,`Planning travaux - ${today()}.xlsx`);
+  }catch(e){toast(e.message,1)}
 }
 
 /* ================== BUDGET BÂTIMENT ================== */
@@ -942,6 +1134,8 @@ function budgetDatalists(){
   set('dl-presta',[...D.BudgetLignes.map(l=>l.prestataire),...D.SAP.map(s=>s.societe)]);
   set('dl-avanc',['À faire','En cours','Partiel','Commande OK','OK',...D.Inventaire.map(i=>i.avancement)]);
   set('dl-resp',D.Inventaire.map(i=>i.responsable));
+  const e=$('#dl-espaces'); if(e) e.innerHTML=ESPACES().map(v=>`<option value="${esc(v)}">`).join('');
+  set('dl-codes',D.BudgetLignes.map(l=>[l.code,l.intitule].filter(Boolean).join(' – ')));
 }
 async function bExport(){
   try{
@@ -983,6 +1177,10 @@ function demoSeed(){
     Cloisons:[{id:id(),date:addDays(t,2),heure:'07:00',hall:'Hall 2.1',mouvement:'Ouverture',cloison:'C3',salon:'Salon démo',responsable:'Karim',statut:'Prévu'},
               {id:id(),date:addDays(t,6),heure:'18:00',hall:'Hall 2.1',mouvement:'Fermeture',cloison:'C3',salon:'Salon démo',statut:'Prévu'}],
     BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],
+    Chantiers:[{id:id(),titre:'Remplacement éclairage LED',espace:'Hall 4.2',zone:'Côté quai',type:'Éclairage',entreprise:'DALKIA',responsable:'Julien',dateDebut:addDays(m,1),dateFin:addDays(m,9),statut:'En cours',avancement:'40',montant:'12500',nacelle:'oui',horaires:'7h-12h'},
+      {id:id(),titre:'Reprise peinture couloir',espace:'Hall 4.2',type:'Peinture',entreprise:'RAMPON',responsable:'Karim',dateDebut:addDays(m,6),dateFin:addDays(m,12),statut:'Prévu',montant:'4800'},
+      {id:id(),titre:'Étanchéité toiture',espace:'Toitures',zone:'Hall 6',type:'Couverture / Étanchéité',entreprise:'SMAC',dateDebut:addDays(m,14),dateFin:addDays(m,30),statut:'Prévu',montant:'21800'},
+      {id:id(),titre:'Contrôle cloison 6.2',espace:'Hall 6',type:'Cloisons mobiles',entreprise:'ALGAFLEX',responsable:'Karim',dateDebut:addDays(m,-3),dateFin:addDays(m,-1),statut:'Terminé',avancement:'100'}],
     EDL:[{id:id(),date:addDays(t,1),heure:'09:00',salon:'Salon démo',type:'Entrée',halls:'Hall 2.1, Hall 2.2',responsable:'Sophie',statut:'Planifié'},
          {id:id(),date:addDays(t,-4),heure:'14:00',salon:'Salon précédent',type:'Sortie',halls:'Hall 6',responsable:'Marc',statut:'Fait avec réserves',note:'3 réserves sols'}]};
 }

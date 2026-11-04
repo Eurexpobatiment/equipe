@@ -22,13 +22,15 @@ const SCHEMA = {
   BudgetLignes: ['id', 'type', 'famille', 'code', 'prestataire', 'intitule', 'budget', 'bc', 'horsTotal', 'note', 'ordre', 'majPar'],
   BudgetMvts:   ['id', 'ligneId', 'date', 'nature', 'numero', 'montant', 'libelle', 'creeLe', 'majPar'],
   Inventaire:   ['id', 'responsable', 'designation', 'code', 'montant', 'commentaire', 'avancement', 'majPar'],
-  SAP:          ['id', 'societe', 'sap', 'majPar']
+  SAP:          ['id', 'societe', 'sap', 'majPar'],
+  Chantiers:    ['id', 'titre', 'espace', 'zone', 'type', 'entreprise', 'responsable', 'dateDebut', 'dateFin', 'horaires', 'statut',
+                 'avancement', 'montant', 'codeBudget', 'demande', 'nacelle', 'contraintes', 'note', 'creeLe', 'majLe', 'majPar']
 };
 const JOURNAL = ['date', 'auteur', 'action', 'feuille', 'id', 'detail'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule'];
+const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule', 'contraintes'];
 
 /* ---------- Installation ---------- */
 
@@ -162,6 +164,18 @@ function save_(name, item, user) {
     case 'SAP':
       if (!o.societe) throw new Error('Société obligatoire');
       o.majPar = user;
+      break;
+    case 'Chantiers':
+      if (!o.titre) throw new Error('Intitulé du chantier obligatoire');
+      if (!RE_DATE.test(o.dateDebut || '')) throw new Error('Date de début obligatoire');
+      if (!o.dateFin) o.dateFin = o.dateDebut;
+      if (!RE_DATE.test(o.dateFin)) throw new Error('Date de fin invalide');
+      if (o.dateFin < o.dateDebut) throw new Error('La date de fin est avant la date de début');
+      if (o.montant) o.montant = money_(o.montant, 'Montant');
+      if (o.avancement) { const a = Math.round(Number(o.avancement)); if (!isFinite(a) || a < 0 || a > 100) throw new Error('Avancement entre 0 et 100 %'); o.avancement = String(a); }
+      if (!o.statut) o.statut = 'Prévu';
+      if (!cur) o.creeLe = now;
+      o.majLe = now; o.majPar = user;
       break;
     default: // Cloisons, EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
@@ -310,6 +324,7 @@ function summary_(name, o) {
     case 'BudgetMvts': return o.nature + ' ' + o.montant + ' € ' + (o.numero || '') + ' ' + (o.libelle || '');
     case 'Inventaire': return (o.designation || '').slice(0, 80) + ' ' + o.montant;
     case 'SAP': return o.societe + ' ' + o.sap;
+    case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';
 }
