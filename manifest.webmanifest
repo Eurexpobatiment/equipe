@@ -1,0 +1,16 @@
+{
+  "name": "Équipe Bâtiment – Eurexpo",
+  "short_name": "Équipe",
+  "description": "Tâches, nacelle, régisseurs, cloisons et états des lieux de l'équipe Eurexpo",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f4f7",
+  "theme_color": "#14213d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
