@@ -32,6 +32,7 @@ Les données sont dans un Google Sheet, et la page est hébergée sur GitHub Pag
 - **Nacelle** : réservation par plage horaire libre, sur une ou plusieurs journées. Si le créneau en chevauche un autre, l'appli refuse et indique qui a déjà réservé. Le contrôle est fait aussi côté serveur, donc deux personnes ne peuvent pas réserver le même créneau en même temps.
 - **Régisseurs** : un tableau sur 2 semaines. Touche une case pour saisir une période (Présent, Salon, Astreinte, Formation, Repos, Congé, Absent). La dernière ligne compte les présents de chaque jour.
 - **Cloisons / États des lieux** : un agenda par date. Touche le badge de statut pour passer de Prévu ou Planifié à Fait.
+- **Budget** : budget bâtiment 2026 repris du classeur BUDGET 2026 (onglets Entretien BA24, Contrats BA25, Travaux prévus, N° SAP). On saisit chaque BDC, facture ou avoir sur sa ligne ; engagé, restant, % et « hors budget » se calculent seuls. Export Excel complet en un clic. Les données sont dans les onglets BudgetLignes, BudgetMvts, Inventaire et SAP du Google Sheet.
 - L'appli se rafraîchit toute seule toutes les 60 s et dès qu'on revient dessus.
 - L'onglet **Journal** du Sheet garde la trace de qui a ajouté, modifié ou supprimé quoi.
 

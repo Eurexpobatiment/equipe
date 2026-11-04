@@ -18,13 +18,17 @@ const SCHEMA = {
   Nacelle:      ['id', 'nom', 'debut', 'fin', 'lieu', 'motif', 'creeLe', 'majPar'],
   Regisseurs:   ['id', 'regisseur', 'dateDebut', 'dateFin', 'statut', 'salon', 'note', 'majPar'],
   Cloisons:     ['id', 'date', 'heure', 'hall', 'mouvement', 'cloison', 'salon', 'responsable', 'statut', 'note', 'majPar'],
-  EDL:          ['id', 'date', 'heure', 'salon', 'type', 'halls', 'responsable', 'statut', 'note', 'majPar']
+  EDL:          ['id', 'date', 'heure', 'salon', 'type', 'halls', 'responsable', 'statut', 'note', 'majPar'],
+  BudgetLignes: ['id', 'type', 'famille', 'code', 'prestataire', 'intitule', 'budget', 'bc', 'horsTotal', 'note', 'ordre', 'majPar'],
+  BudgetMvts:   ['id', 'ligneId', 'date', 'nature', 'numero', 'montant', 'libelle', 'creeLe', 'majPar'],
+  Inventaire:   ['id', 'responsable', 'designation', 'code', 'montant', 'commentaire', 'avancement', 'majPar'],
+  SAP:          ['id', 'societe', 'sap', 'majPar']
 };
 const JOURNAL = ['date', 'auteur', 'action', 'feuille', 'id', 'detail'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const LONG_FIELDS = ['description', 'texte', 'note'];
+const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule'];
 
 /* ---------- Installation ---------- */
 
@@ -57,6 +61,7 @@ function handle_(p) {
       case 'all':    return out_({ ok: true, data: readAll_() });
       case 'save':   return out_({ ok: true, data: withLock_(function () { return save_(p.sheet, p.item, p.user); }) });
       case 'delete': return out_({ ok: true, data: withLock_(function () { return remove_(p.sheet, p.id, p.user); }) });
+      case 'importBudget': return out_({ ok: true, data: withLock_(function () { return importBudget_(p.data, p.user); }) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
   } catch (err) {
@@ -135,6 +140,29 @@ function save_(name, item, user) {
       if (o.dateFin < o.dateDebut) throw new Error('La date de fin est avant la date de début');
       o.majPar = user;
       break;
+    case 'BudgetLignes':
+      if (o.type !== 'Entretien' && o.type !== 'Contrat') throw new Error('Type de ligne inconnu');
+      if (!o.intitule && !o.code) throw new Error('Intitulé obligatoire');
+      if (o.budget !== '' && o.budget !== undefined) o.budget = money_(o.budget, 'Budget');
+      if (!cur && !o.ordre) o.ordre = String(rows.reduce(function (m, r) { return Math.max(m, Number(r.ordre) || 0); }, 0) + 1);
+      o.majPar = user;
+      break;
+    case 'BudgetMvts':
+      if (!o.ligneId) throw new Error('Ligne budgétaire inconnue');
+      if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
+      o.montant = money_(o.montant, 'Montant');
+      if (!o.nature) o.nature = 'BDC';
+      if (!cur) o.creeLe = now;
+      o.majPar = user;
+      break;
+    case 'Inventaire':
+      if (!o.designation) throw new Error('Désignation obligatoire');
+      o.majPar = user;
+      break;
+    case 'SAP':
+      if (!o.societe) throw new Error('Société obligatoire');
+      o.majPar = user;
+      break;
     default: // Cloisons, EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       o.majPar = user;
@@ -156,15 +184,56 @@ function remove_(name, id, user) {
   if (!cur) throw new Error('Élément introuvable (déjà supprimé ?)');
   sh.deleteRow(cur._row);
 
-  if (name === 'Taches') { // supprime aussi les commentaires de la tâche
-    const cs = sheet_('Commentaires');
-    rows_(cs).filter(function (c) { return c.tacheId === cur.id; })
+  const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'] }[name];
+  if (child) { // supprime aussi les éléments rattachés (commentaires, mouvements)
+    const cs = sheet_(child[0]);
+    rows_(cs).filter(function (c) { return c[child[1]] === cur.id; })
       .map(function (c) { return c._row; })
       .sort(function (a, b) { return b - a; })
       .forEach(function (r) { cs.deleteRow(r); });
   }
   journal_(clean_(user, 80), 'suppression', name, cur.id, summary_(name, cur));
   return { id: cur.id };
+}
+
+// Reprise initiale du classeur budget : uniquement si les onglets budget sont vides
+function importBudget_(data, user) {
+  if (!data || !data.lignes) throw new Error('Données de reprise manquantes');
+  if (rows_(sheet_('BudgetLignes')).length) throw new Error('Le budget contient déjà des lignes : reprise refusée');
+  const now = now_(), id = function () { return Utilities.getUuid().replace(/-/g, '').slice(0, 10); };
+  const L = [], M = [];
+  data.lignes.forEach(function (l) {
+    const o = { id: id(), type: l.type, famille: l.famille, code: l.code, prestataire: l.prestataire, intitule: l.intitule,
+      budget: l.budget === '' || l.budget === undefined ? '' : money_(l.budget, 'Budget'), bc: l.bc || '', horsTotal: l.horsTotal || '',
+      note: l.note || '', ordre: String(l.ordre || ''), majPar: user };
+    L.push(o);
+    (l.mvts || []).forEach(function (m) {
+      M.push({ id: id(), ligneId: o.id, date: m.date, nature: m.nature, numero: m.numero || '', montant: money_(m.montant, 'Montant'),
+        libelle: m.libelle || '', creeLe: now, majPar: user });
+    });
+  });
+  bulk_('BudgetLignes', L); bulk_('BudgetMvts', M);
+  if (data.inventaire && !rows_(sheet_('Inventaire')).length) bulk_('Inventaire', data.inventaire.map(function (x) { return Object.assign({ id: id(), majPar: user }, x); }));
+  if (data.sap && !rows_(sheet_('SAP')).length) bulk_('SAP', data.sap.map(function (x) { return Object.assign({ id: id(), majPar: user }, x); }));
+  journal_(user, 'reprise', 'Budget', '', L.length + ' lignes, ' + M.length + ' mouvements');
+  return { lignes: L.length, mvts: M.length };
+}
+
+function bulk_(name, items) {
+  if (!items.length) return;
+  const sh = sheet_(name), head = headers_(sh);
+  const vals = items.map(function (o) { return head.map(function (h) { return (h in o) ? safe_(clean_(o[h], 5000)) : ''; }); });
+  const need = sh.getLastRow() + vals.length - sh.getMaxRows();
+  if (need > 0) sh.insertRowsAfter(sh.getMaxRows(), need + 200);
+  sh.getRange(sh.getLastRow() + 1, 1, vals.length, head.length).setNumberFormat('@').setValues(vals);
+}
+
+// Montant : accepte « 1 234,56 », « 1234.56 », « 1 234,56 € » ; renvoie « 1234.56 »
+function money_(v, label) {
+  const s = String(v === null || v === undefined ? '' : v).replace(/[\s\u00a0\u202f€]/g, '').replace(',', '.');
+  const n = Number(s);
+  if (s === '' || !isFinite(n)) throw new Error((label || 'Montant') + ' invalide : ' + v);
+  return String(Math.round(n * 100) / 100);
 }
 
 function checkNacelle_(o, rows) {
@@ -237,6 +306,10 @@ function summary_(name, o) {
     case 'Regisseurs': return o.regisseur + ' ' + o.statut + ' ' + o.dateDebut + ' → ' + o.dateFin;
     case 'Cloisons': return o.date + ' ' + o.hall + ' ' + o.mouvement + ' ' + o.statut;
     case 'EDL': return o.date + ' ' + o.salon + ' ' + o.type + ' ' + o.statut;
+    case 'BudgetLignes': return o.type + ' ' + o.code + ' ' + o.intitule + ' · budget ' + o.budget;
+    case 'BudgetMvts': return o.nature + ' ' + o.montant + ' € ' + (o.numero || '') + ' ' + (o.libelle || '');
+    case 'Inventaire': return (o.designation || '').slice(0, 80) + ' ' + o.montant;
+    case 'SAP': return o.societe + ' ' + o.sap;
   }
   return '';
 }
