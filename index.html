@@ -314,7 +314,7 @@ const FORMS = {
   Taches: [
     {k:'titre',l:'Titre',req:1,full:1},
     {k:'description',l:'Description',t:'textarea'},
-    {k:'assigne',l:'Attribuée à',t:'person'},
+    {k:'assigne',l:'Attribuée à — plusieurs choix possibles',t:'people',full:1},
     {k:'priorite',l:'Priorité',t:'select',o:PRIO,def:'Normale'},
     {k:'statut',l:'Statut',t:'select',o:ST_TACHE,def:'À faire'},
     {k:'echeance',l:'Échéance',t:'date'},
@@ -475,7 +475,7 @@ function nacConflict(o){
 function render(){
   $('#apptitle').textContent=CONFIG.titre;
   $('#meBtn').textContent='👤 '+(me||'Qui es-tu ?');
-  const mine=D.Taches.filter(t=>t.assigne===me&&t.statut!=='Terminé').length;
+  const mine=D.Taches.filter(t=>isMine(t)&&t.statut!=='Terminé').length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
@@ -516,6 +516,8 @@ function fieldHtml(f,v){
     case 'time': inp=`<input type="time" id="${id}" value="${val}" step="300">`;break;
     case 'datetime': inp=`<input type="datetime-local" id="${id}" value="${val}" step="300">`;break;
     case 'hall': inp=`<input id="${id}" list="dl-halls" value="${val}" autocomplete="off">`;break;
+    case 'people':{const sel=espList(v),ns=people(f.filter);sel.forEach(n=>{if(!ns.includes(n))ns.push(n)});
+      inp=`<div class="multi" id="${id}">${ns.map(n=>`<label class="mchip"><input type="checkbox" value="${esc(n)}" ${sel.includes(n)?'checked':''}><span>${esc(n)}</span></label>`).join('')||'<span class="hint">Personne dans l\'équipe pour l\'instant.</span>'}</div>`;break;}
     case 'multi':{const sel=espList(v),opts=f.o(),autres=sel.filter(s=>!opts.includes(s));
       inp=`<div class="multi" id="${id}">${opts.map(o=>`<label class="mchip"><input type="checkbox" value="${esc(o)}" ${sel.includes(o)?'checked':''}><span>${esc(o)}</span></label>`).join('')}
         <input class="mother" placeholder="Autre espace (séparer par des virgules)" value="${esc(autres.join(', '))}"></div>`;break;}
@@ -523,7 +525,7 @@ function fieldHtml(f,v){
     case 'money': inp=`<input id="${id}" inputmode="decimal" value="${esc(v===''||v==null?'':String(v).replace('.',','))}" autocomplete="off">`;break;
     default: inp=`<input id="${id}" value="${val}" autocomplete="off">`;
   }
-  return f.t==='multi'?`<div class="fl full"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</div>`:`<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
+  return (f.t==='multi'||f.t==='people')?`<div class="fl full"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</div>`:`<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
 }
 function openForm(sheet,item,title,opt={}){
   const F=FORMS[sheet]; const it={...(item||{})}; const isNew=!it.id;
@@ -537,7 +539,7 @@ function openForm(sheet,item,title,opt={}){
   const ferr=m=>{$('#ferr').textContent=m||''};
   $('#fsave').onclick=async()=>{
     const o={...it};
-    F.forEach(f=>{let v=f.t==='multi'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList($('#f_'+f.k).querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', '):$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
+    F.forEach(f=>{let v=f.t==='people'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).join(', '):f.t==='multi'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList($('#f_'+f.k).querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', '):$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
     const miss=F.filter(f=>f.req&&!o[f.k]);
     if(miss.length) return ferr('À renseigner : '+miss.map(f=>f.l).join(', '));
     if(opt.validate){const m=opt.validate(o);if(m)return ferr(m)}
@@ -610,12 +612,14 @@ async function eqAdd(){
 }
 
 /* ================== TÂCHES ================== */
+const asg=t=>String(t.assigne||'').split(',').map(x=>x.trim()).filter(Boolean); // une ou plusieurs personnes, « Julien, Karim »
+const isMine=t=>!!me&&asg(t).includes(me);
 function vTaches(el){
   const names=people(); const f=UI.tFiltre;
   let L=D.Taches.slice();
-  if(f==='Moi')L=L.filter(t=>t.assigne===me);
-  else if(f==='Non attribuées')L=L.filter(t=>!t.assigne);
-  else if(f!=='Tous')L=L.filter(t=>t.assigne===f);
+  if(f==='Moi')L=L.filter(isMine);
+  else if(f==='Non attribuées')L=L.filter(t=>!asg(t).length);
+  else if(f!=='Tous')L=L.filter(t=>asg(t).includes(f));
   const pi=t=>PRIO.indexOf(t.priorite||'Normale');
   const cols=ST_TACHE.map(st=>{
     let c=L.filter(t=>(t.statut||'À faire')===st), total=c.length, more=0;
@@ -638,16 +642,16 @@ function card(t){
   return `<div class="card p${PRIO.indexOf(t.priorite||'Normale')} ${done?'done':''}" onclick="editTache('${t.id}')">
     <div class="ct">${t.priorite==='Urgente'&&!done?'<span class="tag-u">URGENT</span> ':''}${esc(t.titre)}</div>
     ${d?`<div class="cd">${esc(d.length>140?d.slice(0,140)+'…':d)}</div>`:''}
-    <div class="meta">${t.assigne?pill(t.assigne):'<span class="pill ghost">Non attribuée</span>'}
+    <div class="meta">${asg(t).length?asg(t).map(pill).join(''):'<span class="pill ghost">Non attribuée</span>'}
       ${t.echeance?`<span class="${late?'late':''}">📅 ${fD(t.echeance)}${late?' · en retard':''}</span>`:''}
       ${t.lieu?`<span>📍 ${esc(t.lieu)}</span>`:''}${nc?`<span>💬 ${nc}</span>`:''}</div>
-    ${next?`<button class="adv" onclick="event.stopPropagation();advance('${t.id}',this)">→ ${next}${next==='En cours'&&!t.assigne?' (je la prends)':''}</button>`:''}
+    ${next?`<button class="adv" onclick="event.stopPropagation();advance('${t.id}',this)">→ ${next}${next==='En cours'&&!asg(t).length?' (je la prends)':''}</button>`:''}
   </div>`;
 }
 async function advance(id,btn){
   const t=D.Taches.find(x=>x.id===id); if(!t) return;
   const next={'À faire':'En cours','En cours':'Terminé'}[t.statut||'À faire'];
-  const o={...t,statut:next}; if(next==='En cours'&&!o.assigne)o.assigne=me;
+  const o={...t,statut:next}; if(next==='En cours'&&!asg(o).length)o.assigne=me;
   if(btn){btn.disabled=true;btn.textContent='…'}
   try{await saveItem('Taches',o);toast(next==='Terminé'?'Tâche terminée ✓':'Tâche en cours')}catch(e){toast(e.message,1);render()}
 }
@@ -804,7 +808,7 @@ async function dtLoad(force){
   catch(e){DT.err=e.message;if(/code/i.test(e.message)){dtSetCode('');DT.list=null}}
   DT.loading=false; if(tab==='Demandes'&&!$('.ov')) render(); else renderTabsOnly();
 }
-function renderTabsOnly(){const mine=D.Taches.filter(t=>t.assigne===me&&t.statut!=='Terminé').length;
+function renderTabsOnly(){const mine=D.Taches.filter(t=>isMine(t)&&t.statut!=='Terminé').length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('')}
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
@@ -1171,7 +1175,7 @@ function demoSeed(){
   const E=[['Responsable équipe','Responsable'],['Julien','Technicien'],['Karim','Technicien'],['Sophie','Régisseur'],['Marc','Régisseur'],['Nadia','Régisseur']].map(([nom,role])=>({id:id(),nom,role,actif:'oui'}));
   const T=[
     {titre:'Remplacer projecteur LED hall 4.2',description:'Projecteur HS côté quai, prévoir la nacelle.',assigne:'Julien',priorite:'Haute',statut:'En cours',echeance:addDays(t,1),lieu:'Hall 4.2'},
-    {titre:'Contrôle des portes sectionnelles',assigne:'Karim',priorite:'Normale',statut:'À faire',echeance:addDays(t,5),lieu:'Hall 5'},
+    {titre:'Contrôle des portes sectionnelles',assigne:'Karim, Julien',priorite:'Normale',statut:'À faire',echeance:addDays(t,5),lieu:'Hall 5'},
     {titre:'Fuite toiture à vérifier',description:'Signalée par l\'exposant stand B12.',priorite:'Urgente',statut:'À faire',echeance:addDays(t,-1),lieu:'Hall 3'},
     {titre:'Mise à jour plan d\'évacuation',assigne:'Julien',priorite:'Basse',statut:'Terminé',lieu:'Hall 1'}
   ].map(x=>({id:id(),creePar:'Responsable équipe',creeLe:addDays(t,-3)+'T09:12',majLe:addDays(t,-1)+'T16:40',majPar:'Julien',...x}));
