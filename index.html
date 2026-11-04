@@ -223,6 +223,11 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .dtinfo span{display:block;font-size:11.5px;color:var(--muted)}
 a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#fff}
 .chf .sel{max-width:190px}
+.multi{display:flex;flex-wrap:wrap;gap:6px;border:1px solid #d5d9e2;border-radius:8px;padding:8px}
+.mchip{cursor:pointer}.mchip input{display:none}
+.mchip span{display:inline-block;border:1px solid #d5d9e2;border-radius:14px;padding:4px 10px;font-size:13px;color:#334155;background:#fff;user-select:none}
+.mchip input:checked+span{background:var(--navy);border-color:var(--navy);color:#fff}
+.multi .mother{flex:1 1 100%;border:1px solid #e2e5ec;border-radius:8px;padding:7px 9px;font-size:14px;margin-top:2px}
 .oudate{text-transform:capitalize;margin-left:6px}
 .ougrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
 .ouesp{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
@@ -292,7 +297,8 @@ const CONFIG = {
   apiUrl: 'https://script.google.com/macros/s/AKfycbzs97SgzoAu5lkRlOOmE5djTGIUIomRK7bX41f_56xrNUaYGukbiQGeCldVRZGARwvy/exec', // URL de l'application Web Apps Script (se termine par /exec). Vide = mode démo.
   titre: 'Équipe Bâtiment',
   // Suggestions pour les champs « Hall / lieu » (on peut toujours saisir autre chose) — à adapter
-  halls: ['Hall 1','Hall 2.1','Hall 2.2','Hall 3','Hall 4.1','Hall 4.2','Hall 5','Hall 6','Parvis','Parkings','Locaux techniques'],
+  halls: ['Hall 1','Hall 2.1 AB','Hall 2.1 Ext','Hall 2.2','Hall 2.3','Hall 3.1','Hall 3.2','Hall 4.1','Hall 4.2','Hall 4.3','Hall 5.1','Hall 5.2','Hall 6.1','Hall 6.2','Hall 6.3','Hall 7'],
+  autresEspaces: ['Bureaux / administratif','Parvis','Parkings','Voiries / extérieurs','Toitures','Locaux techniques','Sous-sol / galeries techniques'],
   roles: ['Responsable','Technicien','Régisseur'],
   refreshSec: 60
 };
@@ -367,7 +373,7 @@ const FORMS = {
     {k:'sap',l:'N° SAP',full:1}],
   Chantiers: [
     {k:'titre',l:'Chantier / travaux',req:1,full:1},
-    {k:'espace',l:'Espace',t:'dl',dl:'dl-espaces',req:1},
+    {k:'espace',l:'Espace(s) — plusieurs choix possibles',t:'multi',o:()=>ESPACES(),req:1,full:1},
     {k:'zone',l:'Zone / précision (niveau, local, repère…)'},
     {k:'type',l:'Type de travaux',t:'select',o:['','Électricité','Éclairage','CVC / Chauffage','Plomberie / Sanitaires','Peinture','Sols','Menuiserie / Vitrerie','Serrurerie / Portes','Couverture / Étanchéité','Maçonnerie / VRD','Cloisons mobiles','Sécurité incendie','Courants faibles / Vidéo','Espaces verts','Signalétique','Nettoyage','Autre']},
     {k:'entreprise',l:'Entreprise',t:'dl',dl:'dl-presta'},
@@ -510,11 +516,14 @@ function fieldHtml(f,v){
     case 'time': inp=`<input type="time" id="${id}" value="${val}" step="300">`;break;
     case 'datetime': inp=`<input type="datetime-local" id="${id}" value="${val}" step="300">`;break;
     case 'hall': inp=`<input id="${id}" list="dl-halls" value="${val}" autocomplete="off">`;break;
+    case 'multi':{const sel=espList(v),opts=f.o(),autres=sel.filter(s=>!opts.includes(s));
+      inp=`<div class="multi" id="${id}">${opts.map(o=>`<label class="mchip"><input type="checkbox" value="${esc(o)}" ${sel.includes(o)?'checked':''}><span>${esc(o)}</span></label>`).join('')}
+        <input class="mother" placeholder="Autre espace (séparer par des virgules)" value="${esc(autres.join(', '))}"></div>`;break;}
     case 'dl': inp=`<input id="${id}" list="${f.dl}" value="${val}" autocomplete="off">`;break;
     case 'money': inp=`<input id="${id}" inputmode="decimal" value="${esc(v===''||v==null?'':String(v).replace('.',','))}" autocomplete="off">`;break;
     default: inp=`<input id="${id}" value="${val}" autocomplete="off">`;
   }
-  return `<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
+  return f.t==='multi'?`<div class="fl full"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</div>`:`<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
 }
 function openForm(sheet,item,title,opt={}){
   const F=FORMS[sheet]; const it={...(item||{})}; const isNew=!it.id;
@@ -528,7 +537,7 @@ function openForm(sheet,item,title,opt={}){
   const ferr=m=>{$('#ferr').textContent=m||''};
   $('#fsave').onclick=async()=>{
     const o={...it};
-    F.forEach(f=>{let v=$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
+    F.forEach(f=>{let v=f.t==='multi'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList($('#f_'+f.k).querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', '):$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
     const miss=F.filter(f=>f.req&&!o[f.k]);
     if(miss.length) return ferr('À renseigner : '+miss.map(f=>f.l).join(', '));
     if(opt.validate){const m=opt.validate(o);if(m)return ferr(m)}
@@ -881,12 +890,13 @@ const CH_TYPES={'Électricité':'#e09a2b','Éclairage':'#c9a400','CVC / Chauffag
   'Sécurité incendie':'#b3202c','Courants faibles / Vidéo':'#1f77b4','Espaces verts':'#2a9d5c','Signalétique':'#ff7f50','Nettoyage':'#7f8c8d','Autre':'#64748b'};
 const CH_ST={'Prévu':'#3a6ea5','En cours':'#0f766e','Suspendu':'#e09a2b','Reporté':'#9aa3b2','Terminé':'#2a9d5c','Annulé':'#6b7280'};
 const CH_ACTIF=s=>!['Terminé','Annulé'].includes(s||'Prévu');
-const ESPACES=()=>[...new Set([...CONFIG.halls,'Centre de congrès','Bureaux / administratif','Parvis','Parkings','Voiries / extérieurs','Toitures','Locaux techniques','Sous-sol / galeries techniques',...D.Chantiers.map(c=>c.espace)].filter(Boolean))];
+const espList=s=>String(s||'').split(',').map(x=>x.trim()).filter(Boolean);
+const ESPACES=()=>[...new Set([...CONFIG.halls,...CONFIG.autresEspaces,...D.Chantiers.flatMap(c=>espList(c.espace))])];
 const chCol=c=>CH_TYPES[c.type]||'#64748b';
 function chConflicts(c){
-  if(!CH_ACTIF(c.statut)||!c.espace) return [];
-  const e=c.espace.trim().toLowerCase();
-  return D.Chantiers.filter(o=>o.id!==c.id&&CH_ACTIF(o.statut)&&(o.espace||'').trim().toLowerCase()===e&&o.dateDebut<=c.dateFin&&c.dateDebut<=o.dateFin);
+  const es=espList(c.espace).map(x=>x.toLowerCase());
+  if(!CH_ACTIF(c.statut)||!es.length) return [];
+  return D.Chantiers.filter(o=>o.id!==c.id&&CH_ACTIF(o.statut)&&o.dateDebut<=c.dateFin&&c.dateDebut<=o.dateFin&&espList(o.espace).some(x=>es.includes(x.toLowerCase())));
 }
 function salons(){ // salons déduits des états des lieux (entrée → sortie)
   const m={}; D.EDL.forEach(x=>{if(!x.salon||x.statut==='Annulé')return;const k=x.salon.trim();const s=m[k]||(m[k]={nom:k,d0:x.date,d1:x.date,halls:new Set()});
@@ -895,7 +905,7 @@ function salons(){ // salons déduits des états des lieux (entrée → sortie)
 }
 function chFiltered(){
   const st=UI.ch, q=st.q.toLowerCase();
-  return D.Chantiers.filter(c=>(st.fin||CH_ACTIF(c.statut))&&(!st.esp||c.espace===st.esp)&&(!st.type||c.type===st.type)&&(!st.resp||c.responsable===st.resp)
+  return D.Chantiers.filter(c=>(st.fin||CH_ACTIF(c.statut))&&(!st.esp||espList(c.espace).includes(st.esp))&&(!st.type||c.type===st.type)&&(!st.resp||c.responsable===st.resp)
     &&(!q||[c.titre,c.espace,c.zone,c.type,c.entreprise,c.responsable,c.demande,c.note,c.contraintes].join(' ').toLowerCase().includes(q)));
 }
 function vTravauxHub(el){
@@ -919,7 +929,7 @@ function vTravauxHub(el){
 function chOu(el){
   const st=UI.ch, d=st.day||(st.day=today());
   const L=chFiltered().filter(c=>c.dateDebut<=d&&c.dateFin>=d&&!['Annulé','Reporté'].includes(c.statut));
-  const g={}; L.forEach(c=>{const k=c.espace||'Sans espace';(g[k]=g[k]||[]).push(c)});
+  const g={}; L.forEach(c=>{(espList(c.espace).length?espList(c.espace):['Sans espace']).forEach(k=>(g[k]=g[k]||[]).push(c))});
   const ents=[...new Set(L.map(c=>c.entreprise).filter(Boolean))];
   const sal=salons().filter(s=>s.d0<=d&&s.d1>=d);
   const nac=D.Nacelle.filter(b=>b.debut.slice(0,10)<=d&&b.fin.slice(0,10)>=d);
@@ -930,11 +940,11 @@ function chOu(el){
     <div class="mine"><b>${ents.length} entreprise${ents.length>1?'s':''} sur le parc</b>${ents.length?' : '+ents.map(esc).join(', '):''} · ${L.length} chantier${L.length>1?'s':''}
       ${sal.length?`<br>🎪 Salon${sal.length>1?'s':''} : ${sal.map(s=>esc(s.nom)+(s.halls?' ('+esc(s.halls)+')':'')).join(', ')}`:''}
       ${nac.length?`<br>🏗️ Nacelle : ${nac.map(b=>esc(b.nom)+' '+(b.debut.slice(0,10)===d?b.debut.slice(11):'…')+'–'+(b.fin.slice(0,10)===d?b.fin.slice(11):'…')+(b.lieu?' · '+esc(b.lieu):'')).join(' ; ')}`:''}</div>
-    <div class="ougrid">${Object.keys(g).sort((a,b)=>a.localeCompare(b,'fr',{numeric:true})).map(e=>`<div class="ouesp"><h3>📍 ${esc(e)} <span class="n">${g[e].length}</span></h3>
-      ${g[e].map(c=>{const cf=chConflicts(c).length;return `<div class="oucard" onclick="chEdit('${c.id}')" style="border-left-color:${chCol(c)}">
-        <div class="ouent">${esc(c.entreprise||'Entreprise non renseignée')}${cf?' <span title="Plusieurs chantiers sur cet espace">⚠️</span>':''}</div>
+    <div class="ougrid">${Object.keys(g).sort((a,b)=>{const ix=x=>{const i=ESPACES().indexOf(x);return i<0?999:i};return ix(a)-ix(b)||a.localeCompare(b,'fr')}).map(e=>`<div class="ouesp"><h3>📍 ${esc(e)} <span class="n">${g[e].length}</span></h3>
+      ${g[e].map(c=>{const cf=chConflicts(c).some(o=>espList(o.espace).includes(e));return `<div class="oucard" onclick="chEdit('${c.id}')" style="border-left-color:${chCol(c)}">
+        <div class="ouent">${esc(c.entreprise||'Entreprise non renseignée')}${cf?' <span title="Plusieurs chantiers en même temps sur ${esc(e)}">⚠️</span>':''}</div>
         <div class="outit">${esc(c.titre)}</div>
-        <small>${[c.zone&&'📌 '+esc(c.zone),c.type&&`<span style="color:${chCol(c)};font-weight:600">${esc(c.type)}</span>`,c.horaires&&'🕒 '+esc(c.horaires),c.responsable&&'👤 '+esc(c.responsable),c.nacelle==='oui'&&'🏗️ nacelle'].filter(Boolean).join(' · ')}</small>
+        <small>${[espList(c.espace).length>1&&'🏢 '+esc(espList(c.espace).join(', ')),c.zone&&'📌 '+esc(c.zone),c.type&&`<span style="color:${chCol(c)};font-weight:600">${esc(c.type)}</span>`,c.horaires&&'🕒 '+esc(c.horaires),c.responsable&&'👤 '+esc(c.responsable),c.nacelle==='oui'&&'🏗️ nacelle'].filter(Boolean).join(' · ')}</small>
         <small>Du ${fD(c.dateDebut)} au ${fD(c.dateFin)}${c.statut&&c.statut!=='Prévu'?' · '+esc(c.statut):''}</small></div>`}).join('')}</div>`).join('')
       ||`<p class="empty">Aucune entreprise prévue sur le parc ce jour-là. <a href="#" onclick="chNew({dateDebut:'${d}',dateFin:'${d}'});return false">Ajouter un chantier</a></p>`}</div>`;
 }
@@ -948,7 +958,7 @@ function chPlanning(el){
     +(t>=d0&&t<=d1?`<i class="gtoday" style="left:${pc(idx(t)+.5)}%"></i>`:'')+[...Array(st.weeks)].map((_,i)=>`<i class="gsep" style="left:${pc(i*7)}%"></i>`).join('');
   const L=chFiltered().filter(c=>c.dateDebut<=d1&&c.dateFin>=d0).sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut));
   const key={espace:c=>c.espace||'Sans espace',type:c=>c.type||'Autre',responsable:c=>c.responsable||'Sans responsable',entreprise:c=>c.entreprise||'Sans entreprise'}[st.group];
-  const groups={}; L.forEach(c=>(groups[key(c)]=groups[key(c)]||[]).push(c));
+  const groups={}; L.forEach(c=>{(st.group==='espace'?(espList(c.espace).length?espList(c.espace):['Sans espace']):[key(c)]).forEach(k=>(groups[k]=groups[k]||[]).push(c))});
   const sal=salons().filter(s=>s.d0<=d1&&s.d1>=d0);
   const row=(label,sub,bars,cls='')=>`<div class="grow ${cls}"><div class="glab">${label}${sub?`<small>${sub}</small>`:''}</div><div class="gtrack">${bg}${bars}</div></div>`;
   const bar=c=>{const s=span(c.dateDebut,c.dateFin);if(!s)return '';const cf=chConflicts(c).length;
@@ -959,7 +969,7 @@ function chPlanning(el){
       <span class="sp"></span><label class="chk">Regrouper par <select class="sel" onchange="UI.ch.group=this.value;render()">${[['espace','Espace'],['type','Type de travaux'],['responsable','Responsable'],['entreprise','Entreprise']].map(([k,l])=>`<option value="${k}" ${st.group===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
     <div class="gantt" style="--n:${N}"><div class="ghead"><div class="glab">${fD(d0,{day:'numeric',month:'short'})} → ${fD(d1,{day:'numeric',month:'short',year:'numeric'})}</div><div class="gtrack gweeks">${weeks}</div></div>
       ${sal.length?`<div class="ggrp">Salons (d'après les états des lieux)</div>`+sal.map(s=>{const p=span(s.d0,s.d1);return row(esc(s.nom),esc(s.halls),p?`<div class="gsalon" style="left:${p.l}%;width:${p.w}%" title="${esc(s.nom+' · '+fD(s.d0)+' → '+fD(s.d1)+(s.halls?' · '+s.halls:''))}"><span>${esc(s.nom)}</span></div>`:'','sal')}).join(''):''}
-      ${Object.keys(groups).sort((a,b)=>a.localeCompare(b,'fr')).map(g=>`<div class="ggrp">${esc(g)} <span class="n">${groups[g].length}</span></div>`+groups[g].map(c=>row(`<a onclick="chEdit('${c.id}')">${esc(c.titre)}</a>`,esc([st.group!=='espace'&&c.espace,c.zone,st.group!=='entreprise'&&c.entreprise].filter(Boolean).join(' · ')),bar(c))).join('')).join('')
+      ${Object.keys(groups).sort((a,b)=>{if(st.group!=='espace')return a.localeCompare(b,'fr');const ix=x=>{const i=ESPACES().indexOf(x);return i<0?999:i};return ix(a)-ix(b)||a.localeCompare(b,'fr')}).map(g=>`<div class="ggrp">${esc(g)} <span class="n">${groups[g].length}</span></div>`+groups[g].map(c=>row(`<a onclick="chEdit('${c.id}')">${esc(c.titre)}</a>`,esc([st.group!=='espace'&&espList(c.espace).join(', '),st.group==='espace'&&espList(c.espace).length>1&&('+ '+espList(c.espace).length+' espaces'),c.zone,st.group!=='entreprise'&&c.entreprise].filter(Boolean).join(' · ')),bar(c))).join('')).join('')
         ||`<div class="empty" style="padding:16px">Aucun chantier sur cette période. <a href="#" onclick="chNew();return false">Ajouter un chantier</a></div>`}
     </div>
     <div class="legend">${Object.entries(CH_TYPES).filter(([k])=>D.Chantiers.some(c=>c.type===k)).map(([k,c])=>`<span><i style="background:${c}"></i>${esc(k)}</span>`).join('')}<span><i class="lg-sal"></i>Salon</span><span>⚠️ chevauchement sur le même espace</span></div>`;
@@ -982,7 +992,7 @@ function chEdit(id){
   const c=D.Chantiers.find(x=>x.id===id); if(!c) return;
   const cf=chConflicts(c);
   const nac=D.Nacelle.filter(b=>b.debut.slice(0,10)<=c.dateFin&&b.fin.slice(0,10)>=c.dateDebut&&(b.motif||'').includes(c.titre));
-  const extra=`${cf.length?`<div class="overs"><b>⚠️ Chevauche sur ${esc(c.espace)} :</b>${cf.map(o=>`<div class="ov1" onclick="chEdit('${o.id}')"><span>${esc(o.titre)}<small> ${fD(o.dateDebut)} → ${fD(o.dateFin)}${o.entreprise?' · '+esc(o.entreprise):''}</small></span></div>`).join('')}</div>`:''}
+  const extra=`${cf.length?`<div class="overs"><b>⚠️ Chevauche sur le même espace :</b>${cf.map(o=>`<div class="ov1" onclick="chEdit('${o.id}')"><span>${esc(o.titre)}<small> ${esc(espList(o.espace).filter(x=>espList(c.espace).includes(x)).join(', '))} · ${fD(o.dateDebut)} → ${fD(o.dateFin)}${o.entreprise?' · '+esc(o.entreprise):''}</small></span></div>`).join('')}</div>`:''}
     <div class="acts">${c.nacelle==='oui'?(nac.length?`<span class="hint">🏗️ Nacelle réservée : ${nac.map(b=>fDT(b.debut)+' → '+fDT(b.fin)).join(', ')}</span>`:`<button class="btn" onclick="chNacelle('${c.id}')">🏗️ Réserver la nacelle</button>`):''}
       <button class="btn" onclick="chTache('${c.id}')">✅ Créer une tâche</button></div>
     <div class="made">Créé le ${fDT(c.creeLe)}${c.majPar?' · modifié par '+esc(c.majPar)+' le '+fDT(c.majLe):''}</div>`;
