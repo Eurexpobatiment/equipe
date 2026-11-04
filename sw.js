@@ -1,5 +1,5 @@
 /* Service worker : garde l'écran de l'appli sur l'appareil. Les données passent toujours par le serveur. */
-const CACHE = "equipe-v8";
+const CACHE = "equipe-v9";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/icon.svg", "logo.png"];
 
 self.addEventListener("install", e => {
@@ -15,7 +15,7 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || url.origin !== location.origin) return; // API Google et polices : réseau direct
   // Réseau d'abord (version à jour), sinon la copie gardée
   e.respondWith(
-    fetch(e.request).then(res => {
+    fetch(e.request, { cache: "no-cache" }).then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return res;
