@@ -205,6 +205,7 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .mvadd button{grid-column:1/-1}
 .inv .bt{flex:1}.sapn{font-variant-numeric:tabular-nums;color:var(--navy)}
 @media (max-width:820px){
+  .kpis.dtks{grid-template-columns:repeat(3,1fr);gap:6px}.dtks .kpi{padding:6px 8px}.dtks .kpi b{font-size:17px}.dtks .kpi span{font-size:10px}
   .famhead{display:none}
   .famh{grid-template-columns:18px 1fr auto;row-gap:4px}
   .famh .f-b,.famh .f-e{display:none}
@@ -215,6 +216,12 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
   .bn{text-align:left}.bn small{display:block;font-size:11px;color:var(--muted)}
   .bp{grid-column:1/3}.be{text-align:right}
 }
+.dtk{cursor:pointer}.dtk.on{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy)}
+.eqrow.dt{cursor:pointer;align-items:flex-start}.eqrow.dt:hover{background:#f8f9fb}.eqrow.dt .bt small{margin-top:2px}
+.dtnum{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:4px}
+.dtinfo{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:#f6f7fa;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:14px}
+.dtinfo span{display:block;font-size:11.5px;color:var(--muted)}
+a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#fff}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;z-index:60;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw}
 .toast.ko{background:var(--red)}
 .loading{text-align:center;color:var(--muted);padding:40px}
@@ -330,6 +337,7 @@ const TABS = [
   {id:'Regisseurs',l:'🎧 Régisseurs'},
   {id:'Cloisons',l:'🧱 Cloisons'},
   {id:'EDL',l:'📋 États des lieux'},
+  {id:'Travaux',l:'🛠️ Travaux'},
   {id:'Budget',l:'💶 Budget'},
   {id:'Equipe',l:'👥 Équipe'}];
 
@@ -407,10 +415,10 @@ function render(){
   $('#apptitle').textContent=CONFIG.titre;
   $('#meBtn').textContent='👤 '+(me||'Qui es-tu ?');
   const mine=D.Taches.filter(t=>t.assigne===me&&t.statut!=='Terminé').length;
-  $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${t.id==='Taches'&&mine?`<span class="badge">${mine}</span>`:''}</button>`).join('');
+  $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget})[tab](el);
+  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravaux})[tab](el);
   hallsDatalist(); budgetDatalists();
   if((!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -707,6 +715,110 @@ async function agNext(sheet,id,btn){
   try{await saveItem(sheet,{...x,statut:n,responsable:x.responsable||me});toast('Marqué « '+n+' »')}catch(e){toast(e.message,1);render()}
 }
 
+/* ================== DEMANDES DE TRAVAUX (appli « travaux ») ================== */
+const DT = {
+  api: 'https://script.google.com/macros/s/AKfycbw7DpxVxpeE0VHa1Vi2dZ4Pg0BvIYKr67Ty4Ucx2SboRD0k-rlxSZwigtzyclStUdO1/exec',
+  app: 'https://eurexpobatiment.github.io/travaux/',
+  statuts: ['Nouvelle',"À l'étude",'Chiffrage','Validée','Planifiée','En cours','Terminée','Refusée'],
+  col: {'Nouvelle':'#e63946',"À l'étude":'#e09a2b','Chiffrage':'#b7791f','Validée':'#3a6ea5','Planifiée':'#5b5fc7','En cours':'#0f766e','Terminée':'#2a9d5c','Refusée':'#6b7280'},
+  prios: ['','Basse','Normale','Haute','Urgente'],
+  list: null, err: '', loading: false, at: 0
+};
+// Même adresse que l'appli travaux : on partage son code Bâtiment mémorisé (clé dt_code)
+const dtCode = ()=>{try{return JSON.parse(localStorage.getItem('dt_code')||'""')}catch(e){return ''}};
+const dtSetCode = c=>{try{c?localStorage.setItem('dt_code',JSON.stringify(c)):localStorage.removeItem('dt_code')}catch(e){}};
+async function dtApi(action,p={}){
+  const r=await fetch(DT.api,{method:'POST',body:JSON.stringify({action,code:dtCode(),user:me,...p})});
+  if(!r.ok) throw new Error('Serveur des demandes injoignable ('+r.status+')');
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Erreur serveur'); return j.data;
+}
+async function dtLoad(force){
+  if(!dtCode()||DT.loading) return;
+  if(!force&&DT.list&&Date.now()-DT.at<CONFIG.refreshSec*1000) return;
+  DT.loading=true;
+  try{DT.list=await dtApi('list');DT.err='';DT.at=Date.now()}
+  catch(e){DT.err=e.message;if(/code/i.test(e.message)){dtSetCode('');DT.list=null}}
+  DT.loading=false; if(tab==='Travaux'&&!$('.ov')) render(); else renderTabsOnly();
+}
+function renderTabsOnly(){const mine=D.Taches.filter(t=>t.assigne===me&&t.statut!=='Terminé').length;
+  $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('')}
+function tabBadge(id,mine){
+  if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
+  if(id==='Travaux'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
+  return '';
+}
+const dtBadge=s=>`<span class="st" style="background:${DT.col[s]||'#9aa3b2'}">${esc(s||'—')}</span>`;
+function vTravaux(el){
+  if(!dtCode()){
+    el.innerHTML=`<div class="bar"><h2>Demandes de travaux</h2><a class="btn" href="${DT.app}#/nouvelle" target="_blank" rel="noopener">+ Nouvelle demande</a></div>
+      <div class="eqadd" style="max-width:520px"><input id="dtc" type="password" placeholder="Code Bâtiment de l'appli Demandes de travaux" autocomplete="off" onkeydown="if(event.key==='Enter')dtLogin()">
+      <button class="btn pri" id="dtb" onclick="dtLogin()">Se connecter</button></div>
+      <p class="hint">C'est le code de l'espace Bâtiment de l'appli « Demandes de travaux ». Il est mémorisé sur cet appareil et partagé avec l'appli travaux.${DT.err?`<br><b class="negt">${esc(DT.err)}</b>`:''}</p>`;
+    return;
+  }
+  if(!DT.list){ el.innerHTML=`<div class="loading">Chargement des demandes de travaux…${DT.err?`<br><b class="negt">${esc(DT.err)}</b><br><br><button class="btn" onclick="dtLoad(true)">Réessayer</button>`:''}</div>`; dtLoad(); return; }
+  dtLoad();
+  const st=UI.dt||(UI.dt={f:'actives',q:''});
+  const actives=d=>!['Terminée','Refusée'].includes(d.statut);
+  const pr={'Urgente':0,'Haute':1,'Normale':2,'Basse':3,'':4};
+  let L=DT.list.slice();
+  if(st.f==='actives')L=L.filter(actives); else if(st.f==='moi')L=L.filter(d=>d.chargeDe===me&&actives(d)); else if(st.f!=='toutes')L=L.filter(d=>d.statut===st.f);
+  if(st.q){const q=st.q.toLowerCase();L=L.filter(d=>Object.values(d).join(' ').toLowerCase().includes(q))}
+  L.sort((a,b)=>(a.statut==='Nouvelle'?0:1)-(b.statut==='Nouvelle'?0:1)||(pr[a.priorite||'']-pr[b.priorite||''])||String(b.creeLe).localeCompare(String(a.creeLe)));
+  const cnt=s=>DT.list.filter(d=>d.statut===s).length, t=today();
+  const soon=d=>d.dateImperative&&actives(d)&&d.dateImperative<=addDays(t,14);
+  el.innerHTML=`<div class="bar"><h2>Demandes de travaux</h2>
+      <button class="btn" onclick="dtLoad(true)" title="Actualiser">⟳</button>
+      <a class="btn" href="${DT.app}#/bat" target="_blank" rel="noopener">Ouvrir l'appli travaux ↗</a>
+      <a class="btn pri" href="${DT.app}#/nouvelle" target="_blank" rel="noopener">+ Nouvelle demande</a></div>
+    <div class="kpis dtks">${['Nouvelle',"À l'étude",'Chiffrage','Validée','Planifiée','En cours'].map(s=>`<div class="kpi dtk ${st.f===s?'on':''}" onclick="UI.dt.f=UI.dt.f==='${s.replace("'","\\'")}'?'actives':'${s.replace("'","\\'")}';render()"><span>${esc(s)}</span><b style="color:${DT.col[s]}">${cnt(s)}</b></div>`).join('')}</div>
+    <div class="bar"><select class="sel" onchange="UI.dt.f=this.value;render()">${[['actives','En cours de traitement'],['moi','Prises en charge par moi'],['toutes','Toutes'],...DT.statuts.map(s=>[s,s])].map(([v,l])=>`<option value="${esc(v)}" ${st.f===v?'selected':''}>${esc(l)}</option>`).join('')}</select>
+      <input class="search" type="search" placeholder="Rechercher (n°, demandeur, lieu…)" value="${esc(st.q)}" oninput="UI.dt.q=this.value;bRefreshTable()"></div>
+    <div class="eqlist">${L.map(d=>`<div class="eqrow dt" onclick="dtOpen('${esc(d.id)}')" style="border-left:4px solid ${DT.col[d.statut]||'#9aa3b2'}">
+      <span class="bt"><b><span class="dtnum">${esc(d.numero)}</span> ${esc(d.intitule)}</b>
+      <small>${esc([d.demandeur,d.service,d.lieu].filter(Boolean).join(' · '))}${d.nbFichiers?' · 📎 '+d.nbFichiers:''}</small>
+      <small>${d.chargeDe?'👤 '+esc(d.chargeDe):'<i>Personne en charge</i>'}${d.datePrevue?' · 📅 prévue '+fD(d.datePrevue):''}${d.dateImperative?` · <span class="${soon(d)?'late':''}">⏰ impératif ${fD(d.dateImperative)}</span>`:''}</small></span>
+      <span class="sp"></span>${d.priorite?`<span class="etat ${d.priorite==='Urgente'||d.priorite==='Haute'?'ko':'ok'}">${esc(d.priorite)}</span>`:''}${dtBadge(d.statut)}</div>`).join('')||'<p class="empty" style="padding:10px">Aucune demande.</p>'}</div>
+    <p class="hint">${DT.list.length} demande${DT.list.length>1?'s':''} au total · mis à jour à ${new Date(DT.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · <a href="#" onclick="dtSetCode('');DT.list=null;render();return false">se déconnecter</a></p>`;
+}
+async function dtLogin(){
+  const c=$('#dtc').value.trim(); if(!c) return;
+  const done=setBusy($('#dtb'),'Vérification…');
+  try{const r=await fetch(DT.api,{method:'POST',body:JSON.stringify({action:'login',code:c})});const j=await r.json();if(!j.ok)throw new Error(j.error);
+    dtSetCode(c);DT.err='';DT.list=null;render();}
+  catch(e){done();DT.err=e.message;toast(e.message,1)}
+}
+function dtOpen(id){
+  const d=DT.list.find(x=>x.id===id); if(!d) return;
+  const ns=people(); if(d.chargeDe&&!ns.includes(d.chargeDe)) ns.push(d.chargeDe);
+  const tache=D.Taches.find(t=>(t.description||'').includes(d.numero));
+  modal(`<h2><span class="dtnum">${esc(d.numero)}</span> ${esc(d.intitule)}</h2>
+    <div class="dtinfo">${[['Demandeur',[d.demandeur,d.service].filter(Boolean).join(' · ')],['Lieu',d.lieu],['Souhaité',[d.dateDebut&&('du '+fD(d.dateDebut)),d.dateFin&&('au '+fD(d.dateFin))].filter(Boolean).join(' ')],['Date impérative',d.dateImperative&&fD(d.dateImperative)],['Impact',d.impact],['Budget',d.budget],['Déposée le',fDT(d.creeLe)]].filter(x=>x[1]).map(([k,v])=>`<div><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="form">
+      <label class="fl"><span>Statut</span><select id="dt_st">${DT.statuts.map(s=>`<option ${s===d.statut?'selected':''}>${esc(s)}</option>`).join('')}</select></label>
+      <label class="fl"><span>Priorité</span><select id="dt_pr">${DT.prios.map(p=>`<option value="${p}" ${p===(d.priorite||'')?'selected':''}>${p||'—'}</option>`).join('')}</select></label>
+      <label class="fl"><span>Prise en charge par</span><select id="dt_ch"><option value="">—</option>${ns.map(n=>`<option ${n===d.chargeDe?'selected':''}>${esc(n)}</option>`).join('')}</select></label>
+      <label class="fl"><span>Date d'intervention prévue</span><input type="date" id="dt_dp" value="${esc(d.datePrevue||'')}"></label>
+    </div>
+    <div class="err" id="ferr"></div>
+    <div class="acts"><a class="btn" href="${DT.app}#/bat/${encodeURIComponent(d.id)}" target="_blank" rel="noopener">Fiche complète ↗</a>
+      ${tache?`<button class="btn" onclick="closeModal();goTab('Taches');editTache('${tache.id}')">✅ Voir la tâche</button>`:`<button class="btn" id="dt_t">✅ Créer une tâche</button>`}
+      <span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn pri" id="dt_save">Enregistrer</button></div>
+    <p class="hint">Le message au demandeur, la réponse ligne par ligne et la note interne se font dans la fiche complète. Ici, le changement de statut n'envoie pas d'e-mail au demandeur.</p>`);
+  $('#dt_save').onclick=async()=>{
+    const item={statut:$('#dt_st').value,priorite:$('#dt_pr').value,chargeDe:$('#dt_ch').value,datePrevue:$('#dt_dp').value};
+    const done=setBusy($('#dt_save'),'Enregistrement…');
+    try{const r=await dtApi('update',{id,item});Object.assign(d,item,{majLe:r.majLe});closeModal();toast(d.numero+' mis à jour ✓');render()}
+    catch(e){done();$('#ferr').textContent=e.message}
+  };
+  if(!tache) $('#dt_t').onclick=async()=>{
+    const done=setBusy($('#dt_t'),'…');
+    try{const t=await saveItem('Taches',{titre:`${d.numero} · ${d.intitule}`.slice(0,280),description:`Demande de travaux ${d.numero} (${[d.demandeur,d.service].filter(Boolean).join(', ')})\nFiche : ${DT.app}#/bat/${d.id}`,
+      assigne:$('#dt_ch').value||'',priorite:{Urgente:'Urgente',Haute:'Haute',Basse:'Basse'}[$('#dt_pr').value]||'Normale',statut:'À faire',echeance:$('#dt_dp').value||d.dateImperative||'',lieu:d.lieu||''});
+      toast('Tâche créée ✓');closeModal();goTab('Taches');editTache(t.id)}catch(e){done();toast(e.message,1)}
+  };
+}
+
 /* ================== BUDGET BÂTIMENT ================== */
 const NAT_ENT=['BDC','Facture','Avoir','Reprise'];
 const num=v=>{if(v==null||v==='')return 0;const n=parseFloat(String(v).replace(/[\s  €]/g,'').replace(',','.'));return isFinite(n)?n:0};
@@ -891,7 +1003,7 @@ function demoHandle(a,p){
 
 /* ================== DÉMARRAGE ================== */
 $('#demo').hidden=!DEMO;
-render(); loadAll();
+render(); loadAll(); dtLoad();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 setInterval(()=>{if(!document.hidden&&!$('.ov'))loadAll(true)},CONFIG.refreshSec*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('.ov'))loadAll(true)});
