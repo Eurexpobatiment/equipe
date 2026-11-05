@@ -1715,7 +1715,6 @@ function trCarte(){
 // Tout ce qui se passe sur le parc, toutes sources confondues. Aucune donnée propre : on relit les autres onglets.
 const PG_SRC={
   Agenda:{l:'Agenda Eurexpo',e:'🎟️',c:'#1d4ed8'},
-  Salons:{l:'Salons',e:'🎪',c:'#6d28d9'},
   Chantiers:{l:'Travaux',e:'🚧',c:'#0f766e'},
   Cloisons:{l:'Cloisons',e:'🧱',c:'#a0522d'},
   Tribune:{l:'Tribune',e:'🏟️',c:'#b45309'},
@@ -1774,7 +1773,6 @@ function pgEvents(){
   const E=[], S=PG_SRC, t=today();
   const add=(src,o)=>E.push({src,col:S[src].c,qui:[],lieu:'',h:'',sub:'',...o});
   agList().forEach(a=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:'Eurexpo',sub:a.type||'',click:`agOpen('${String(a.url).replace(/[^\w:/.\-]/g,'')}')`}));
-  salons().forEach(s=>add('Salons',{d0:s.d0,d1:s.d1,titre:s.nom,lieu:s.halls,click:`salEdl(${esc(JSON.stringify(s.nom))})`}));
   D.Chantiers.filter(c=>c.statut!=='Annulé'&&c.dateDebut).forEach(c=>add('Chantiers',{d0:c.dateDebut,d1:c.dateFin||c.dateDebut,titre:c.titre,col:chCol(c),
     lieu:[c.espace,c.zone].filter(Boolean).join(' · '),qui:[c.responsable].filter(Boolean),h:c.horaires||'',
     sub:[c.entreprise,c.type,c.statut&&c.statut!=='Prévu'&&c.statut,chConflicts(c).length&&'⚠️ chevauchement'].filter(Boolean).join(' · '),click:`chEdit('${c.id}')`}));
