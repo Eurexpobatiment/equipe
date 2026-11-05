@@ -2,7 +2,7 @@
  * Appli Équipe – Eurexpo · API (Google Apps Script lié au Google Sheet)
  *
  * Onglets créés automatiquement : Equipe, Taches, Commentaires, Nacelle,
- * Regisseurs, Cloisons, EDL, Journal (trace de qui a fait quoi).
+ * Regisseurs, Cloisons, EDL, Memos (mémo vigilance & comptes rendus), Journal (trace de qui a fait quoi).
  *
  * Installation : coller ce fichier dans Extensions > Apps Script du Google Sheet,
  * exécuter une fois la fonction « installer », puis Déployer > Application Web
@@ -24,13 +24,15 @@ const SCHEMA = {
   Inventaire:   ['id', 'responsable', 'designation', 'code', 'montant', 'commentaire', 'avancement', 'majPar'],
   SAP:          ['id', 'societe', 'sap', 'majPar'],
   Chantiers:    ['id', 'titre', 'espace', 'zone', 'type', 'entreprise', 'responsable', 'dateDebut', 'dateFin', 'horaires', 'statut',
-                 'avancement', 'montant', 'codeBudget', 'demande', 'nacelle', 'contraintes', 'note', 'creeLe', 'majLe', 'majPar']
+                 'avancement', 'montant', 'codeBudget', 'demande', 'nacelle', 'contraintes', 'note', 'creeLe', 'majLe', 'majPar'],
+  Memos:        ['id', 'type', 'titre', 'niveau', 'texte', 'decisions', 'lieu', 'jusquau', 'epingle', 'statut', 'dateReunion', 'participants',
+                 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar']
 };
 const JOURNAL = ['date', 'auteur', 'action', 'feuille', 'id', 'detail'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule', 'contraintes'];
+const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule', 'contraintes', 'decisions'];
 
 /* ---------- Installation ---------- */
 
@@ -64,6 +66,7 @@ function handle_(p) {
       case 'save':   return out_({ ok: true, data: withLock_(function () { return save_(p.sheet, p.item, p.user); }) });
       case 'delete': return out_({ ok: true, data: withLock_(function () { return remove_(p.sheet, p.id, p.user); }) });
       case 'partFaite': return out_({ ok: true, data: withLock_(function () { return partFaite_(p.id, p.user, p.fait); }) });
+      case 'lu':     return out_({ ok: true, data: withLock_(function () { return memoLu_(p.id, p.user, p.lu); }) });
       case 'importBudget': return out_({ ok: true, data: withLock_(function () { return importBudget_(p.data, p.user); }) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
@@ -108,7 +111,7 @@ function save_(name, item, user, opts) {
   delete o._row;
 
   SCHEMA[name].forEach(function (k) {
-    if (k in item && k !== 'id') o[k] = clean_(item[k], LONG_FIELDS.indexOf(k) >= 0 ? 5000 : 300);
+    if (k in item && k !== 'id') o[k] = clean_(item[k], name === 'Memos' && k === 'texte' ? 30000 : LONG_FIELDS.indexOf(k) >= 0 ? 5000 : 300);
   });
   if (!cur) o.id = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
   const now = now_();
@@ -181,6 +184,20 @@ function save_(name, item, user, opts) {
       if (!cur) o.creeLe = now;
       o.majLe = now; o.majPar = user;
       break;
+    case 'Memos':
+      if (o.type !== 'Vigilance' && o.type !== 'Compte rendu') throw new Error('Type de mémo inconnu');
+      if (!o.titre) throw new Error(o.type === 'Vigilance' ? 'Titre obligatoire' : 'Objet de la réunion obligatoire');
+      if (o.type === 'Compte rendu' && !RE_DATE.test(o.dateReunion || '')) throw new Error('Date de réunion obligatoire');
+      if (o.jusquau && !RE_DATE.test(o.jusquau)) throw new Error("Date « valable jusqu'au » invalide");
+      if (!o.statut) o.statut = 'Actif';
+      if (o.type === 'Vigilance' && !o.niveau) o.niveau = 'Important';
+      if (!opts.lu) { // « lu par » ne change que par « J'ai lu » ; si le contenu change, chacun doit relire
+        const same = cur && ['titre', 'texte', 'decisions', 'niveau'].every(function (k) { return String(cur[k] || '') === String(o[k] || ''); });
+        o.luPar = same ? (cur.luPar || '') : user; // l'auteur de la modification l'a forcément lu
+      }
+      if (!cur) { o.creePar = user; o.creeLe = now; }
+      o.majLe = now; o.majPar = user;
+      break;
     case 'Cloisons':
       if (!RE_DATE.test(o.date || '')) throw new Error('Date de début obligatoire');
       if (!o.dateFin) o.dateFin = o.date;
@@ -230,6 +247,22 @@ function partFaite_(id, user, fait) {
   const item = Object.assign({}, cur, { faitPar: f.join(', ') });
   delete item._row;
   return save_('Taches', item, user, { part: true });
+}
+
+// Mémo : chacun confirme qu'il a lu (« J'ai lu »)
+function memoLu_(id, user, lu) {
+  user = clean_(user, 80);
+  if (!user) throw new Error("Choisis d'abord ton nom (bouton 👤)");
+  const sh = sheet_('Memos');
+  const cur = rows_(sh).filter(function (r) { return r.id === String(id); })[0];
+  if (!cur) throw new Error('Mémo introuvable (supprimé ?)');
+  const l = list_(cur.luPar).filter(function (n) { return n !== user; });
+  if (lu) l.push(user);
+  const head = headers_(sh), c = head.indexOf('luPar');
+  sh.getRange(cur._row, c + 1).setValue(safe_(l.join(', ')));
+  cur.luPar = l.join(', ');
+  delete cur._row;
+  return cur;
 }
 
 function remove_(name, id, user) {
@@ -366,6 +399,7 @@ function summary_(name, o) {
     case 'BudgetMvts': return o.nature + ' ' + o.montant + ' € ' + (o.numero || '') + ' ' + (o.libelle || '');
     case 'Inventaire': return (o.designation || '').slice(0, 80) + ' ' + o.montant;
     case 'SAP': return o.societe + ' ' + o.sap;
+    case 'Memos': return o.type + ' · ' + o.titre + (o.niveau ? ' · ' + o.niveau : '') + ' · ' + o.statut;
     case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';

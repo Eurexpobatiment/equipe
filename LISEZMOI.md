@@ -7,7 +7,7 @@ Les données sont dans un Google Sheet, et la page est hébergée sur GitHub Pag
 1. Crée un Google Sheet vide, par exemple « Appli Équipe – Eurexpo ».
 2. Va dans **Extensions › Apps Script**, efface le contenu et colle **Code.gs**. Enregistre.
 3. Choisis la fonction **installer** puis clique sur **Exécuter**, et accepte les autorisations.
-   Les onglets se créent : Equipe, Taches, Commentaires, Nacelle, Regisseurs, Cloisons, EDL, Journal.
+   Les onglets se créent : Equipe, Taches, Commentaires, Nacelle, Regisseurs, Cloisons, EDL, Memos, Journal.
 4. Va dans **Déployer › Nouveau déploiement › Application Web** :
    - Exécuter en tant que : **moi**
    - Qui a accès : **Tout le monde**
@@ -26,6 +26,7 @@ Les données sont dans un Google Sheet, et la page est hébergée sur GitHub Pag
 3. L'appli sera à l'adresse **https://eurexpobatiment.github.io/equipe/**. Envoie ce lien à l'équipe sur WhatsApp. Sur téléphone, « Ajouter à l'écran d'accueil » la fait apparaître comme une appli.
 
 ## Fonctionnement
+- **Mémo vigilance** (premier onglet) : deux parties. Les **points de vigilance** (Info, Important, Critique), à épingler en haut, avec un lieu et une date « valable jusqu'au » (après cette date ils passent dans « Archivés / expirés »). Les **comptes rendus de réunions** (date, participants, compte rendu, décisions / actions), avec un bouton « + Créer une tâche » pour chaque action. Chacun touche « ✓ J'ai lu » : on voit qui a lu et qui ne l'a pas encore fait, et l'onglet affiche le nombre de mémos que tu n'as pas encore lus. Si quelqu'un modifie le contenu, les autres doivent relire. Données dans l'onglet Memos du Google Sheet.
 - **Connexion** : à la première ouverture, chacun choisit son nom (ou l'ajoute). Le nom est mémorisé sur son téléphone, et le bouton 👤 permet d'en changer.
 - **Équipe** (onglet 👥) : ajouter ou retirer des membres et donner les rôles. Seules les personnes qui ont le rôle **Régisseur** apparaissent dans le planning de présence. Le bouton 👤 en haut sert à changer d'utilisateur.
 - **Tâches** : trois colonnes, À faire, En cours et Terminé. Une tâche peut être attribuée à plusieurs personnes (cases à cocher) : elle apparaît dans « Moi » de chacune. Sur une tâche à plusieurs, chacun touche « ✓ Ma part faite » quand il a fini (son nom passe en vert, avec « 1/3 parts faites ») ; la tâche passe seule en « Terminé » quand tout le monde a coché. On peut aussi la clôturer d'office avec le statut de la fiche. Le compteur de chacun ne compte plus les tâches où il a fini sa part. Le bouton « → En cours » attribue la tâche à celui qui la prend si personne ne l'avait. Chaque tâche a un fil d'échanges.

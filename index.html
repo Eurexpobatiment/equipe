@@ -78,6 +78,15 @@ input.search{min-width:0;flex:1 1 160px;max-width:280px}
 .adv.undo{margin-left:6px;color:var(--muted)}
 .pill.fini{background:#dcf3e5;color:#1f7a47;font-weight:600}
 .parts{font-size:12px;color:var(--muted)}
+.memo{white-space:pre-wrap;line-height:1.45}
+.card.mv-Info{border-left-color:var(--blue)}.card.mv-Important{border-left-color:var(--warn)}.card.mv-Critique{border-left-color:var(--accent);background:#fff7f7}
+.mlev{display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:5px;padding:1px 6px;margin-right:4px;vertical-align:1px}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.mgrid .card{margin-bottom:0}
+.mnew{outline:2px solid var(--warn);outline-offset:-2px}
+.lu{color:#1f7a47}.nonlu{color:var(--accent);font-weight:600}
+.mbody{background:#f8f9fb;border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0;max-height:55vh;overflow:auto}
+.mbody h3{font-size:14px;margin:12px 0 4px}.mbody h3:first-child{margin-top:0}
 .tparts{margin-top:14px}.tparts h3{font-size:14px;margin:0 0 6px}.tparts .adv{margin-top:0}
 
 /* Nacelle */
@@ -415,7 +424,28 @@ const FORMS = {
     {k:'note',l:'Note',t:'textarea'}]
 };
 
+const MNIV = {'Info':'#3a6ea5','Important':'#e09a2b','Critique':'#e63946'};
+const FORMS_MEMO = {
+  'Vigilance': [
+    {k:'titre',l:'Point de vigilance',req:1,full:1},
+    {k:'niveau',l:'Niveau',t:'select',o:Object.keys(MNIV),def:'Important'},
+    {k:'lieu',l:'Lieu / hall (facultatif)',t:'hall'},
+    {k:'texte',l:'Détail / consigne',t:'textarea',rows:5},
+    {k:'jusquau',l:"Valable jusqu'au (vide = permanent)",t:'date'},
+    {k:'epingle',l:'Épingler en haut',t:'select',o:['','oui']},
+    {k:'statut',l:'Statut',t:'select',o:['Actif','Archivé'],def:'Actif'}],
+  'Compte rendu': [
+    {k:'titre',l:'Réunion / objet',req:1,full:1},
+    {k:'dateReunion',l:'Date de la réunion',t:'date',req:1},
+    {k:'lieu',l:'Lieu',t:'hall'},
+    {k:'participants',l:'Participants',t:'people',full:1},
+    {k:'texte',l:'Compte rendu',t:'textarea',rows:12,req:1},
+    {k:'decisions',l:'Décisions / actions à mener',t:'textarea',rows:5},
+    {k:'statut',l:'Statut',t:'select',o:['Actif','Archivé'],def:'Actif'}]
+};
+
 const TABS = [
+  {id:'Memo',l:'⚠️ Mémo vigilance'},
   {id:'Taches',l:'✅ Tâches'},
   {id:'Nacelle',l:'🏗️ Nacelle'},
   {id:'Regisseurs',l:'🎧 Régisseurs'},
@@ -428,12 +458,12 @@ const TABS = [
 
 /* ---------- état ---------- */
 const DEMO = !CONFIG.apiUrl;
-let D = {Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[]};
 let me = lsGet('equipe.me') || '';
-let tab = lsGet('equipe.tab') || 'Taches';
+let tab = lsGet('equipe.tab') || 'Memo';
 if (!TABS.some(t=>t.id===tab)) tab='Taches';
 let loaded = false;
-const UI = {tFiltre:'Tous', tTout:false, nWeek:0, rWeek:0, nView:'sem', nMonth:0, rView:'sem', rMonth:0, ag:{Cloisons:{m:'avenir',q:'',mo:0},EDL:{m:'avenir',q:'',mo:0}}};
+const UI = {m:{v:'Vigilance',q:'',arch:false}, tFiltre:'Tous', tTout:false, nWeek:0, rWeek:0, nView:'sem', nMonth:0, rView:'sem', rMonth:0, ag:{Cloisons:{m:'avenir',q:'',mo:0},EDL:{m:'avenir',q:'',mo:0}}};
 
 /* ---------- outils ---------- */
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -520,7 +550,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Demandes:vTravaux})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Demandes:vTravaux})[tab](el);
   hallsDatalist(); budgetDatalists();
   if((!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -549,7 +579,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 function fieldHtml(f,v){
   const id='f_'+f.k, val=esc(v??''); let inp;
   switch(f.t){
-    case 'textarea': inp=`<textarea id="${id}" rows="3">${val}</textarea>`;break;
+    case 'textarea': inp=`<textarea id="${id}" rows="${f.rows||3}">${val}</textarea>`;break;
     case 'select': inp=`<select id="${id}">${f.o.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;break;
     case 'person':{const ns=people(f.filter);if(v&&!ns.includes(v))ns.push(v);
       inp=`<select id="${id}"><option value="">—</option>${ns.map(n=>`<option ${n===v?'selected':''}>${esc(n)}</option>`).join('')}</select>`;break;}
@@ -569,7 +599,7 @@ function fieldHtml(f,v){
   return (f.t==='multi'||f.t==='people')?`<div class="fl full"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</div>`:`<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
 }
 function openForm(sheet,item,title,opt={}){
-  const F=FORMS[sheet]; const it={...(item||{})}; const isNew=!it.id;
+  const F=opt.fields||FORMS[sheet]; const it={...(item||{})}; const isNew=!it.id;
   F.forEach(f=>{if((it[f.k]==null||it[f.k]==='')&&f.def!==undefined)it[f.k]=f.def});
   hallsDatalist(); budgetDatalists();
   modal(`<h2>${esc(title)}</h2><div class="form">${F.map(f=>fieldHtml(f,it[f.k])).join('')}</div>
@@ -746,6 +776,74 @@ function editTache(id){
 }
 async function delCom(cid,tid){try{await delItem('Commentaires',cid);const l=$('#clist');if(l)l.innerHTML=comsHtml(tid)}catch(e){toast(e.message,1)}}
 
+/* ================== MÉMO VIGILANCE & COMPTES RENDUS ================== */
+const memoActif=m=>m.statut!=='Archivé'&&!(m.jusquau&&m.jusquau<today());
+const memoLu=m=>espList(m.luPar).includes(me);
+const memoNonLus=()=>D.Memos.filter(m=>memoActif(m)&&!memoLu(m));
+function vMemo(el){
+  const S=UI.m, q=S.q.trim().toLowerCase(), isV=S.v==='Vigilance';
+  let L=D.Memos.filter(m=>m.type===S.v);
+  if(q) L=L.filter(m=>[m.titre,m.texte,m.decisions,m.lieu,m.participants,m.creePar].join(' ').toLowerCase().includes(q));
+  const act=L.filter(memoActif), arch=L.filter(m=>!memoActif(m));
+  const ni=m=>Object.keys(MNIV).indexOf(m.niveau||'Info');
+  const sort=a=>isV?a.sort((x,y)=>(y.epingle==='oui')-(x.epingle==='oui')||ni(y)-ni(x)||(y.creeLe||'').localeCompare(x.creeLe||''))
+                   :a.sort((x,y)=>(y.dateReunion||'').localeCompare(x.dateReunion||'')||(y.creeLe||'').localeCompare(x.creeLe||''));
+  const nbV=D.Memos.filter(m=>m.type==='Vigilance'&&memoActif(m)&&!memoLu(m)).length, nbC=D.Memos.filter(m=>m.type==='Compte rendu'&&memoActif(m)&&!memoLu(m)).length;
+  const seg=[['Vigilance','⚠️ Points de vigilance',nbV],['Compte rendu','📝 Comptes rendus',nbC]].map(([k,l,n])=>`<button class="${S.v===k?'on':''}" onclick="UI.m.v='${k}';UI.m.arch=false;render()">${l}${n?` <span class="badge">${n}</span>`:''}</button>`).join('');
+  el.innerHTML=`<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
+    <input class="search" placeholder="Rechercher…" value="${esc(S.q)}" oninput="UI.m.q=this.value;memoRefresh()">
+    <button class="btn pri" onclick="memoNew('${S.v}')">+ ${isV?'Point de vigilance':'Compte rendu'}</button></div>
+    ${isV?'<p class="hint">Les points importants à connaître par toute l\'équipe. Touche « ✓ J\'ai lu » pour confirmer que tu en as pris connaissance.</p>':'<p class="hint">Les comptes rendus de réunions. Depuis un compte rendu, tu peux créer une tâche pour chaque action à mener.</p>'}
+    <div class="mgrid">${sort(act).map(memoCard).join('')||`<p class="empty">${q?'Aucun résultat.':isV?'Aucun point de vigilance en cours.':'Aucun compte rendu pour l\'instant.'}</p>`}</div>
+    ${arch.length?`<div style="margin-top:18px"><button class="link" onclick="UI.m.arch=!UI.m.arch;render()">${S.arch?'▾':'▸'} Archivés / expirés (${arch.length})</button>
+      ${S.arch?`<div class="mgrid" style="margin-top:10px">${sort(arch).map(memoCard).join('')}</div>`:''}</div>`:''}`;
+}
+function memoRefresh(){const pos=$('.search').selectionStart;render();const s=$('.search');if(s){s.focus();try{s.setSelectionRange(pos,pos)}catch(e){}}}
+function memoLuHtml(m){
+  const lus=espList(m.luPar), eq=people(), nl=eq.filter(n=>!lus.includes(n));
+  return `<span class="${memoLu(m)?'lu':'nonlu'}" title="${esc(lus.length?'Lu par : '+lus.join(', '):'Personne ne l\'a encore lu')}${nl.length?' — pas encore lu : '+esc(nl.join(', ')):''}">👁 ${lus.length}/${eq.length} lu${memoLu(m)?' · toi ✓':' · pas encore lu par toi'}</span>`;
+}
+function memoCard(m){
+  const isV=m.type==='Vigilance', act=memoActif(m), t=m.texte||'';
+  const lev=isV?`<span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>`:'';
+  return `<div class="card ${isV?'mv-'+esc(m.niveau||'Info'):''} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" onclick="memoOpen('${m.id}')">
+    <div class="ct">${m.epingle==='oui'&&isV?'📌 ':''}${lev}${esc(m.titre)}</div>
+    ${t?`<div class="cd memo">${esc(t.length>(isV?260:180)?t.slice(0,isV?260:180)+'…':t)}</div>`:''}
+    <div class="meta">${!isV&&m.dateReunion?`<span>📅 ${fD(m.dateReunion,{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>`:''}
+      ${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}${isV&&m.jusquau?`<span>⏳ jusqu'au ${fD(m.jusquau)}</span>`:''}
+      ${!isV&&m.decisions?'<span>✅ actions</span>':''}<span>✍️ ${esc(m.creePar||'?')}</span>${memoLuHtml(m)}</div>
+    ${act&&!memoLu(m)?`<button class="adv ok" style="margin-left:0" onclick="event.stopPropagation();memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`:''}
+  </div>`;
+}
+function memoOpen(id){
+  const m=D.Memos.find(x=>x.id===id); if(!m) return; const isV=m.type==='Vigilance';
+  const lus=espList(m.luPar), nl=people().filter(n=>!lus.includes(n));
+  modal(`<h2>${isV&&m.epingle==='oui'?'📌 ':''}${isV?`<span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>`:'📝 '}${esc(m.titre)}</h2>
+    <div class="meta">${!isV&&m.dateReunion?`<span>📅 ${fD(m.dateReunion,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>`:''}
+      ${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}${isV&&m.jusquau?`<span>⏳ valable jusqu'au ${fD(m.jusquau)}</span>`:''}${m.statut==='Archivé'?'<span>🗄️ archivé</span>':''}</div>
+    ${!isV&&m.participants?`<div class="meta" style="margin-top:8px">Participants : ${espList(m.participants).map(pill).join('')}</div>`:''}
+    <div class="mbody">${m.texte?`${!isV?'<h3>Compte rendu</h3>':''}<div class="memo">${esc(m.texte)}</div>`:'<p class="empty">Pas de détail.</p>'}
+      ${m.decisions?`<h3>Décisions / actions à mener</h3><div class="memo">${esc(m.decisions)}</div>`:''}</div>
+    <div class="meta"><span class="lu">👁 Lu par : ${lus.length?esc(lus.join(', ')):'personne'}</span>${nl.length?`<span>Pas encore lu : ${esc(nl.join(', '))}</span>`:''}</div>
+    <div class="made">Rédigé par ${esc(m.creePar||'?')} le ${fDT(m.creeLe)}${m.majPar&&m.majLe!==m.creeLe?` · modifié par ${esc(m.majPar)} le ${fDT(m.majLe)}`:''}</div>
+    <div class="acts">${memoLu(m)?`<button class="btn" onclick="memoSetLu('${m.id}',false,this)">Marquer comme non lu</button>`:`<button class="btn pri" onclick="memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`}
+      ${!isV?`<button class="btn" onclick="memoTache('${m.id}')">+ Créer une tâche</button>`:''}
+      <span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn pri" onclick="memoEdit('${m.id}')">✏️ Modifier</button></div>`);
+}
+function memoNew(type){openForm('Memos',{type,...(type==='Compte rendu'?{dateReunion:today(),participants:me}:{})},type==='Vigilance'?'Nouveau point de vigilance':'Nouveau compte rendu',{fields:FORMS_MEMO[type]})}
+function memoEdit(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;
+  openForm('Memos',m,m.type==='Vigilance'?'Point de vigilance':'Compte rendu',{fields:FORMS_MEMO[m.type],extra:'<p class="hint">Si tu modifies le contenu, chacun devra le relire (les « lu » sont remis à zéro, sauf le tien).</p>'})}
+async function memoSetLu(id,lu,btn){
+  const done=setBusy(btn,'…');
+  try{
+    const r=await api('lu',{id,lu});
+    const i=D.Memos.findIndex(x=>x.id===r.id); if(i>=0) D.Memos[i]=r;
+    if($('.ov')) memoOpen(id); render(); toast(lu?'Noté comme lu ✓':'Marqué non lu');
+  }catch(e){done();toast(e.message,1)}
+}
+function memoTache(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;closeModal(true);
+  openForm('Taches',{description:`Suite au compte rendu « ${m.titre} » du ${fD(m.dateReunion,{day:'numeric',month:'long',year:'numeric'})}${m.decisions?' :\n'+m.decisions:''}`,lieu:m.lieu||''},'Nouvelle tâche (depuis un compte rendu)')}
+
 /* ================== NACELLE ================== */
 function vNacelle(el){
   if(UI.nView==='mois') return vNacelleMois(el);
@@ -919,6 +1017,7 @@ function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('')}
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
+  if(id==='Memo'&&me){const n=memoNonLus().length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Demandes'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
   return '';
 }
@@ -1305,6 +1404,9 @@ function demoSeed(){
     Cloisons:[{id:id(),date:addDays(t,2),heure:'07:00',dateFin:addDays(t,3),heureFin:'12:00',hall:'Hall 2.1',mouvement:'À ranger',cloison:'C3',salon:'Salon démo',responsable:'Karim',statut:'Prévu'},
               {id:id(),date:addDays(t,6),heure:'18:00',hall:'Hall 2.1',mouvement:'À sortir',cloison:'C3',salon:'Salon démo',statut:'Prévu'}],
     BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],
+    Memos:[{id:id(),type:'Vigilance',titre:'Coupure électrique TGBT hall 5 jeudi',niveau:'Critique',texte:'Consignation par Dalkia de 7h à 10h.\nAucune intervention sur les coffrets du hall 5 pendant ce créneau.',lieu:'Hall 5.1',jusquau:addDays(t,3),epingle:'oui',statut:'Actif',luPar:'Julien',creePar:'Responsable équipe',creeLe:addDays(t,-1)+'T08:30'},
+      {id:id(),type:'Vigilance',titre:'Clés local TGBT : toujours remettre au PC sécurité',niveau:'Important',texte:'Signer le registre à la prise et au retour.',statut:'Actif',luPar:'',creePar:'Responsable équipe',creeLe:addDays(t,-6)+'T09:00'},
+      {id:id(),type:'Compte rendu',titre:'Réunion d\'équipe hebdo',dateReunion:addDays(t,-2),participants:'Responsable équipe, Julien, Karim',texte:'1. Point sécurité : port du harnais obligatoire en nacelle.\n2. Salon démo : montage à partir de jeudi.\n3. Budget : BDC éclairage à relancer.',decisions:'- Julien : relancer le devis éclairage\n- Karim : vérifier les portes sectionnelles hall 5',statut:'Actif',luPar:'Responsable équipe',creePar:'Responsable équipe',creeLe:addDays(t,-2)+'T11:00'}],
     Chantiers:[{id:id(),titre:'Remplacement éclairage LED',espace:'Hall 4.2',zone:'Côté quai',type:'Éclairage',entreprise:'DALKIA',responsable:'Julien',dateDebut:addDays(m,1),dateFin:addDays(m,9),statut:'En cours',avancement:'40',montant:'12500',nacelle:'oui',horaires:'7h-12h'},
       {id:id(),titre:'Reprise peinture couloir',espace:'Hall 4.2',type:'Peinture',entreprise:'RAMPON',responsable:'Karim',dateDebut:addDays(m,6),dateFin:addDays(m,12),statut:'Prévu',montant:'4800'},
       {id:id(),titre:'Étanchéité toiture',espace:'Toitures',zone:'Hall 6',type:'Couverture / Étanchéité',entreprise:'SMAC',dateDebut:addDays(m,14),dateFin:addDays(m,30),statut:'Prévu',montant:'21800'},
@@ -1321,12 +1423,14 @@ function demoHandle(a,p){
   if(a==='all') return DB;
   if(a==='partFaite'){const cur=DB.Taches.find(x=>x.id===p.id);if(!cur)throw new Error('Tâche introuvable');if(!asg(cur).includes(p.user))throw new Error(p.user+" n'est pas attribué à cette tâche");
     const f=fait(cur).filter(n=>n!==p.user);if(p.fait)f.push(p.user);return demoHandle('save',{sheet:'Taches',user:p.user,part:1,item:{...cur,faitPar:f.join(', ')}})}
+  if(a==='lu'){const cur=DB.Memos.find(x=>x.id===p.id);if(!cur)throw new Error('Mémo introuvable');const l=String(cur.luPar||'').split(',').map(x=>x.trim()).filter(n=>n&&n!==p.user);if(p.lu)l.push(p.user);cur.luPar=l.join(', ');return cur}
   if(a==='importBudget'){const id=()=>Math.random().toString(36).slice(2,10);p.data.lignes.forEach(l=>{const o={...l,id:id()};delete o.mvts;DB.BudgetLignes.push(o);(l.mvts||[]).forEach(m=>DB.BudgetMvts.push({...m,id:id(),ligneId:o.id,montant:String(m.montant)}))});(p.data.inventaire||[]).forEach(x=>DB.Inventaire.push({...x,id:id()}));(p.data.sap||[]).forEach(x=>DB.SAP.push({...x,id:id()}));return {ok:1}}
   const L=DB[p.sheet]; if(!L) throw new Error('Onglet inconnu');
   if(a==='save'){
     const cur=p.item.id?L.find(x=>x.id===p.item.id):null; const o={...(cur||{}),...p.item}; const now=nowISO();
     if(p.sheet==='Nacelle'){if(o.fin<=o.debut)throw new Error('La fin doit être après le début');const c=L.find(b=>b.id!==o.id&&o.debut<b.fin&&b.debut<o.fin);if(c)throw new Error(`Nacelle déjà réservée par ${c.nom} du ${fDT(c.debut)} au ${fDT(c.fin)}`)}
-    if(!cur){o.id=Math.random().toString(36).slice(2,10);if(p.sheet==='Taches'){o.creePar=p.user;o.creeLe=now}if(p.sheet==='Commentaires')o.date=now}
+    if(!cur){o.id=Math.random().toString(36).slice(2,10);if(p.sheet==='Taches'){o.creePar=p.user;o.creeLe=now}if(p.sheet==='Commentaires')o.date=now;if(p.sheet==='Memos'){o.creePar=p.user;o.creeLe=now;o.statut=o.statut||'Actif'}}
+    if(p.sheet==='Memos'){if(!cur||['titre','texte','decisions','niveau'].some(k=>(cur[k]||'')!==(o[k]||'')))o.luPar=p.user;o.majLe=now}
     if(p.sheet==='Taches'){if(!p.part)o.faitPar=cur?cur.faitPar||'':'';demoParts(o,cur,p.part);o.majLe=now} if(p.sheet!=='Equipe'&&p.sheet!=='Commentaires')o.majPar=p.user;
     if(cur)Object.assign(cur,o);else L.push(o); return o;
   }
