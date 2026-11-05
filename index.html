@@ -307,6 +307,26 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
   header{gap:8px;padding-left:10px;padding-right:10px}
   main{padding:12px 10px 80px}
 }
+.pgsrc{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pgchip{border:1px solid var(--c);background:var(--c);color:#fff;border-radius:16px;padding:5px 11px;font-size:13px;cursor:pointer}
+.pgchip.off{background:#fff;color:var(--muted);border-color:var(--line);text-decoration:line-through}
+.pgweek{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;align-items:start}
+.pgday{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px;min-width:0;margin-bottom:10px}
+.pgweek .pgday{margin-bottom:0;min-height:120px}
+.pgday.we{background:#f9fafb}.pgday.past{opacity:.75}.pgday.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.pgdh{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:6px;font-size:13px;text-transform:capitalize;color:#475569}
+.pgday.today .pgdh b{color:var(--accent)}
+.pgdh .btn.sm{padding:2px 8px}
+.pgsh{font-size:13px;color:#475569;margin:10px 0 4px}.pgsh .n{font-weight:400;color:var(--muted)}
+.pgit{border-left:4px solid var(--grey);background:#f8f9fb;border-radius:6px;padding:4px 7px;margin-bottom:4px;cursor:pointer;font-size:13px;overflow-wrap:anywhere}
+.pgit:hover{background:#eef1f6}
+.pgit small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
+.pgh{color:var(--navy)}
+.pgday .free{color:var(--muted);font-size:12px;padding:2px}
+.pgfrise .gtrack{position:relative}
+.pgfrise .gbar{bottom:auto;height:20px;line-height:20px}
+@media (max-width:900px){.pgweek{grid-template-columns:1fr}.pgweek .pgday{min-height:0}}
+@media print{header,nav,.pgsrc,.chf,.bar .btn,.seg-ctl{display:none!important}body{background:#fff}.pgday{break-inside:avoid}}
 </style>
 </head>
 <body>
@@ -447,6 +467,7 @@ const FORMS_MEMO = {
 
 const TABS = [
   {id:'Memo',l:'⚠️ Mémo vigilance'},
+  {id:'Planning',l:'📆 Planning global'},
   {id:'Taches',l:'✅ Tâches'},
   {id:'Nacelle',l:'🏗️ Nacelle'},
   {id:'Regisseurs',l:'🎧 Régisseurs'},
@@ -555,7 +576,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Demandes:vTravaux})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux})[tab](el);
   hallsDatalist(); budgetDatalists();
   if((!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -1025,7 +1046,7 @@ async function dtLoad(force){
   DT.loading=true;
   try{DT.list=await dtApi('list');DT.err='';DT.at=Date.now()}
   catch(e){DT.err=e.message;if(/code/i.test(e.message)){dtSetCode('');DT.list=null}}
-  DT.loading=false; if(tab==='Demandes'&&!$('.ov')) render(); else renderTabsOnly();
+  DT.loading=false; if((tab==='Demandes'||tab==='Planning')&&!$('.ov')) render(); else renderTabsOnly();
 }
 function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('')}
@@ -1396,6 +1417,114 @@ async function bExport(){
 }
 
 /* ================== MODE DÉMO ================== */
+/* ================== PLANNING GLOBAL ================== */
+// Tout ce qui se passe sur le parc, toutes sources confondues. Aucune donnée propre : on relit les autres onglets.
+const PG_SRC={
+  Salons:{l:'Salons',e:'🎪',c:'#6d28d9'},
+  Chantiers:{l:'Travaux',e:'🚧',c:'#0f766e'},
+  Cloisons:{l:'Cloisons',e:'🧱',c:'#a0522d'},
+  EDL:{l:'États des lieux',e:'📋',c:'#3a6ea5'},
+  Nacelle:{l:'Nacelle',e:'🏗️',c:'#e09a2b'},
+  Regisseurs:{l:'Régisseurs',e:'🎧',c:'#8e5bd1'},
+  Taches:{l:'Tâches',e:'✅',c:'#e63946'},
+  Demandes:{l:'Demandes',e:'📨',c:'#5b5fc7'}};
+const pgOff=()=>{try{return JSON.parse(lsGet('equipe.pgOff')||'[]')}catch(e){return []}};
+function pgToggle(k){const o=pgOff(),i=o.indexOf(k);i<0?o.push(k):o.splice(i,1);lsSet('equipe.pgOff',JSON.stringify(o));render()}
+function pgEvents(){
+  const E=[], S=PG_SRC, t=today();
+  const add=(src,o)=>E.push({src,col:S[src].c,qui:[],lieu:'',h:'',sub:'',...o});
+  salons().forEach(s=>add('Salons',{d0:s.d0,d1:s.d1,titre:s.nom,lieu:s.halls,click:`salEdl(${esc(JSON.stringify(s.nom))})`}));
+  D.Chantiers.filter(c=>c.statut!=='Annulé'&&c.dateDebut).forEach(c=>add('Chantiers',{d0:c.dateDebut,d1:c.dateFin||c.dateDebut,titre:c.titre,col:chCol(c),
+    lieu:[c.espace,c.zone].filter(Boolean).join(' · '),qui:[c.responsable].filter(Boolean),h:c.horaires||'',
+    sub:[c.entreprise,c.type,c.statut&&c.statut!=='Prévu'&&c.statut,chConflicts(c).length&&'⚠️ chevauchement'].filter(Boolean).join(' · '),click:`chEdit('${c.id}')`}));
+  D.Cloisons.filter(x=>x.statut!=='Annulé'&&x.date).forEach(x=>add('Cloisons',{d0:x.date,d1:agFin(x),h:x.heure||'',titre:[x.mouvement,x.cloison].filter(Boolean).join(' · ')||'Mouvement de cloison',
+    lieu:x.hall||'',qui:[x.responsable].filter(Boolean),sub:[x.salon&&'🎪 '+x.salon,x.statut].filter(Boolean).join(' · '),click:`editAg('Cloisons','${x.id}')`}));
+  D.EDL.filter(x=>x.statut!=='Annulé'&&x.date).forEach(x=>add('EDL',{d0:x.date,d1:x.date,h:x.heure||'',titre:[x.type||'État des lieux',x.salon].filter(Boolean).join(' · '),
+    lieu:x.halls||'',qui:[x.responsable].filter(Boolean),sub:x.statut||'',click:`editAg('EDL','${x.id}')`}));
+  D.Nacelle.filter(b=>b.debut&&b.fin).forEach(b=>{let d1=b.fin.slice(0,10);const d0=b.debut.slice(0,10);if(b.fin.slice(11,16)==='00:00'&&d1>d0)d1=addDays(d1,-1);
+    add('Nacelle',{d0,d1,h:b.debut.slice(11,16),titre:'Nacelle · '+b.nom,lieu:b.lieu||'',qui:[b.nom],sub:[b.debut.slice(11,16)+' → '+(b.fin.slice(0,10)===d0?b.fin.slice(11,16):fDT(b.fin)),b.motif].filter(Boolean).join(' · '),click:`editNac('${b.id}')`})});
+  D.Regisseurs.filter(r=>r.statut!=='Présent'&&r.dateDebut).forEach(r=>add('Regisseurs',{d0:r.dateDebut,d1:r.dateFin||r.dateDebut,titre:r.regisseur+' · '+(r.statut||''),col:ST_REG[r.statut]||S.Regisseurs.c,
+    qui:[r.regisseur],sub:[r.salon&&'🎪 '+r.salon,r.note].filter(Boolean).join(' · '),click:`editReg('${r.id}')`}));
+  D.Taches.filter(x=>x.echeance&&x.statut!=='Terminé').forEach(x=>add('Taches',{d0:x.echeance.slice(0,10),d1:x.echeance.slice(0,10),titre:(perso(x)?'🔒 ':'')+x.titre,lieu:x.lieu||'',qui:asg(x),
+    sub:[x.priorite,x.statut,x.echeance.slice(0,10)<t&&'en retard'].filter(Boolean).join(' · '),click:`editTache('${x.id}')`}));
+  (DT.list||[]).filter(d=>!['Terminée','Refusée'].includes(d.statut)&&(d.datePrevue||d.dateImperative)).forEach(d=>{const j=d.datePrevue||d.dateImperative;
+    add('Demandes',{d0:j,d1:j,titre:(d.numero?d.numero+' · ':'')+(d.intitule||'Demande de travaux'),lieu:d.lieu||'',qui:[d.chargeDe].filter(Boolean),col:DT.col[d.statut]||S.Demandes.c,
+      sub:[d.statut,d.datePrevue?'intervention prévue':'⏰ date impérative',d.demandeur].filter(Boolean).join(' · '),click:`dtOpen('${d.id}')`})});
+  const st=UI.pg, off=pgOff(), q=(st.q||'').toLowerCase(), esp=(st.esp||'').toLowerCase();
+  return E.filter(e=>e.d0&&!off.includes(e.src)&&(!st.moi||e.qui.includes(me))&&(!esp||e.lieu.toLowerCase().includes(esp))
+    &&(!q||[e.titre,e.lieu,e.sub,e.qui.join(' ')].join(' ').toLowerCase().includes(q)))
+    .map(e=>({...e,d1:e.d1&&e.d1>=e.d0?e.d1:e.d0}))
+    .sort((a,b)=>(a.d0===a.d1?1:0)-(b.d0===b.d1?1:0)||(a.h||'99').localeCompare(b.h||'99')||a.d0.localeCompare(b.d0));
+}
+const pgOn=(E,d)=>E.filter(e=>e.d0<=d&&e.d1>=d);
+function vPlanning(el){
+  const st=UI.pg||(UI.pg={v:'sem',w:0,m:0,weeks:4,q:'',esp:'',moi:false});
+  if(dtCode()&&!DT.list) dtLoad(); else dtLoad();
+  const E=pgEvents(), t=today(), off=pgOff(), N=pgOn(E,t);
+  const cnt=k=>N.filter(e=>e.src===k).length;
+  el.innerHTML=`<div class="bar"><h2>Planning global</h2>
+      <div class="seg-ctl">${[['jour','Jour'],['sem','Semaine'],['mois','Mois'],['frise','Frise']].map(([k,l])=>`<button class="${st.v===k?'on':''}" onclick="UI.pg.v='${k}';render()">${l}</button>`).join('')}</div>
+      <span class="sp"></span><button class="btn" onclick="window.print()">🖨️ Imprimer</button><button class="btn pri" onclick="pgAdd()">+ Ajouter</button></div>
+    <div class="mine pgtoday"><b>Aujourd'hui :</b> ${Object.keys(PG_SRC).filter(cnt).map(k=>`${PG_SRC[k].e} ${cnt(k)} ${esc(PG_SRC[k].l.toLowerCase())}`).join(' · ')||'rien de prévu'}</div>
+    <div class="pgsrc">${Object.entries(PG_SRC).map(([k,s])=>`<button class="pgchip ${off.includes(k)?'off':''}" style="--c:${s.c}" onclick="pgToggle('${k}')">${s.e} ${esc(s.l)}</button>`).join('')}</div>
+    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (salon, entreprise, personne…)" value="${esc(st.q)}" oninput="UI.pg.q=this.value;pgRefresh()">
+      <select class="sel" onchange="UI.pg.esp=this.value;render()"><option value="">Tous les espaces</option>${ESPACES().map(e=>`<option ${e===st.esp?'selected':''}>${esc(e)}</option>`).join('')}</select>
+      <label class="chk"><input type="checkbox" ${st.moi?'checked':''} onchange="UI.pg.moi=this.checked;render()"> Seulement moi</label></div>
+    ${off.includes('Demandes')||dtCode()?'':`<p class="hint">📨 Les demandes de travaux apparaîtront une fois connecté dans l'onglet <a href="#" onclick="goTab('Demandes');return false">Demandes</a>.</p>`}
+    <div id="pgview"></div>`;
+  ({jour:pgJour,sem:pgSem,mois:pgMois,frise:pgFrise})[st.v]($('#pgview'),E);
+}
+function pgRefresh(){const s=$('.search'),pos=s?s.selectionStart:0;render();const n=$('.search');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}
+const pgItem=(e,d)=>{const S=PG_SRC[e.src], multi=e.d0!==e.d1;
+  return `<div class="pgit" style="border-left-color:${e.col}" onclick="${esc(e.click)}" title="${esc(S.l+' · '+e.titre+(multi?' · du '+fD(e.d0)+' au '+fD(e.d1):''))}">
+    <div class="pgt">${S.e} ${e.h&&(!multi||e.d0===d)&&e.src!=='Chantiers'?`<b class="pgh">${esc(e.h.slice(0,5))}</b> `:''}${esc(e.titre)}</div>
+    <small>${[e.lieu&&'📍 '+esc(e.lieu),e.qui.length&&e.src!=='Nacelle'&&e.src!=='Regisseurs'&&'👤 '+esc(e.qui.join(', ')),e.src==='Chantiers'&&e.h&&'🕒 '+esc(e.h),e.sub&&esc(e.sub),
+      multi&&(d?(d===e.d0?'▶ début':d===e.d1?'■ fin':'↔ jusqu\'au '+fD(e.d1,{day:'numeric',month:'short'})):'du '+fD(e.d0)+' au '+fD(e.d1))].filter(Boolean).join(' · ')}</small></div>`};
+function pgDayBlock(E,d,full){const t=today(), L=pgOn(E,d);
+  const g=full?Object.keys(PG_SRC).map(k=>[k,L.filter(e=>e.src===k)]).filter(x=>x[1].length):[];
+  return `<div class="pgday ${d===t?'today':''} ${d<t?'past':''} ${[0,6].includes(parseD(d).getDay())?'we':''}"><div class="pgdh"><b>${d===t?'Aujourd\'hui · ':''}${fD(d,{weekday:full?'long':'short',day:'numeric',month:full?'long':'short'})}</b>
+    <button class="btn sm" onclick="pgAdd('${d}')" title="Ajouter ce jour-là">+</button></div>
+    ${full?g.map(([k,l])=>`<h3 class="pgsh">${PG_SRC[k].e} ${esc(PG_SRC[k].l)} <span class="n">${l.length}</span></h3>${l.map(e=>pgItem(e,d)).join('')}`).join('')
+      :L.map(e=>pgItem(e,d)).join('')}${L.length?'':'<div class="free">Rien de prévu</div>'}</div>`}
+function pgJour(el,E){const st=UI.pg, d=st.d||(st.d=today());
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.pg.d=addDays(UI.pg.d,-1);render()">‹</button><input type="date" class="sel" value="${d}" onchange="UI.pg.d=this.value||today();render()">
+    <button class="btn" onclick="UI.pg.d=addDays(UI.pg.d,1);render()">›</button><button class="btn" onclick="UI.pg.d=today();render()">Aujourd'hui</button></div>${pgDayBlock(E,d,true)}`}
+function pgSem(el,E){const st=UI.pg, ws=monday(st.w), days=[...Array(7)].map((_,i)=>addDays(ws,i));
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.pg.w--;render()">‹</button><button class="btn" onclick="UI.pg.w=0;render()">Cette semaine</button><button class="btn" onclick="UI.pg.w++;render()">›</button>
+    <b style="margin-left:6px">Du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(days[6],{day:'numeric',month:'long',year:'numeric'})}</b></div>
+    <div class="pgweek">${days.map(d=>pgDayBlock(E,d,false)).join('')}</div>`}
+function pgMois(el,E){const st=UI.pg, ms=monthStart(st.m);
+  const evs=d=>pgOn(E,d).map(e=>({html:esc(PG_SRC[e.src].e+' '+(e.d0===d&&e.h&&e.src!=='Chantiers'?e.h.slice(0,5)+' ':'')+(e.d0!==d?'↔ ':'')+e.titre),col:e.col,
+    title:PG_SRC[e.src].l+' · '+e.titre+(e.lieu?' · '+e.lieu:'')+(e.d0!==e.d1?' · '+fD(e.d0)+' → '+fD(e.d1):''),click:e.click}));
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.pg.m--;render()">‹</button><button class="btn" onclick="UI.pg.m=0;render()">Ce mois</button><button class="btn" onclick="UI.pg.m++;render()">›</button><b style="margin-left:6px">${fMonth(ms)}</b></div>
+    <p class="hint">Touche un élément pour l'ouvrir, ou un jour pour voir sa journée en détail.</p>
+    ${monthCal(ms,evs,d=>`UI.pg.v='jour';UI.pg.d='${d}';render()`,4)}`}
+function pgFrise(el,E){
+  const st=UI.pg, N=st.weeks*7, d0=monday(st.w), d1=addDays(d0,N-1), t=today(), pc=i=>i/N*100;
+  const idx=d=>Math.round((parseD(d)-parseD(d0))/864e5);
+  const weeks=[...Array(st.weeks)].map((_,i)=>{const w=addDays(d0,i*7);const dt=parseD(w);const on=new Date(dt);on.setDate(on.getDate()+3);const y=new Date(on.getFullYear(),0,4);const wn=1+Math.round(((on-y)/864e5-3+((y.getDay()+6)%7))/7);
+    return `<div class="gw" style="left:${pc(i*7)}%;width:${pc(7)}%"><b>S${wn}</b> ${fD(w,{day:'numeric',month:'short'})}</div>`}).join('');
+  const bg=[...Array(N)].map((_,i)=>{const w=parseD(addDays(d0,i)).getDay();return (w===0||w===6)?`<i class="gwe" style="left:${pc(i)}%;width:${pc(1)}%"></i>`:''}).join('')
+    +(t>=d0&&t<=d1?`<i class="gtoday" style="left:${pc(idx(t)+.5)}%"></i>`:'')+[...Array(st.weeks)].map((_,i)=>`<i class="gsep" style="left:${pc(i*7)}%"></i>`).join('');
+  const L=E.filter(e=>e.d0<=d1&&e.d1>=d0);
+  const rows=Object.keys(PG_SRC).map(k=>{const items=L.filter(e=>e.src===k).sort((a,b)=>a.d0.localeCompare(b.d0)||b.d1.localeCompare(a.d1));if(!items.length)return '';
+    const lanes=[]; items.forEach(e=>{let i=lanes.findIndex(end=>end<e.d0);if(i<0){i=lanes.length;lanes.push('')}lanes[i]=e.d1;e._l=i});
+    const bars=items.map(e=>{const s=Math.max(0,idx(e.d0)),f=Math.min(N-1,idx(e.d1));
+      return `<div class="gbar" style="left:${pc(s)}%;width:${pc(f-s+1)}%;top:${4+e._l*24}px;background:${e.col}" title="${esc(PG_SRC[k].l+' · '+e.titre+(e.lieu?' · '+e.lieu:'')+' · '+fD(e.d0)+(e.d1!==e.d0?' → '+fD(e.d1):''))}" onclick="${esc(e.click)}"><span>${esc(e.titre)}</span></div>`}).join('');
+    return `<div class="grow pgrow"><div class="glab">${PG_SRC[k].e} ${esc(PG_SRC[k].l)}<small>${items.length} élément${items.length>1?'s':''}</small></div><div class="gtrack" style="height:${8+lanes.length*24}px">${bg}${bars}</div></div>`}).join('');
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.pg.w-=Math.max(1,UI.pg.weeks/2|0);render()">‹</button><button class="btn" onclick="UI.pg.w=0;render()">Aujourd'hui</button><button class="btn" onclick="UI.pg.w+=Math.max(1,UI.pg.weeks/2|0);render()">›</button>
+      <div class="seg-ctl">${[2,4,8,13].map(w=>`<button class="${st.weeks===w?'on':''}" onclick="UI.pg.weeks=${w};render()">${w===13?'3 mois':w+' sem.'}</button>`).join('')}</div></div>
+    <div class="gantt pgfrise" style="--n:${N}"><div class="ghead"><div class="glab">${fD(d0,{day:'numeric',month:'short'})} → ${fD(d1,{day:'numeric',month:'short',year:'numeric'})}</div><div class="gtrack gweeks">${weeks}</div></div>
+      ${rows||`<div class="empty" style="padding:16px">Rien sur cette période.</div>`}</div>`;
+}
+function pgAdd(d){d=d||today();
+  const opts=[['🚧 Chantier / travaux',`chNew({dateDebut:'${d}',dateFin:'${d}'})`],['🧱 Mouvement de cloison',`newAg('Cloisons','${d}')`],['📋 État des lieux',`newAg('EDL','${d}')`],
+    ['🏗️ Réservation nacelle',`newNac('${d}')`],['🎧 Période régisseur',`newReg('','${d}')`],['✅ Tâche',`openForm('Taches',{assigne:me,echeance:'${d}'},'Nouvelle tâche')`]];
+  modal(`<h2>Ajouter le ${fD(d,{weekday:'long',day:'numeric',month:'long'})}</h2>
+    <div class="eqlist">${opts.map(([l,a])=>`<div class="eqrow" style="cursor:pointer" onclick="closeModal(true);${a}"><span><b>${l}</b></span></div>`).join('')}</div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+}
+
 let DB=null;
 function demoSeed(){
   const t=today(), m=monday(), id=()=>Math.random().toString(36).slice(2,10);
