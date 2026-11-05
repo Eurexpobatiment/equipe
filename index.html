@@ -48,6 +48,7 @@ main{max-width:1240px;margin:0 auto;padding:14px 14px 80px}
 .seg-ctl{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .seg-ctl button{border:0;background:none;padding:7px 12px;cursor:pointer}
 .seg-ctl button.on{background:var(--navy);color:#fff}
+.seg-ctl .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--accent);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:600}
 select.sel,input.search{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
 input.search{min-width:0;flex:1 1 160px;max-width:280px}
 .empty{color:var(--muted);font-size:14px;padding:6px 2px}
@@ -463,7 +464,7 @@ let me = lsGet('equipe.me') || '';
 let tab = lsGet('equipe.tab') || 'Memo';
 if (!TABS.some(t=>t.id===tab)) tab='Taches';
 let loaded = false;
-const UI = {m:{v:'Vigilance',q:'',arch:false}, tFiltre:'Tous', tTout:false, nWeek:0, rWeek:0, nView:'sem', nMonth:0, rView:'sem', rMonth:0, ag:{Cloisons:{m:'avenir',q:'',mo:0},EDL:{m:'avenir',q:'',mo:0}}};
+const UI = {m:{v:'Vigilance',q:'',arch:false}, tFiltre:'Tous', tVue:'equipe', tTout:false, nWeek:0, rWeek:0, nView:'sem', nMonth:0, rView:'sem', rMonth:0, ag:{Cloisons:{m:'avenir',q:'',mo:0},EDL:{m:'avenir',q:'',mo:0}}};
 
 /* ---------- outils ---------- */
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -524,6 +525,10 @@ async function loadAll(silent){
 }
 async function saveItem(sheet,item){
   const r=await api('save',{sheet,item});
+  if(sheet==='Taches'&&item.prive==='oui'&&r.prive!=='oui'){ // Code.gs pas encore mis à jour : on n'expose pas la tâche perso à l'équipe
+    try{await api('delete',{sheet,id:r.id})}catch(e){}
+    throw new Error('Tâches perso pas encore actives : mets à jour le script (Déployer › Gérer les déploiements › Nouvelle version)');
+  }
   const L=D[sheet]; const i=L.findIndex(x=>x.id===r.id);
   if(i<0) L.push(r); else L[i]=r;
   render(); return r;
@@ -634,7 +639,7 @@ function pickUser(){
     <div class="cadd"><input id="newme" placeholder="Pas dans la liste ? Ton prénom et nom" onkeydown="if(event.key==='Enter')addMe()"><button class="btn pri" id="newmeb" onclick="addMe()">Ajouter</button></div>
     ${me&&ns.includes(me)?'<div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button></div>':''}`, !(me&&ns.includes(me)));
 }
-function setMe(n){me=n;lsSet('equipe.me',n);closeModal(true);render()}
+function setMe(n){const ch=n!==me;me=n;lsSet('equipe.me',n);closeModal(true);render();if(ch&&loaded)loadAll(true)} // recharge : les tâches perso dépendent de l'utilisateur
 async function addMe(){
   const n=$('#newme').value.trim(); if(!n) return;
   const ex=D.Equipe.find(e=>e.nom.toLowerCase()===n.toLowerCase());
@@ -686,6 +691,7 @@ async function eqAdd(){
 const asg=t=>String(t.assigne||'').split(',').map(x=>x.trim()).filter(Boolean); // une ou plusieurs personnes, « Julien, Karim »
 const isMine=t=>!!me&&asg(t).includes(me);
 const fait=t=>{const a=asg(t);return a.length>1?String(t.faitPar||'').split(',').map(x=>x.trim()).filter(n=>a.includes(n)):[]}; // qui a fini sa part
+const perso=t=>t.prive==='oui'; // tâche perso : visible par son auteur seulement
 const aFaire=t=>isMine(t)&&t.statut!=='Terminé'&&!fait(t).includes(me); // compteur « mes tâches »
 function partsHtml(t){ // personnes attribuées, avec ✓ pour celles qui ont fini leur part
   const a=asg(t), f=fait(t), multi=a.length>1&&t.statut!=='Terminé';
@@ -710,11 +716,15 @@ async function maPart(id,ok,btn){
   }catch(e){toast(e.message,1);render()}
 }
 function vTaches(el){
-  const names=people(); const f=UI.tFiltre;
-  let L=D.Taches.slice();
-  if(f==='Moi')L=L.filter(isMine);
-  else if(f==='Non attribuées')L=L.filter(t=>!asg(t).length);
-  else if(f!=='Tous')L=L.filter(t=>asg(t).includes(f));
+  const names=people(); const f=UI.tFiltre, P=UI.tVue==='perso';
+  let L=D.Taches.filter(t=>P?perso(t)&&t.creePar===me:!perso(t));
+  if(!P){
+    if(f==='Moi')L=L.filter(isMine);
+    else if(f==='Non attribuées')L=L.filter(t=>!asg(t).length);
+    else if(f!=='Tous')L=L.filter(t=>asg(t).includes(f));
+  }
+  const nb=fn=>D.Taches.filter(t=>fn(t)&&aFaire(t)).length, nE=nb(t=>!perso(t)), nP=nb(t=>perso(t)&&t.creePar===me);
+  const seg=[['equipe',"👥 Tâches de l'équipe",nE],['perso','🔒 Mes tâches perso',nP]].map(([k,l,n])=>`<button class="${UI.tVue===k?'on':''}" onclick="UI.tVue='${k}';UI.tTout=false;render()">${l}${n?` <span class="badge">${n}</span>`:''}</button>`).join('');
   const pi=t=>PRIO.indexOf(t.priorite||'Normale');
   const cols=ST_TACHE.map(st=>{
     let c=L.filter(t=>(t.statut||'À faire')===st), total=c.length, more=0;
@@ -723,9 +733,10 @@ function vTaches(el){
     return `<div class="col"><h3>${st}<span class="n">${total}</span></h3>${c.map(card).join('')||'<p class="empty">Rien ici</p>'}
       ${more?`<button class="link" onclick="UI.tTout=true;render()">+ ${more} plus anciennes</button>`:''}</div>`;
   });
-  el.innerHTML=`<div class="bar"><h2>Tâches de l'équipe</h2>
-    <select class="sel" onchange="UI.tFiltre=this.value;render()">${['Tous','Moi','Non attribuées',...names].map(n=>`<option ${n===f?'selected':''}>${esc(n)}</option>`).join('')}</select>
-    <button class="btn pri" onclick="editTache()">+ Nouvelle tâche</button></div>
+  el.innerHTML=`<div class="bar"><h2>Tâches</h2><div class="seg-ctl">${seg}</div>
+    ${P?'':`<select class="sel" onchange="UI.tFiltre=this.value;render()">${['Tous','Moi','Non attribuées',...names].map(n=>`<option ${n===f?'selected':''}>${esc(n)}</option>`).join('')}</select>`}
+    <button class="btn pri" onclick="editTache()">+ ${P?'Tâche perso':'Nouvelle tâche'}</button></div>
+    ${P?`<p class="hint">🔒 Tes tâches à toi : elles n'apparaissent ni dans les tâches de l'équipe ni chez les autres.${me?'':' Choisis d\'abord ton nom (bouton 👤).'}</p>`:''}
     <div class="kanban">${cols.join('')}</div>`;
 }
 function card(t){
@@ -736,9 +747,9 @@ function card(t){
   const next={'À faire':'En cours','En cours':multi?'':'Terminé'}[st]; // à plusieurs : terminé quand chacun a coché sa part
   const d=(t.description||'');
   return `<div class="card p${PRIO.indexOf(t.priorite||'Normale')} ${done?'done':''}" onclick="editTache('${t.id}')">
-    <div class="ct">${t.priorite==='Urgente'&&!done?'<span class="tag-u">URGENT</span> ':''}${esc(t.titre)}</div>
+    <div class="ct">${perso(t)?'🔒 ':''}${t.priorite==='Urgente'&&!done?'<span class="tag-u">URGENT</span> ':''}${esc(t.titre)}</div>
     ${d?`<div class="cd">${esc(d.length>140?d.slice(0,140)+'…':d)}</div>`:''}
-    <div class="meta">${partsHtml(t)}
+    <div class="meta">${perso(t)?'':partsHtml(t)}
       ${t.echeance?`<span class="${late?'late':''}">📅 ${fD(t.echeance)}${late?' · en retard':''}</span>`:''}
       ${t.lieu?`<span>📍 ${esc(t.lieu)}</span>`:''}${nc?`<span>💬 ${nc}</span>`:''}</div>
     ${next?`<button class="adv" onclick="event.stopPropagation();advance('${t.id}',this)">→ ${next}${next==='En cours'&&!asg(t).length?' (je la prends)':''}</button>`:''}${partBtn(t)}
@@ -758,13 +769,16 @@ function comsHtml(tid){
     <div class="tx">${esc(c.texte)}</div></div>`).join('')||'<p class="empty">Aucun échange pour l\'instant.</p>';
 }
 function editTache(id){
-  const t=id?D.Taches.find(x=>x.id===id):{assigne:UI.tFiltre==='Moi'?me:''};
+  const t=id?D.Taches.find(x=>x.id===id):UI.tVue==='perso'?{prive:'oui',assigne:me}:{assigne:UI.tFiltre==='Moi'?me:''};
   if(id&&!t) return;
+  if(!id&&perso(t)&&!me) return toast("Choisis d'abord ton nom (bouton 👤)",1);
+  const P=perso(t);
   const extra=id?`${asg(t).length>1?`<div class="tparts"><h3>Avancement par personne</h3><div id="tparts" class="meta">${partsHtml(t)}${partBtn(t)}</div>
     <p class="hint">La tâche passe en « Terminé » quand chaque personne a coché « Ma part faite ». On peut aussi la clôturer d'office avec le statut ci-dessus.</p></div>`:''}<div class="made">Créée par ${esc(t.creePar||'?')} le ${fDT(t.creeLe)}${t.majPar?` · modifiée par ${esc(t.majPar)} le ${fDT(t.majLe)}`:''}</div>
     <div class="coms"><h3>Échanges &amp; avancement</h3><div id="clist">${comsHtml(id)}</div>
     <div class="cadd"><textarea id="ctxt" rows="2" placeholder="Ajouter un commentaire, un point d'avancement…"></textarea><button class="btn pri" id="csend">Envoyer</button></div></div>`:'';
-  openForm('Taches',t,id?'Tâche':'Nouvelle tâche',{extra,after:()=>{
+  openForm('Taches',t,P?(id?'🔒 Tâche perso':'🔒 Nouvelle tâche perso'):id?'Tâche':'Nouvelle tâche',{extra:(P?'<p class="hint">🔒 Visible par toi seulement.</p>':'')+extra,
+    fields:P?FORMS.Taches.filter(f=>f.k!=='assigne'):undefined,after:()=>{
     if(!id) return;
     $('#csend').onclick=async()=>{
       const tx=$('#ctxt').value.trim(); if(!tx) return;
@@ -1420,7 +1434,7 @@ function demoParts(o,cur,part){const a=asg(o);let f=a.length>1?String(o.faitPar|
   o.faitPar=f.join(', ')}
 function demoApi(a,p){if(!DB)DB=demoSeed();return new Promise((res,rej)=>setTimeout(()=>{try{res(JSON.parse(JSON.stringify(demoHandle(a,p))))}catch(e){rej(e)}},120))}
 function demoHandle(a,p){
-  if(a==='all') return DB;
+  if(a==='all'){const T=DB.Taches.filter(t=>t.prive!=='oui'||t.creePar===p.user),ids=new Set(T.map(t=>t.id));return {...DB,Taches:T,Commentaires:DB.Commentaires.filter(c=>ids.has(c.tacheId))}}
   if(a==='partFaite'){const cur=DB.Taches.find(x=>x.id===p.id);if(!cur)throw new Error('Tâche introuvable');if(!asg(cur).includes(p.user))throw new Error(p.user+" n'est pas attribué à cette tâche");
     const f=fait(cur).filter(n=>n!==p.user);if(p.fait)f.push(p.user);return demoHandle('save',{sheet:'Taches',user:p.user,part:1,item:{...cur,faitPar:f.join(', ')}})}
   if(a==='lu'){const cur=DB.Memos.find(x=>x.id===p.id);if(!cur)throw new Error('Mémo introuvable');const l=String(cur.luPar||'').split(',').map(x=>x.trim()).filter(n=>n&&n!==p.user);if(p.lu)l.push(p.user);cur.luPar=l.join(', ');return cur}
@@ -1431,7 +1445,7 @@ function demoHandle(a,p){
     if(p.sheet==='Nacelle'){if(o.fin<=o.debut)throw new Error('La fin doit être après le début');const c=L.find(b=>b.id!==o.id&&o.debut<b.fin&&b.debut<o.fin);if(c)throw new Error(`Nacelle déjà réservée par ${c.nom} du ${fDT(c.debut)} au ${fDT(c.fin)}`)}
     if(!cur){o.id=Math.random().toString(36).slice(2,10);if(p.sheet==='Taches'){o.creePar=p.user;o.creeLe=now}if(p.sheet==='Commentaires')o.date=now;if(p.sheet==='Memos'){o.creePar=p.user;o.creeLe=now;o.statut=o.statut||'Actif'}}
     if(p.sheet==='Memos'){if(!cur||['titre','texte','decisions','niveau'].some(k=>(cur[k]||'')!==(o[k]||'')))o.luPar=p.user;o.majLe=now}
-    if(p.sheet==='Taches'){if(!p.part)o.faitPar=cur?cur.faitPar||'':'';demoParts(o,cur,p.part);o.majLe=now} if(p.sheet!=='Equipe'&&p.sheet!=='Commentaires')o.majPar=p.user;
+    if(p.sheet==='Taches'){if(cur&&cur.prive==='oui')o.prive='oui';if(o.prive==='oui')o.assigne=o.creePar;if(!p.part)o.faitPar=cur?cur.faitPar||'':'';demoParts(o,cur,p.part);o.majLe=now} if(p.sheet!=='Equipe'&&p.sheet!=='Commentaires')o.majPar=p.user;
     if(cur)Object.assign(cur,o);else L.push(o); return o;
   }
   if(a==='delete'){DB[p.sheet]=L.filter(x=>x.id!==p.id);if(p.sheet==='Taches')DB.Commentaires=DB.Commentaires.filter(c=>c.tacheId!==p.id);if(p.sheet==='BudgetLignes')DB.BudgetMvts=DB.BudgetMvts.filter(m=>m.ligneId!==p.id);return {id:p.id}}

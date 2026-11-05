@@ -13,7 +13,7 @@ const TZ = 'Europe/Paris';
 
 const SCHEMA = {
   Equipe:       ['id', 'nom', 'role', 'actif'],
-  Taches:       ['id', 'titre', 'description', 'assigne', 'priorite', 'statut', 'echeance', 'lieu', 'creePar', 'creeLe', 'majLe', 'majPar', 'faitPar'],
+  Taches:       ['id', 'titre', 'description', 'assigne', 'priorite', 'statut', 'echeance', 'lieu', 'creePar', 'creeLe', 'majLe', 'majPar', 'faitPar', 'prive'],
   Commentaires: ['id', 'tacheId', 'auteur', 'date', 'texte'],
   Nacelle:      ['id', 'nom', 'debut', 'fin', 'lieu', 'motif', 'creeLe', 'majPar'],
   Regisseurs:   ['id', 'regisseur', 'dateDebut', 'dateFin', 'statut', 'salon', 'note', 'majPar'],
@@ -62,7 +62,7 @@ function handle_(p) {
   try {
     switch (p.action) {
       case 'ping':   return out_({ ok: true, data: 'pong' });
-      case 'all':    return out_({ ok: true, data: readAll_() });
+      case 'all':    return out_({ ok: true, data: readAll_(p.user) });
       case 'save':   return out_({ ok: true, data: withLock_(function () { return save_(p.sheet, p.item, p.user); }) });
       case 'delete': return out_({ ok: true, data: withLock_(function () { return remove_(p.sheet, p.id, p.user); }) });
       case 'partFaite': return out_({ ok: true, data: withLock_(function () { return partFaite_(p.id, p.user, p.fait); }) });
@@ -87,12 +87,28 @@ function withLock_(fn) {
 
 /* ---------- Lecture ---------- */
 
-function readAll_() {
+function readAll_(user) {
+  user = clean_(user, 80);
   const out = {};
   Object.keys(SCHEMA).forEach(function (name) {
     out[name] = rows_(sheet_(name)).map(function (o) { delete o._row; return o; });
   });
+  // Tâches perso : chacun ne reçoit que les siennes (et leurs commentaires)
+  const cachees = {};
+  out.Taches = out.Taches.filter(function (t) {
+    if (!estPerso_(t) || t.creePar === user) return true;
+    cachees[t.id] = 1; return false;
+  });
+  out.Commentaires = out.Commentaires.filter(function (c) { return !cachees[c.tacheId]; });
   return out;
+}
+
+/* ---------- Tâches perso (visibles par leur auteur seulement) ---------- */
+
+function estPerso_(t) { return !!t && t.prive === 'oui'; }
+
+function checkPerso_(t, user) {
+  if (estPerso_(t) && t.creePar !== user) throw new Error('Tâche introuvable (supprimée ?)');
 }
 
 /* ---------- Écriture ---------- */
@@ -126,7 +142,11 @@ function save_(name, item, user, opts) {
       break;
     case 'Taches':
       if (!o.titre) throw new Error('Titre obligatoire');
+      checkPerso_(cur, user);
       if (!cur) { o.creePar = user; o.creeLe = now; }
+      if (cur && estPerso_(cur)) o.prive = 'oui';                  // une tâche perso le reste
+      if (o.prive === 'oui') { if (!o.creePar) throw new Error("Choisis d'abord ton nom (bouton 👤)"); o.assigne = o.creePar; }
+      else o.prive = '';
       if (!o.statut) o.statut = 'À faire';
       if (!opts.part) o.faitPar = cur ? (cur.faitPar || '') : ''; // les parts ne changent que par « Ma part faite »
       parts_(o, cur, !!opts.part);
@@ -135,6 +155,7 @@ function save_(name, item, user, opts) {
     case 'Commentaires':
       if (!o.texte) throw new Error('Commentaire vide');
       if (!o.tacheId) throw new Error('Tâche inconnue');
+      checkPerso_(rows_(sheet_('Taches')).filter(function (t) { return t.id === String(o.tacheId); })[0], user);
       if (!cur) { o.auteur = o.auteur || user; o.date = now; }
       break;
     case 'Nacelle':
@@ -241,6 +262,7 @@ function partFaite_(id, user, fait) {
   if (!user) throw new Error("Choisis d'abord ton nom (bouton 👤)");
   const cur = rows_(sheet_('Taches')).filter(function (r) { return r.id === String(id); })[0];
   if (!cur) throw new Error('Tâche introuvable (supprimée ?)');
+  checkPerso_(cur, user);
   if (list_(cur.assigne).indexOf(user) < 0) throw new Error(user + " n'est pas attribué à cette tâche");
   const f = list_(cur.faitPar).filter(function (n) { return n !== user; });
   if (fait) f.push(user);
@@ -271,6 +293,9 @@ function remove_(name, id, user) {
   const rows = rows_(sh);
   const cur = rows.filter(function (r) { return r.id === String(id); })[0];
   if (!cur) throw new Error('Élément introuvable (déjà supprimé ?)');
+  user = clean_(user, 80);
+  if (name === 'Taches') checkPerso_(cur, user);
+  if (name === 'Commentaires') checkPerso_(rows_(sheet_('Taches')).filter(function (t) { return t.id === cur.tacheId; })[0], user);
   sh.deleteRow(cur._row);
 
   const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'] }[name];
@@ -389,7 +414,8 @@ function journal_(user, action, name, id, detail) {
 function summary_(name, o) {
   switch (name) {
     case 'Equipe': return o.nom + ' (' + o.role + ', actif : ' + o.actif + ')';
-    case 'Taches': return o.titre + ' · ' + o.statut + (o.assigne ? ' · ' + o.assigne : '') + (o.faitPar ? ' · fait : ' + o.faitPar : '');
+    case 'Taches': if (estPerso_(o)) return 'Tâche perso de ' + o.creePar + ' · ' + o.statut;
+      return o.titre + ' · ' + o.statut + (o.assigne ? ' · ' + o.assigne : '') + (o.faitPar ? ' · fait : ' + o.faitPar : '');
     case 'Commentaires': return (o.texte || '').slice(0, 80);
     case 'Nacelle': return o.nom + ' ' + fr_(o.debut) + ' → ' + fr_(o.fin);
     case 'Regisseurs': return o.regisseur + ' ' + o.statut + ' ' + o.dateDebut + ' → ' + o.dateFin;
