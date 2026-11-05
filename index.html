@@ -517,7 +517,6 @@ const TABS = [
   {id:'Taches',l:'✅ Tâches'},
   {id:'Nacelle',l:'🏗️ Nacelle'},
   {id:'Regie',l:'🎪 Régie évènementielle'},
-  {id:'Drapeaux',l:'🚩 Drapeaux'},
   {id:'Demandes',l:'📨 Demandes'},
   {id:'Travaux',l:'🚧 Travaux'},
   {id:'Budget',l:'💶 Budget'},
@@ -529,7 +528,7 @@ let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],C
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = lsGet('equipe.me') || '';
 let tab = lsGet('equipe.tab') || 'Memo';
-let rgOld=['Regisseurs','Cloisons','EDL'].includes(tab)?tab:''; // anciens onglets, désormais dans « Régie évènementielle »
+let rgOld=['Regisseurs','Cloisons','EDL','Drapeaux'].includes(tab)?tab:''; // anciens onglets, désormais dans « Régie évènementielle »
 if (rgOld) tab='Regie';
 if (!TABS.some(t=>t.id===tab)) tab='Taches';
 let loaded = false;
@@ -625,7 +624,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Drapeaux:vDrapeaux,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux})[tab](el);
   hallsDatalist(); budgetDatalists();
   if((!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -1111,8 +1110,7 @@ function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
   if(id==='Memo'&&me){const n=memoNonLus().length;if(n)return `<span class="badge">${n}</span>`}
-  if(id==='Drapeaux'){const n=pvAVenir().filter(p=>pvManques(p).length).length;if(n)return `<span class="badge">${n}</span>`}
-  if(id==='Regie'&&trEtat().late.length) return `<span class="badge">!</span>`;
+  if(id==='Regie'){const n=pvAVenir().filter(p=>pvManques(p).length).length;if(n)return `<span class="badge">${n}</span>`;if(trEtat().late.length)return `<span class="badge">!</span>`}
   if(id==='Demandes'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
   return '';
 }
@@ -1674,12 +1672,12 @@ async function drExport(){
 }
 
 /* ================== RÉGIE ÉVÈNEMENTIELLE ================== */
-const RG_SUB=[['Regisseurs','🎧 Régisseurs'],['Cloisons','🧱 Cloisons & tribune'],['EDL','📋 États des lieux']];
+const RG_SUB=[['Regisseurs','🎧 Régisseurs'],['Cloisons','🧱 Cloisons & tribune'],['EDL','📋 États des lieux'],['Drapeaux','🚩 Drapeaux']];
 function vRegie(el){
   if(!RG_SUB.some(s=>s[0]===UI.rg))UI.rg='Regisseurs';
-  const tr=trEtat();
-  el.innerHTML=`<div class="seg-ctl bsub">${RG_SUB.map(([k,l])=>`<button class="${UI.rg===k?'on':''}" onclick="UI.rg='${k}';lsSet('equipe.rg','${k}');render()">${l}${k==='Cloisons'&&tr.late.length?' <span class="badge">!</span>':''}</button>`).join('')}</div><div id="rgview"></div>`;
-  ({Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL')})[UI.rg]($('#rgview'));
+  const tr=trEtat(), nM=pvAVenir().filter(p=>pvManques(p).length).length;
+  el.innerHTML=`<div class="seg-ctl bsub">${RG_SUB.map(([k,l])=>`<button class="${UI.rg===k?'on':''}" onclick="UI.rg='${k}';lsSet('equipe.rg','${k}');render()">${l}${k==='Cloisons'&&tr.late.length?' <span class="badge">!</span>':''}${k==='Drapeaux'&&nM?` <span class="badge">${nM}</span>`:''}</button>`).join('')}</div><div id="rgview"></div>`;
+  ({Regisseurs:vReg,Cloisons:e=>vAgenda(e,'Cloisons'),EDL:e=>vAgenda(e,'EDL'),Drapeaux:vDrapeaux})[UI.rg]($('#rgview'));
 }
 // Tribune dépliable : position d'après le dernier mouvement fait, prochain mouvement prévu
 const objOf=x=>x.objet==='Tribune'?'Tribune':'Cloison';
