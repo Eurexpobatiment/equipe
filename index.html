@@ -1480,8 +1480,8 @@ const DR_FORMATS=['200 x 300','100 x 150','140 x 220'];
 const DR_GROUPES=['Europe','Monde','Partenaires'];
 const PV_NEXT={'Prévu':'Posé','Posé':'Déposé'};
 // Emplacements de pavoisement d'Eurexpo : nombre de mâts et format des drapeaux
-const PV_SITES=[{nom:'Parvis',mats:16,f:'200 x 300'},{nom:'Confluence',mats:6,f:'100 x 150'}];
-const pvSites=lieu=>{const s=String(lieu||'').toLowerCase();return PV_SITES.filter(x=>s.includes(x.nom.toLowerCase()))};
+const PV_SITES=[{nom:'Accueil Parvis',k:'parvis',mats:16,f:'200 x 300'},{nom:'Accueil Confluence',k:'confluence',mats:6,f:'100 x 150'}];
+const pvSites=lieu=>{const s=String(lieu||'').toLowerCase();return PV_SITES.filter(x=>s.includes(x.k))};
 function pvMats(lieu){const m={};pvSites(lieu).forEach(x=>m[x.f]=(m[x.f]||0)+x.mats);return m} // format → nb de mâts
 function pvParF(l){const n={};l.forEach(x=>n[x.f]=(n[x.f]||0)+(+x.q));return n}
 // « 12/16 mâts en 200 x 300 · 6/6 mâts en 100 x 150 »
@@ -1848,9 +1848,9 @@ function demoSeed(){
               {id:id(),objet:'Tribune',date:addDays(t,2),dateFin:addDays(t,2),heure:'08:00',hall:'Hall 1',mouvement:'À rentrer',salon:'Salon précédent',responsable:'Julien',statut:'Prévu'}],
     BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],
     Drapeaux:drOct26Items().map((x,i)=>({id:id(),ordre:String(i+1),...x})),
-    Pavoisements:[{id:id(),titre:'Salon démo',lieu:'Parvis',dateDebut:addDays(t,1),dateFin:addDays(t,5),statut:'Prévu',responsable:'Karim',
+    Pavoisements:[{id:id(),titre:'Salon démo',lieu:'Accueil Parvis',dateDebut:addDays(t,1),dateFin:addDays(t,5),statut:'Prévu',responsable:'Karim',
       liste:JSON.stringify(['France','Europe','Allemagne','Italie','Espagne','Eurexpo','GL events'].map(d=>({d,f:'200 x 300',q:d==='Eurexpo'||d==='GL events'?2:1})))},
-      {id:id(),titre:'Congrès démo',lieu:'Confluence',dateDebut:addDays(t,3),dateFin:addDays(t,4),statut:'Prévu',liste:JSON.stringify([{d:'France',f:'100 x 150',q:2},{d:'Europe',f:'100 x 150',q:4}])}],
+      {id:id(),titre:'Congrès démo',lieu:'Accueil Confluence',dateDebut:addDays(t,3),dateFin:addDays(t,4),statut:'Prévu',liste:JSON.stringify([{d:'France',f:'100 x 150',q:2},{d:'Europe',f:'100 x 150',q:4}])}],
     Memos:[{id:id(),type:'Vigilance',titre:'Coupure électrique TGBT hall 5 jeudi',niveau:'Critique',texte:'Consignation par Dalkia de 7h à 10h.\nAucune intervention sur les coffrets du hall 5 pendant ce créneau.',lieu:'Hall 5.1',jusquau:addDays(t,3),epingle:'oui',statut:'Actif',luPar:'Julien',creePar:'Responsable équipe',creeLe:addDays(t,-1)+'T08:30'},
       {id:id(),type:'Vigilance',titre:'Clés local TGBT : toujours remettre au PC sécurité',niveau:'Important',texte:'Signer le registre à la prise et au retour.',statut:'Actif',luPar:'',creePar:'Responsable équipe',creeLe:addDays(t,-6)+'T09:00'},
       {id:id(),type:'Compte rendu',titre:'Réunion d\'équipe hebdo',dateReunion:addDays(t,-2),participants:'Responsable équipe, Julien, Karim',texte:'1. Point sécurité : port du harnais obligatoire en nacelle.\n2. Salon démo : montage à partir de jeudi.\n3. Budget : BDC éclairage à relancer.',decisions:'- Julien : relancer le devis éclairage\n- Karim : vérifier les portes sectionnelles hall 5',statut:'Actif',luPar:'Responsable équipe',creePar:'Responsable équipe',creeLe:addDays(t,-2)+'T11:00'}],
