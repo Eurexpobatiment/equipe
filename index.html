@@ -1763,7 +1763,9 @@ const AGENDA_BASE=[
   ['Prod&Pack','2027-11-16','2027-11-18','Salon professionnel','https://www.prodandpack.com/'],
   ['Japan Touch','2027-11-27','2027-11-28','Salon grand public','https://www.japan-touch.com/'],
   ['Rocalia','2027-11-30','2027-12-02','Salon professionnel','https://www.salon-rocalia.com/'],
-].map(([nom,d0,d1,type,url])=>({nom,d0,d1,type,horaires:'',url,annonce:1})));
+].map(([nom,d0,d1,type,url])=>({nom,d0,d1,type,horaires:'',url,annonce:1})))
+.concat([{nom:'Fête foraine Europarc',d0:'2026-12-04',d1:'2027-01-03',type:'Fête foraine (plus de 40 attractions)',hall:'Hall 7',
+  horaires:'Tous les jours pendant les vacances scolaires · 31 décembre et 1er janvier de 14h à 20h30',url:'https://www.europarcloisirs.fr/',annonce:1}]);
 const agKey=e=>String(e.nom||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').replace(/(salon|de|du|des|lyon|20\d\d)/g,'').slice(0,8)+'|'+String(e.d0||'').slice(0,7);
 const AGE={list:null,loading:false,done:false};
 function agList(){ // base + ce que le serveur a déjà renvoyé (gardé en local pour conserver les évènements passés)
@@ -1787,7 +1789,7 @@ async function agLoad(){
 function agOpen(i){const e=agList()[i];if(!e)return;
   modal(`<h2>🎟️ ${esc(e.nom)}</h2>
     <p><b>${e.d0===e.d1?'Le '+fD(e.d0,{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'Du '+fD(e.d0,{weekday:'long',day:'numeric',month:'long'})+' au '+fD(e.d1,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b></p>
-    ${e.type?`<p>${esc(e.type)} · Eurexpo Lyon</p>`:''}${e.horaires?`<p class="hint">🕒 ${esc(e.horaires)}</p>`:''}
+    ${e.type?`<p>${esc(e.type)} · Eurexpo Lyon${e.hall?' · '+esc(e.hall):''}</p>`:''}${e.horaires?`<p class="hint">🕒 ${esc(e.horaires)}</p>`:''}
     <p class="hint">${e.annonce?"Dates annoncées par l'organisateur ou l'office du tourisme (relevé du 06/11/2026), à confirmer quand le salon apparaîtra sur l'agenda GL events Lyon. Ouverture au public, hors montage / démontage.":"Évènement repris de l'agenda public GL events Lyon (ouverture au public, hors montage / démontage)."}</p>
     <div class="acts"><a class="btn" href="${esc(e.url)}" target="_blank" rel="noopener">${e.annonce?'Site du salon ↗':'Voir la fiche sur le site ↗'}</a><span class="sp"></span>
       <button class="btn" onclick="closeModal();newAg('EDL','${e.d0}')">📋 Prévoir un état des lieux</button><button class="btn" onclick="closeModal()">Fermer</button></div>`);
@@ -1797,7 +1799,7 @@ function pgToggle(k){const o=pgOff(),i=o.indexOf(k);i<0?o.push(k):o.splice(i,1);
 function pgEvents(){
   const E=[], S=PG_SRC, t=today();
   const add=(src,o)=>E.push({src,col:S[src].c,qui:[],lieu:'',h:'',sub:'',...o});
-  agList().forEach((a,i)=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:'Eurexpo',sub:[a.type,a.annonce&&'dates annoncées'].filter(Boolean).join(' · '),click:`agOpen(${i})`}));
+  agList().forEach((a,i)=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:a.hall?'Eurexpo · '+a.hall:'Eurexpo',sub:[a.type,a.annonce&&'dates annoncées'].filter(Boolean).join(' · '),click:`agOpen(${i})`}));
   D.Chantiers.filter(c=>c.statut!=='Annulé'&&c.dateDebut).forEach(c=>add('Chantiers',{d0:c.dateDebut,d1:c.dateFin||c.dateDebut,titre:c.titre,col:chCol(c),
     lieu:[c.espace,c.zone].filter(Boolean).join(' · '),qui:[c.responsable].filter(Boolean),h:c.horaires||'',
     sub:[c.entreprise,c.type,c.statut&&c.statut!=='Prévu'&&c.statut,chConflicts(c).length&&'⚠️ chevauchement'].filter(Boolean).join(' · '),click:`chEdit('${c.id}')`}));
