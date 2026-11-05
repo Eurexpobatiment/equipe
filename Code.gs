@@ -10,9 +10,10 @@
  */
 
 const TZ = 'Europe/Paris';
+const APP_URL = 'https://eurexpobatiment.github.io/equipe/';
 
 const SCHEMA = {
-  Equipe:       ['id', 'nom', 'role', 'actif'],
+  Equipe:       ['id', 'nom', 'role', 'actif', 'email'],
   Taches:       ['id', 'titre', 'description', 'assigne', 'priorite', 'statut', 'echeance', 'lieu', 'creePar', 'creeLe', 'majLe', 'majPar', 'faitPar', 'prive'],
   Commentaires: ['id', 'tacheId', 'auteur', 'date', 'texte'],
   Nacelle:      ['id', 'nom', 'debut', 'fin', 'lieu', 'motif', 'creeLe', 'majPar'],
@@ -139,6 +140,8 @@ function save_(name, item, user, opts) {
         throw new Error(o.nom + " est déjà dans l'équipe");
       if (!o.actif) o.actif = 'oui';
       if (!o.role) o.role = 'Technicien';
+      o.email = String(o.email || '').toLowerCase();
+      if (o.email && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(o.email)) throw new Error('Adresse e-mail invalide : ' + o.email);
       break;
     case 'Taches':
       if (!o.titre) throw new Error('Titre obligatoire');
@@ -237,7 +240,73 @@ function save_(name, item, user, opts) {
   else append_(sh, line);
 
   journal_(user, cur ? 'modification' : 'ajout', name, o.id, summary_(name, o));
+  if (name === 'Taches') notifierAttribution_(o, cur, user);
   return o;
+}
+
+/* ---------- Notifications par e-mail ---------- */
+
+// Envoie un mail à chaque personne nouvellement attribuée à une tâche (sauf à celui qui fait l'attribution).
+// Une erreur d'envoi ne bloque jamais l'enregistrement de la tâche.
+function notifierAttribution_(o, cur, user) {
+  try {
+    if (estPerso_(o) || o.statut === 'Terminé') return;
+    const avant = cur ? list_(cur.assigne) : [];
+    const nouveaux = list_(o.assigne).filter(function (n) { return avant.indexOf(n) < 0 && n !== user; });
+    if (!nouveaux.length) return;
+    const mails = {};
+    rows_(sheet_('Equipe')).forEach(function (e) { if (e.actif !== 'non' && e.email) mails[e.nom] = e.email; });
+    nouveaux.forEach(function (nom) {
+      if (!mails[nom]) return;
+      MailApp.sendEmail(mailTache_(o, nom, user, mails[nom]));
+      journal_(user, 'mail', 'Taches', o.id, 'Attribution notifiée à ' + nom);
+    });
+  } catch (err) {
+    journal_(user, 'erreur mail', 'Taches', o.id, String((err && err.message) || err));
+  }
+}
+
+function mailTache_(t, nom, par, to) {
+  const lien = APP_URL + '#tache=' + t.id;
+  const autres = list_(t.assigne).filter(function (n) { return n !== nom; });
+  const lignes = [
+    ['Priorité', t.priorite || 'Normale'],
+    ['Échéance', t.echeance ? dateFr_(t.echeance) : ''],
+    ['Lieu', t.lieu],
+    ['Avec', autres.join(', ')],
+    ['Attribuée par', par || '?']
+  ].filter(function (l) { return l[1]; });
+  const h = function (v) { return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  const html =
+    '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1d2433;max-width:560px">' +
+    '<p>Bonjour ' + h(nom) + ',</p><p>Une tâche t\'a été attribuée dans l\'appli Équipe :</p>' +
+    '<div style="border:1px solid #d5d9e2;border-left:4px solid #14213d;border-radius:8px;padding:12px 14px;margin:12px 0">' +
+    '<div style="font-size:16px;font-weight:bold;margin-bottom:6px">' + h(t.titre) + '</div>' +
+    (t.description ? '<div style="white-space:pre-wrap;margin-bottom:8px">' + h(t.description) + '</div>' : '') +
+    lignes.map(function (l) { return '<div><span style="color:#667">' + l[0] + ' :</span> ' + h(l[1]) + '</div>'; }).join('') +
+    '</div><p><a href="' + lien + '" style="background:#14213d;color:#fff;padding:9px 14px;border-radius:8px;text-decoration:none;display:inline-block">Ouvrir la tâche</a></p>' +
+    '<p style="color:#889;font-size:12px">Mail automatique de l\'appli Équipe · Eurexpo. Pour ne plus le recevoir, efface ton adresse dans l\'onglet 👥 Équipe.</p></div>';
+  const texte = 'Bonjour ' + nom + ',\n\nUne tâche t\'a été attribuée : ' + t.titre + '\n' +
+    (t.description ? t.description + '\n' : '') +
+    lignes.map(function (l) { return l[0] + ' : ' + l[1]; }).join('\n') + '\n\nOuvrir : ' + lien;
+  return {
+    to: to,
+    subject: '[Équipe] Nouvelle tâche : ' + t.titre + (t.echeance ? ' (pour le ' + dateFr_(t.echeance) + ')' : ''),
+    body: texte, htmlBody: html, name: 'Appli Équipe Eurexpo'
+  };
+}
+
+function dateFr_(d) {
+  d = String(d || '');
+  return RE_DATE.test(d.slice(0, 10)) ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : d;
+}
+
+// À exécuter une fois dans l'éditeur Apps Script : autorise l'envoi de mails et t'envoie un mail d'essai.
+function testerMail() {
+  const moi = Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail(mailTache_({ id: 'essai', titre: 'Mail d\'essai des notifications', description: 'Si tu lis ce mail, les notifications fonctionnent.',
+    priorite: 'Normale', echeance: Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), lieu: 'Hall 1', assigne: 'Toi' }, 'Toi', 'Apps Script', moi));
+  Logger.log('Mail d\'essai envoyé à ' + moi + ' · quota restant aujourd\'hui : ' + MailApp.getRemainingDailyQuota());
 }
 
 /* ---------- Tâches à plusieurs : chacun coche sa part ---------- */

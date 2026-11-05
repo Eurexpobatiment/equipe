@@ -184,6 +184,8 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .eqrow:first-child{border-top:0}
 .eqrow.off{opacity:.6}
 .eqrow .sel{padding:5px 8px}
+.eqrow{flex-wrap:wrap}.eqrow .eqmail{flex:0 1 250px;min-width:0;border:1px solid #d5d9e2;border-radius:8px;padding:5px 8px;font-size:13px}
+@media (max-width:820px){.eqrow .eqmail{order:5;flex:1 1 100%}}
 .me-tag{font-size:11px;background:var(--navy);color:#fff;border-radius:8px;padding:1px 6px}
 .bsub{margin-bottom:14px;flex-wrap:wrap;display:inline-flex}
 .bsub button{font-size:14px}
@@ -541,7 +543,7 @@ async function loadAll(silent){
     for(const k in D) D[k]=d[k]||[];
     // anciens libellés : Fermeture → À sortir, Ouverture → À ranger
     D.Cloisons.forEach(x=>{x.mouvement=({'Fermeture':'À sortir','Ouverture':'À ranger'})[x.mouvement]||x.mouvement});
-    loaded=true; setSync(true); render();
+    loaded=true; setSync(true); render(); ouvrirLien();
   }catch(e){ setSync(false); if(!silent) toast(e.message,1); if(!loaded) $('#view').innerHTML=`<div class="loading">Impossible de charger les données.<br>${esc(e.message)}<br><br><button class="btn" onclick="loadAll()">Réessayer</button></div>`; }
 }
 async function saveItem(sheet,item){
@@ -660,7 +662,7 @@ function pickUser(){
     <div class="cadd"><input id="newme" placeholder="Pas dans la liste ? Ton prénom et nom" onkeydown="if(event.key==='Enter')addMe()"><button class="btn pri" id="newmeb" onclick="addMe()">Ajouter</button></div>
     ${me&&ns.includes(me)?'<div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button></div>':''}`, !(me&&ns.includes(me)));
 }
-function setMe(n){const ch=n!==me;me=n;lsSet('equipe.me',n);closeModal(true);render();if(ch&&loaded)loadAll(true)} // recharge : les tâches perso dépendent de l'utilisateur
+function setMe(n){const ch=n!==me;me=n;lsSet('equipe.me',n);closeModal(true);render();if(ch&&loaded)loadAll(true);else ouvrirLien()} // recharge : les tâches perso dépendent de l'utilisateur
 async function addMe(){
   const n=$('#newme').value.trim(); if(!n) return;
   const ex=D.Equipe.find(e=>e.nom.toLowerCase()===n.toLowerCase());
@@ -677,13 +679,14 @@ function vEquipe(el){
   const act=D.Equipe.filter(e=>e.actif!=='non').sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
   const off=D.Equipe.filter(e=>e.actif==='non').sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
   const roleSel=e=>`<select class="sel sm" onchange="eqSet('${e.id}','role',this.value,this)">${CONFIG.roles.map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select>`;
-  const row=e=>`<div class="eqrow">${pill(e.nom)}${e.nom===me?'<small class="me-tag">toi</small>':''}<span class="sp"></span>${roleSel(e)}
+  const row=e=>`<div class="eqrow">${pill(e.nom)}${e.nom===me?'<small class="me-tag">toi</small>':''}<span class="sp"></span>
+    <input class="eqmail" type="email" inputmode="email" autocomplete="off" placeholder="✉️ e-mail pour les notifications" value="${esc(e.email||'')}" onchange="eqSet('${e.id}','email',this.value.trim(),this)">${roleSel(e)}
     <button class="btn sm" onclick="eqSet('${e.id}','actif','non',this)">Retirer</button></div>`;
   el.innerHTML=`<div class="bar"><h2>Équipe</h2><button class="btn" onclick="pickUser()">👤 Changer d'utilisateur</button></div>
     <div class="eqadd"><input id="eqn" placeholder="Prénom et nom du nouveau membre" autocomplete="off" onkeydown="if(event.key==='Enter')eqAdd()">
       <select id="eqr" class="sel">${CONFIG.roles.map(r=>`<option ${r===(UI.eqRole||'Technicien')?'selected':''}>${r}</option>`).join('')}</select>
       <button class="btn pri" id="eqb" onclick="eqAdd()">+ Ajouter</button></div>
-    <p class="hint">Les personnes avec le rôle <b>Régisseur</b> apparaissent dans le planning de présence. Une fois ajouté, chacun choisit son nom en ouvrant l'appli sur son téléphone.</p>
+    <p class="hint">Les personnes avec le rôle <b>Régisseur</b> apparaissent dans le planning de présence. Une fois ajouté, chacun choisit son nom en ouvrant l'appli sur son téléphone.<br>✉️ Avec une adresse e-mail, la personne reçoit un mail dès qu'une tâche lui est attribuée (sauf si c'est elle-même qui se l'attribue). Sans adresse, pas de mail.</p>
     ${CONFIG.roles.map(r=>{const L=act.filter(e=>e.role===r);return `<h3 class="eqh">${r}s <span class="n">${L.length}</span></h3><div class="eqlist">${L.map(row).join('')||'<p class="empty">Personne pour l\'instant.</p>'}</div>`}).join('')}
     ${act.filter(e=>!CONFIG.roles.includes(e.role)).map(row).join('')}
     ${off.length?`<h3 class="eqh">Retirés <span class="n">${off.length}</span></h3><div class="eqlist">${off.map(e=>`<div class="eqrow off">${pill(e.nom)}<span class="sp"></span><button class="btn sm" onclick="eqSet('${e.id}','actif','oui',this)">Réactiver</button></div>`).join('')}</div>`:''}`;
@@ -691,7 +694,7 @@ function vEquipe(el){
 async function eqSet(id,k,v,btn){
   const e=D.Equipe.find(x=>x.id===id);if(!e)return;
   const done=setBusy(btn,'…');
-  try{await saveItem('Equipe',{...e,[k]:v});toast(k==='role'?`${e.nom} : ${v}`:(v==='non'?`${e.nom} retiré(e)`:`${e.nom} réactivé(e)`))}
+  try{await saveItem('Equipe',{...e,[k]:v});toast(k==='email'?(v?`✉️ ${e.nom} recevra les notifications`:`${e.nom} ne recevra plus de mails`):k==='role'?`${e.nom} : ${v}`:(v==='non'?`${e.nom} retiré(e)`:`${e.nom} réactivé(e)`))}
   catch(err){done();toast(err.message,1);render()}
 }
 async function eqAdd(){
@@ -1579,6 +1582,17 @@ function demoHandle(a,p){
   }
   if(a==='delete'){DB[p.sheet]=L.filter(x=>x.id!==p.id);if(p.sheet==='Taches')DB.Commentaires=DB.Commentaires.filter(c=>c.tacheId!==p.id);if(p.sheet==='BudgetLignes')DB.BudgetMvts=DB.BudgetMvts.filter(m=>m.ligneId!==p.id);return {id:p.id}}
 }
+
+/* ---------- lien direct vers une tâche (mails de notification : …/equipe/#tache=ID) ---------- */
+let lienTache='';
+function lireLien(){lienTache=(location.hash.match(/^#tache=(\w+)/)||[])[1]||''}
+function ouvrirLien(){
+  if(!lienTache||!loaded||!me||$('.ov')) return;
+  const id=lienTache; lienTache=''; history.replaceState(null,'',location.pathname+location.search);
+  if(!D.Taches.some(t=>t.id===id)) return toast('Tâche introuvable (supprimée ou terminée depuis ?)',1);
+  goTab('Taches'); editTache(id);
+}
+lireLien(); window.addEventListener('hashchange',()=>{lireLien();ouvrirLien()});
 
 /* ================== DÉMARRAGE ================== */
 $('#demo').hidden=!DEMO;
