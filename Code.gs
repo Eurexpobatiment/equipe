@@ -73,6 +73,7 @@ function handle_(p) {
       case 'lu':     return out_({ ok: true, data: withLock_(function () { return memoLu_(p.id, p.user, p.lu); }) });
       case 'importDrapeaux': return out_({ ok: true, data: withLock_(function () { return importDrapeaux_(p.items, p.user); }) });
       case 'importBudget': return out_({ ok: true, data: withLock_(function () { return importBudget_(p.data, p.user); }) });
+      case 'agenda': return out_({ ok: true, data: agenda_() });
       default: throw new Error('Action inconnue : ' + p.action);
     }
   } catch (err) {
@@ -578,4 +579,79 @@ function now_() {
 function fr_(s) {
   s = String(s || '');
   return s.slice(8, 10) + '/' + s.slice(5, 7) + ' ' + s.slice(11, 16);
+}
+
+
+/* ---------- Agenda des évènements Eurexpo (site gl-lyonevents.com) ---------- */
+// Relu au plus toutes les 6 h. Seuls les évènements « Eurexpo Lyon » sont gardés (pas le Centre de Congrès, ni les autres lieux).
+const AGENDA_SITE = 'https://www.gl-lyonevents.com';
+const MOIS_ = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
+
+function agenda_() {
+  const cache = CacheService.getScriptCache();
+  const c = cache.get('agendaEurexpo');
+  if (c) return JSON.parse(c);
+  const list = [], vus = {};
+  for (let page = 0; page < 8; page++) {
+    const r = UrlFetchApp.fetch(AGENDA_SITE + '/fr/agenda?page=' + page, { muteHttpExceptions: true, followRedirects: true });
+    if (r.getResponseCode() !== 200) break;
+    const blocs = r.getContentText().split('views-row').slice(1);
+    if (!blocs.length) break;
+    let nouveaux = 0;
+    blocs.forEach(function (b) {
+      const h = b.match(/href="(\/fr\/eurexpo-lyon\/[^"#?]+)"/);
+      const t = b.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
+      if (!h || !t || vus[h[1]]) return;
+      vus[h[1]] = 1; nouveaux++;
+      const d = texte_((b.match(/text-primary[^>]*>([\s\S]*?)<\/span>/) || [])[1] || '');
+      list.push({ url: AGENDA_SITE + h[1], nom: texte_(t[1]), dates: d });
+    });
+    if (!nouveaux) break;
+  }
+  // détail de chaque évènement : dates complètes (avec l'année), type, horaires
+  const reps = UrlFetchApp.fetchAll(list.map(function (e) { return { url: e.url, muteHttpExceptions: true }; }));
+  const auj = new Date();
+  const out = list.map(function (e, i) {
+    let d0 = '', d1 = '', type = '', horaires = '';
+    if (reps[i].getResponseCode() === 200) {
+      const tx = texte_(reps[i].getContentText().replace(/<(br|\/div|\/p|\/h\d|\/span|\/li)[^>]*>/gi, '\n'));
+      const dd = [];
+      const k = tx.indexOf('Date de début');
+      (k >= 0 ? tx.slice(k, k + 200) : '').replace(/(\d{1,2})(?:er)?\s+([a-zéèûô]+)\s+(\d{4})/gi, function (m, j, mo, a) {
+        const n = MOIS_[mo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')];
+        if (n && dd.length < 2) dd.push(a + '-' + ('0' + n).slice(-2) + '-' + ('0' + j).slice(-2));
+        return m;
+      });
+      d0 = dd[0] || ''; d1 = dd[1] || d0;
+      const ty = tx.match(/Salon professionnel|Salon grand public|Congrès|Concert|Évènement d'entreprise|Exposition culturelle/i);
+      type = ty ? ty[0] : '';
+      const ho = tx.match(/Horaires\s*\n+\s*([^\n]+)/);
+      horaires = ho ? ho[1].trim().slice(0, 200) : '';
+    }
+    if (!d0) { // repli : dates « 06/11 » ou « Du 06/11 au 08/11 » de la liste, année devinée
+      const m = (e.dates.match(/\d{2}\/\d{2}/g) || []).map(function (x) {
+        const j = +x.slice(0, 2), mo = +x.slice(3, 5);
+        let a = auj.getFullYear(); if (mo < auj.getMonth() - 1) a++;
+        return a + '-' + ('0' + mo).slice(-2) + '-' + ('0' + j).slice(-2);
+      });
+      d0 = m[0] || ''; d1 = m[1] || d0;
+      if (d1 < d0) d1 = (+d1.slice(0, 4) + 1) + d1.slice(4);
+    }
+    return { nom: e.nom, d0: d0, d1: d1, type: type, horaires: horaires, url: e.url };
+  }).filter(function (e) { return e.d0; });
+  cache.put('agendaEurexpo', JSON.stringify(out), 6 * 3600);
+  return out;
+}
+
+function texte_(h) {
+  return String(h).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#0?39;|&rsquo;|&apos;/g, '’')
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, function (m, n) { return String.fromCharCode(+n); })
+    .replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{2,}/g, '\n').trim();
+}
+
+// À lancer une fois dans l'éditeur Apps Script pour autoriser la lecture du site (accès « services externes »).
+function testerAgenda() {
+  CacheService.getScriptCache().remove('agendaEurexpo');
+  const l = agenda_();
+  Logger.log(l.length + ' évènements Eurexpo : ' + l.map(function (e) { return e.d0 + ' ' + e.nom; }).join(' | '));
 }

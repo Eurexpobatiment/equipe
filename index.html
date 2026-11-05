@@ -1714,6 +1714,7 @@ function trCarte(){
 /* ================== PLANNING GLOBAL ================== */
 // Tout ce qui se passe sur le parc, toutes sources confondues. Aucune donnée propre : on relit les autres onglets.
 const PG_SRC={
+  Agenda:{l:'Agenda Eurexpo',e:'🎟️',c:'#1d4ed8'},
   Salons:{l:'Salons',e:'🎪',c:'#6d28d9'},
   Chantiers:{l:'Travaux',e:'🚧',c:'#0f766e'},
   Cloisons:{l:'Cloisons',e:'🧱',c:'#a0522d'},
@@ -1724,11 +1725,55 @@ const PG_SRC={
   Regisseurs:{l:'Régisseurs',e:'🎧',c:'#8e5bd1'},
   Taches:{l:'Tâches',e:'✅',c:'#e63946'},
   Demandes:{l:'Demandes',e:'📨',c:'#5b5fc7'}};
+// Agenda public des évènements à Eurexpo (gl-lyonevents.com/fr/agenda, lieu « Eurexpo Lyon » seulement, pas le Centre de Congrès).
+// Liste de départ relevée le 05/11/2026 ; le script du Google Sheet la relit ensuite sur le site (action « agenda », toutes les 6 h).
+const AGENDA_BASE=[
+  ['Epoqu’auto 2026','2026-11-06','2026-11-08','Salon grand public','epoquauto-2026'],
+  ['Salon du Mariage','2026-11-14','2026-11-15','Salon grand public','salon-du-mariage-1'],
+  ['Salon de l’érotisme Erosexpo','2026-11-14','2026-11-15','Salon grand public','salon-de-lerotisme-erosexpo-0'],
+  ['Piscine Global','2026-11-17','2026-11-20','Salon professionnel','piscine-global-0'],
+  ['Funexpo','2026-11-18','2026-11-20','Salon professionnel','funexpo-0'],
+  ['Aqualie','2026-11-19','2026-11-19','Salon professionnel','aqualie'],
+  ['Beauté Sélection','2026-11-22','2026-11-23','Salon professionnel','beaute-selection'],
+  ['SIFA','2026-11-24','2026-11-26','Salon professionnel','sifa'],
+  ['Salon Habitat & Rénovation de Lyon','2026-11-27','2026-11-29','Salon grand public','salon-habitat-renovation-de-lyon-0'],
+  ['Japan Touch','2026-11-28','2026-11-29','Salon grand public','japan-touch'],
+  ['Autocar Expo','2026-12-01','2026-12-04','Salon professionnel','autocar-expo-0'],
+  ['European Rotors 2026','2026-12-01','2026-12-03','Salon professionnel','european-rotors-2026-eurexpo-lyon'],
+  ['Mondial des Métiers Auvergne-Rhône-Alpes','2026-12-10','2026-12-13','Salon grand public','mondial-des-metiers-auvergne-rhone-alpes-1'],
+].map(([nom,d0,d1,type,slug])=>({nom,d0,d1,type,horaires:'',url:'https://www.gl-lyonevents.com/fr/eurexpo-lyon/'+slug}));
+const AGE={list:null,loading:false,done:false};
+function agList(){ // base + ce que le serveur a déjà renvoyé (gardé en local pour conserver les évènements passés)
+  if(AGE.list) return AGE.list;
+  let c=[];try{c=JSON.parse(lsGet('equipe.agenda')||'[]')}catch(e){}
+  const m={};[...c,...AGENDA_BASE].forEach(e=>{if(e&&e.url&&e.d0)m[e.url]={...m[e.url],...e,horaires:e.horaires||(m[e.url]||{}).horaires||''}});
+  return AGE.list=Object.values(m).sort((a,b)=>a.d0.localeCompare(b.d0));
+}
+async function agLoad(){
+  if(DEMO||AGE.loading||AGE.done||!CONFIG.apiUrl) return;
+  AGE.loading=true;
+  try{const L=await api('agenda');
+    if(Array.isArray(L)&&L.length){let c=[];try{c=JSON.parse(lsGet('equipe.agenda')||'[]')}catch(e){}
+      const m={};[...c,...L].forEach(e=>{if(e&&e.url&&e.d0)m[e.url]={...m[e.url],...e}});
+      const lim=addDays(today(),-400);lsSet('equipe.agenda',JSON.stringify(Object.values(m).filter(e=>e.d1>=lim)));AGE.list=null;
+      if(tab==='Planning'&&!$('.ov')) render();}
+  }catch(e){/* script pas encore à jour ou site injoignable : on garde la liste connue */}
+  AGE.loading=false; AGE.done=true;
+}
+function agOpen(url){const e=agList().find(x=>x.url===url);if(!e)return;
+  modal(`<h2>🎟️ ${esc(e.nom)}</h2>
+    <p><b>${e.d0===e.d1?'Le '+fD(e.d0,{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'Du '+fD(e.d0,{weekday:'long',day:'numeric',month:'long'})+' au '+fD(e.d1,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b></p>
+    ${e.type?`<p>${esc(e.type)} · Eurexpo Lyon</p>`:''}${e.horaires?`<p class="hint">🕒 ${esc(e.horaires)}</p>`:''}
+    <p class="hint">Évènement repris de l'agenda public GL events Lyon (ouverture au public, hors montage / démontage).</p>
+    <div class="acts"><a class="btn" href="${esc(e.url)}" target="_blank" rel="noopener">Voir la fiche sur le site ↗</a><span class="sp"></span>
+      <button class="btn" onclick="closeModal();newAg('EDL','${e.d0}')">📋 Prévoir un état des lieux</button><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+}
 const pgOff=()=>{try{return JSON.parse(lsGet('equipe.pgOff')||'[]')}catch(e){return []}};
 function pgToggle(k){const o=pgOff(),i=o.indexOf(k);i<0?o.push(k):o.splice(i,1);lsSet('equipe.pgOff',JSON.stringify(o));render()}
 function pgEvents(){
   const E=[], S=PG_SRC, t=today();
   const add=(src,o)=>E.push({src,col:S[src].c,qui:[],lieu:'',h:'',sub:'',...o});
+  agList().forEach(a=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:'Eurexpo',sub:a.type||'',click:`agOpen('${String(a.url).replace(/[^\w:/.\-]/g,'')}')`}));
   salons().forEach(s=>add('Salons',{d0:s.d0,d1:s.d1,titre:s.nom,lieu:s.halls,click:`salEdl(${esc(JSON.stringify(s.nom))})`}));
   D.Chantiers.filter(c=>c.statut!=='Annulé'&&c.dateDebut).forEach(c=>add('Chantiers',{d0:c.dateDebut,d1:c.dateFin||c.dateDebut,titre:c.titre,col:chCol(c),
     lieu:[c.espace,c.zone].filter(Boolean).join(' · '),qui:[c.responsable].filter(Boolean),h:c.horaires||'',
@@ -1758,6 +1803,7 @@ const pgOn=(E,d)=>E.filter(e=>e.d0<=d&&e.d1>=d);
 function vPlanning(el){
   const st=UI.pg||(UI.pg={v:'sem',w:0,m:0,weeks:4,q:'',esp:'',moi:false});
   if(dtCode()&&!DT.list) dtLoad(); else dtLoad();
+  agLoad();
   const E=pgEvents(), t=today(), off=pgOff(), N=pgOn(E,t);
   const cnt=k=>N.filter(e=>e.src===k).length;
   el.innerHTML=`<div class="bar"><h2>Planning global</h2>
