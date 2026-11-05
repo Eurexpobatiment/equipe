@@ -1740,13 +1740,38 @@ const AGENDA_BASE=[
   ['Autocar Expo','2026-12-01','2026-12-04','Salon professionnel','autocar-expo-0'],
   ['European Rotors 2026','2026-12-01','2026-12-03','Salon professionnel','european-rotors-2026-eurexpo-lyon'],
   ['Mondial des Métiers Auvergne-Rhône-Alpes','2026-12-10','2026-12-13','Salon grand public','mondial-des-metiers-auvergne-rhone-alpes-1'],
-].map(([nom,d0,d1,type,slug])=>({nom,d0,d1,type,horaires:'',url:'https://www.gl-lyonevents.com/fr/eurexpo-lyon/'+slug}));
+].map(([nom,d0,d1,type,slug])=>({nom,d0,d1,type,horaires:'',url:'https://www.gl-lyonevents.com/fr/eurexpo-lyon/'+slug}))
+// 2027 : dates annoncées par les organisateurs / l'office du tourisme (relevé du 06/11/2026), pas encore sur l'agenda GL events
+.concat([
+  ["Salon de l'Étudiant",'2027-01-08','2027-01-10','Salon grand public','https://www.letudiant.fr/etudes/salons.html'],
+  ['Sirha Lyon (et Bocuse d’Or)','2027-01-21','2027-01-25','Salon professionnel','https://www.sirha-lyon.com/'],
+  ['C!Print','2027-02-02','2027-02-04','Salon professionnel','https://www.salon-cprint.com/'],
+  ['Salon du 2 Roues','2027-02-11','2027-02-14','Salon grand public','https://www.salondu2roues.com/'],
+  ['Salon des Vins des Vignerons Indépendants','2027-03-05','2027-03-07','Salon grand public','https://www.vignerons-independants.com/agenda-des-salons'],
+  ['Festival Yggdrasil','2027-03-06','2027-03-07','Salon grand public','https://www.jds.fr/rhone/agenda/foires-et-salons-140_B'],
+  ['Global Industrie','2027-03-15','2027-03-18','Salon professionnel','https://www.global-industrie.com/'],
+  ['Foire de Lyon','2027-03-27','2027-04-05','Salon grand public','https://www.foiredelyon.com/'],
+  ['BePOSITIVE','2027-03-31','2027-04-02','Salon professionnel','https://www.bepositive-events.com/fr'],
+  ['Marhaba Expo','2027-04-09','2027-04-11','Salon grand public','https://www.visiterlyon.com/sortir/l-agenda/foires-et-salons'],
+  ['Japan Touch Haru & Geek Touch','2027-05-22','2027-05-23','Salon grand public','https://www.visiterlyon.com/sortir/l-agenda/foires-et-salons/japan-touch-haru-geek-touch'],
+  ['Salon de l’Automobile de Lyon','2027-09-22','2027-09-26','Salon grand public','https://salon-automobile-lyon.com/'],
+  ['Salon Studyrama Grandes Écoles','2027-10-09','2027-10-09','Salon grand public','https://www.studyrama.com/salons/salon-studyrama-grandes-ecoles-de-lyon-14'],
+  ['Pollutec','2027-10-12','2027-10-15','Salon professionnel','https://www.pollutec.com/'],
+  ['Equita Lyon','2027-10-27','2027-10-31','Salon grand public','https://www.equitalyon.com/'],
+  ['Epoqu’auto 2027','2027-11-05','2027-11-07','Salon grand public','https://www.epoquauto.com/'],
+  ['Solutrans','2027-11-16','2027-11-20','Salon professionnel','https://www.solutrans.fr/'],
+  ['Prod&Pack','2027-11-16','2027-11-18','Salon professionnel','https://www.prodandpack.com/'],
+  ['Japan Touch','2027-11-27','2027-11-28','Salon grand public','https://www.japan-touch.com/'],
+  ['Rocalia','2027-11-30','2027-12-02','Salon professionnel','https://www.salon-rocalia.com/'],
+].map(([nom,d0,d1,type,url])=>({nom,d0,d1,type,horaires:'',url,annonce:1})));
+const agKey=e=>String(e.nom||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').replace(/(salon|de|du|des|lyon|20\d\d)/g,'').slice(0,8)+'|'+String(e.d0||'').slice(0,7);
 const AGE={list:null,loading:false,done:false};
 function agList(){ // base + ce que le serveur a déjà renvoyé (gardé en local pour conserver les évènements passés)
   if(AGE.list) return AGE.list;
   let c=[];try{c=JSON.parse(lsGet('equipe.agenda')||'[]')}catch(e){}
   const m={};[...c,...AGENDA_BASE].forEach(e=>{if(e&&e.url&&e.d0)m[e.url]={...m[e.url],...e,horaires:e.horaires||(m[e.url]||{}).horaires||''}});
-  return AGE.list=Object.values(m).sort((a,b)=>a.d0.localeCompare(b.d0));
+  const vus={}; // un même salon trouvé sur le site GL events et dans les annonces 2027 : on garde une seule ligne (même nom, même mois)
+  return AGE.list=Object.values(m).sort((a,b)=>(a.annonce?1:0)-(b.annonce?1:0)).filter(e=>{const k=agKey(e);if(vus[k])return false;vus[k]=1;return true}).sort((a,b)=>a.d0.localeCompare(b.d0));
 }
 async function agLoad(){
   if(DEMO||AGE.loading||AGE.done||!CONFIG.apiUrl) return;
@@ -1759,12 +1784,12 @@ async function agLoad(){
   }catch(e){/* script pas encore à jour ou site injoignable : on garde la liste connue */}
   AGE.loading=false; AGE.done=true;
 }
-function agOpen(url){const e=agList().find(x=>x.url===url);if(!e)return;
+function agOpen(i){const e=agList()[i];if(!e)return;
   modal(`<h2>🎟️ ${esc(e.nom)}</h2>
     <p><b>${e.d0===e.d1?'Le '+fD(e.d0,{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'Du '+fD(e.d0,{weekday:'long',day:'numeric',month:'long'})+' au '+fD(e.d1,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b></p>
     ${e.type?`<p>${esc(e.type)} · Eurexpo Lyon</p>`:''}${e.horaires?`<p class="hint">🕒 ${esc(e.horaires)}</p>`:''}
-    <p class="hint">Évènement repris de l'agenda public GL events Lyon (ouverture au public, hors montage / démontage).</p>
-    <div class="acts"><a class="btn" href="${esc(e.url)}" target="_blank" rel="noopener">Voir la fiche sur le site ↗</a><span class="sp"></span>
+    <p class="hint">${e.annonce?"Dates annoncées par l'organisateur ou l'office du tourisme (relevé du 06/11/2026), à confirmer quand le salon apparaîtra sur l'agenda GL events Lyon. Ouverture au public, hors montage / démontage.":"Évènement repris de l'agenda public GL events Lyon (ouverture au public, hors montage / démontage)."}</p>
+    <div class="acts"><a class="btn" href="${esc(e.url)}" target="_blank" rel="noopener">${e.annonce?'Site du salon ↗':'Voir la fiche sur le site ↗'}</a><span class="sp"></span>
       <button class="btn" onclick="closeModal();newAg('EDL','${e.d0}')">📋 Prévoir un état des lieux</button><button class="btn" onclick="closeModal()">Fermer</button></div>`);
 }
 const pgOff=()=>{try{return JSON.parse(lsGet('equipe.pgOff')||'[]')}catch(e){return []}};
@@ -1772,7 +1797,7 @@ function pgToggle(k){const o=pgOff(),i=o.indexOf(k);i<0?o.push(k):o.splice(i,1);
 function pgEvents(){
   const E=[], S=PG_SRC, t=today();
   const add=(src,o)=>E.push({src,col:S[src].c,qui:[],lieu:'',h:'',sub:'',...o});
-  agList().forEach(a=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:'Eurexpo',sub:a.type||'',click:`agOpen('${String(a.url).replace(/[^\w:/.\-]/g,'')}')`}));
+  agList().forEach((a,i)=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:'Eurexpo',sub:[a.type,a.annonce&&'dates annoncées'].filter(Boolean).join(' · '),click:`agOpen(${i})`}));
   D.Chantiers.filter(c=>c.statut!=='Annulé'&&c.dateDebut).forEach(c=>add('Chantiers',{d0:c.dateDebut,d1:c.dateFin||c.dateDebut,titre:c.titre,col:chCol(c),
     lieu:[c.espace,c.zone].filter(Boolean).join(' · '),qui:[c.responsable].filter(Boolean),h:c.horaires||'',
     sub:[c.entreprise,c.type,c.statut&&c.statut!=='Prévu'&&c.statut,chConflicts(c).length&&'⚠️ chevauchement'].filter(Boolean).join(' · '),click:`chEdit('${c.id}')`}));
