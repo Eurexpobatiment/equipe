@@ -589,7 +589,7 @@ const MOIS_ = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juil
 
 function agenda_() {
   const cache = CacheService.getScriptCache();
-  const c = cache.get('agendaEurexpo');
+  const c = cache.get('agendaEurexpo2');
   if (c) return JSON.parse(c);
   const list = [], vus = {};
   for (let page = 0; page < 8; page++) {
@@ -623,8 +623,10 @@ function agenda_() {
         return m;
       });
       d0 = dd[0] || ''; d1 = dd[1] || d0;
-      const ty = tx.match(/Salon professionnel|Salon grand public|Congrès|Concert|Évènement d'entreprise|Exposition culturelle/i);
-      type = ty ? ty[0] : '';
+      // le type est juste avant « Entité lieu liée » (le menu du site, plus haut, cite tous les types)
+      const kl = tx.indexOf('Entité lieu liée');
+      const ty = (kl >= 0 ? tx.slice(Math.max(0, kl - 300), kl) : '').match(/Salon professionnel|Salon grand public|Congrès|Concert|Évènement d'entreprise|Exposition culturelle/gi);
+      type = ty ? ty[ty.length - 1] : '';
       const ho = tx.match(/Horaires\s*\n+\s*([^\n]+)/);
       horaires = ho ? ho[1].trim().slice(0, 200) : '';
     }
@@ -639,7 +641,7 @@ function agenda_() {
     }
     return { nom: e.nom, d0: d0, d1: d1, type: type, horaires: horaires, url: e.url };
   }).filter(function (e) { return e.d0; });
-  cache.put('agendaEurexpo', JSON.stringify(out), 6 * 3600);
+  cache.put('agendaEurexpo2', JSON.stringify(out), 6 * 3600);
   return out;
 }
 
@@ -651,7 +653,7 @@ function texte_(h) {
 
 // À lancer une fois dans l'éditeur Apps Script pour autoriser la lecture du site (accès « services externes »).
 function testerAgenda() {
-  CacheService.getScriptCache().remove('agendaEurexpo');
+  CacheService.getScriptCache().remove('agendaEurexpo2');
   const l = agenda_();
   Logger.log(l.length + ' évènements Eurexpo : ' + l.map(function (e) { return e.d0 + ' ' + e.nom; }).join(' | '));
 }
