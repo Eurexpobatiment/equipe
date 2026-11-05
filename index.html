@@ -1580,7 +1580,7 @@ function drCell(td){const n=td.dataset.n,f=td.dataset.f,r=D.Drapeaux.find(x=>x.n
 function drNew(pre={}){openForm('Drapeaux',{neufs:'0',occasions:'0',uses:'0',groupe:UI.dr&&UI.dr.g||'',...pre},'Nouveau drapeau')}
 async function drImport(){
   const done=setBusy($('#drimp'),'Reprise en cours…');
-  try{const r=await api('importDrapeaux',{items:drOct26Items()});toast(r.lignes+' lignes reprises ✓');await loadAll(true)}catch(e){done();toast(e.message,1)}
+  try{const r=await api('importDrapeaux',{items:drOct26Items()});toast(r.lignes+' lignes reprises ✓');await loadAll(true);if(!D.Drapeaux.length)setTimeout(()=>loadAll(true),2000)}catch(e){done();toast(e.message,1)}
 }
 
 /* ----- pavoisements ----- */
