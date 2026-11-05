@@ -2,7 +2,8 @@
  * Appli Équipe – Eurexpo · API (Google Apps Script lié au Google Sheet)
  *
  * Onglets créés automatiquement : Equipe, Taches, Commentaires, Nacelle,
- * Regisseurs, Cloisons, EDL, Memos (mémo vigilance & comptes rendus), Journal (trace de qui a fait quoi).
+ * Regisseurs, Cloisons (cloisons + tribune), EDL, Drapeaux, Pavoisements, Memos (mémo vigilance & comptes rendus),
+ * Journal (trace de qui a fait quoi).
  *
  * Installation : coller ce fichier dans Extensions > Apps Script du Google Sheet,
  * exécuter une fois la fonction « installer », puis Déployer > Application Web
@@ -18,7 +19,7 @@ const SCHEMA = {
   Commentaires: ['id', 'tacheId', 'auteur', 'date', 'texte'],
   Nacelle:      ['id', 'nom', 'debut', 'fin', 'lieu', 'motif', 'creeLe', 'majPar'],
   Regisseurs:   ['id', 'regisseur', 'dateDebut', 'dateFin', 'statut', 'salon', 'note', 'majPar'],
-  Cloisons:     ['id', 'date', 'heure', 'hall', 'mouvement', 'cloison', 'salon', 'responsable', 'statut', 'note', 'majPar', 'dateFin', 'heureFin'],
+  Cloisons:     ['id', 'date', 'heure', 'hall', 'mouvement', 'cloison', 'salon', 'responsable', 'statut', 'note', 'majPar', 'dateFin', 'heureFin', 'objet'],
   EDL:          ['id', 'date', 'heure', 'salon', 'type', 'halls', 'responsable', 'statut', 'note', 'majPar'],
   BudgetLignes: ['id', 'type', 'famille', 'code', 'prestataire', 'intitule', 'budget', 'bc', 'horsTotal', 'note', 'ordre', 'majPar'],
   BudgetMvts:   ['id', 'ligneId', 'date', 'nature', 'numero', 'montant', 'libelle', 'creeLe', 'majPar'],
@@ -26,6 +27,8 @@ const SCHEMA = {
   SAP:          ['id', 'societe', 'sap', 'majPar'],
   Chantiers:    ['id', 'titre', 'espace', 'zone', 'type', 'entreprise', 'responsable', 'dateDebut', 'dateFin', 'horaires', 'statut',
                  'avancement', 'montant', 'codeBudget', 'demande', 'nacelle', 'contraintes', 'note', 'creeLe', 'majLe', 'majPar'],
+  Drapeaux:     ['id', 'nom', 'groupe', 'format', 'neufs', 'occasions', 'uses', 'note', 'ordre', 'majPar'],
+  Pavoisements: ['id', 'titre', 'lieu', 'dateDebut', 'dateFin', 'statut', 'responsable', 'liste', 'note', 'creeLe', 'majLe', 'majPar'],
   Memos:        ['id', 'type', 'titre', 'niveau', 'texte', 'decisions', 'lieu', 'jusquau', 'epingle', 'statut', 'dateReunion', 'participants',
                  'luPar', 'creePar', 'creeLe', 'majLe', 'majPar']
 };
@@ -33,7 +36,7 @@ const JOURNAL = ['date', 'auteur', 'action', 'feuille', 'id', 'detail'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule', 'contraintes', 'decisions'];
+const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule', 'contraintes', 'decisions', 'liste'];
 
 /* ---------- Installation ---------- */
 
@@ -68,6 +71,7 @@ function handle_(p) {
       case 'delete': return out_({ ok: true, data: withLock_(function () { return remove_(p.sheet, p.id, p.user); }) });
       case 'partFaite': return out_({ ok: true, data: withLock_(function () { return partFaite_(p.id, p.user, p.fait); }) });
       case 'lu':     return out_({ ok: true, data: withLock_(function () { return memoLu_(p.id, p.user, p.lu); }) });
+      case 'importDrapeaux': return out_({ ok: true, data: withLock_(function () { return importDrapeaux_(p.items, p.user); }) });
       case 'importBudget': return out_({ ok: true, data: withLock_(function () { return importBudget_(p.data, p.user); }) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
@@ -222,7 +226,31 @@ function save_(name, item, user, opts) {
       if (!cur) { o.creePar = user; o.creeLe = now; }
       o.majLe = now; o.majPar = user;
       break;
+    case 'Drapeaux':
+      if (!o.nom) throw new Error('Nom du drapeau obligatoire');
+      if (!o.format) throw new Error('Format obligatoire');
+      ['neufs', 'occasions', 'uses'].forEach(function (k) { o[k] = qte_(o[k], k === 'uses' ? 'usés' : k); });
+      if (!cur && rows.some(function (r) { return String(r.nom).toLowerCase() === o.nom.toLowerCase() && r.format === o.format; }))
+        throw new Error(o.nom + ' en ' + o.format + ' existe déjà : modifie la ligne existante');
+      o.majPar = user;
+      break;
+    case 'Pavoisements':
+      if (!o.titre) throw new Error('Salon / événement obligatoire');
+      if (!RE_DATE.test(o.dateDebut || '')) throw new Error('Date de pose obligatoire');
+      if (!o.dateFin) o.dateFin = o.dateDebut;
+      if (!RE_DATE.test(o.dateFin)) throw new Error('Date de dépose invalide');
+      if (o.dateFin < o.dateDebut) throw new Error('La dépose est avant la pose');
+      let l;
+      try { l = JSON.parse(o.liste || '[]'); } catch (err) { throw new Error('Liste de drapeaux illisible'); }
+      if (!Array.isArray(l)) throw new Error('Liste de drapeaux illisible');
+      o.liste = JSON.stringify(l.filter(function (x) { return x && x.d && x.f && Number(x.q) > 0; })
+        .map(function (x) { return { d: clean_(x.d, 80), f: clean_(x.f, 20), q: Number(qte_(x.q, 'quantité')) }; }));
+      if (!o.statut) o.statut = 'Prévu';
+      if (!cur) o.creeLe = now;
+      o.majLe = now; o.majPar = user;
+      break;
     case 'Cloisons':
+      if (!o.objet) o.objet = 'Cloison';
       if (!RE_DATE.test(o.date || '')) throw new Error('Date de début obligatoire');
       if (!o.dateFin) o.dateFin = o.date;
       if (!RE_DATE.test(o.dateFin)) throw new Error('Date de fin invalide');
@@ -402,6 +430,29 @@ function importBudget_(data, user) {
   return { lignes: L.length, mvts: M.length };
 }
 
+// Reprise initiale de l'inventaire des drapeaux : uniquement si l'onglet Drapeaux est vide
+function importDrapeaux_(items, user) {
+  if (!Array.isArray(items) || !items.length) throw new Error('Inventaire vide');
+  if (rows_(sheet_('Drapeaux')).length) throw new Error("L'inventaire contient déjà des drapeaux : reprise refusée");
+  const L = items.map(function (x, i) {
+    if (!x.nom || !x.format) throw new Error('Ligne ' + (i + 1) + ' : nom ou format manquant');
+    return { id: Utilities.getUuid().replace(/-/g, '').slice(0, 10), nom: x.nom, groupe: x.groupe || '', format: x.format,
+      neufs: qte_(x.neufs, 'neufs'), occasions: qte_(x.occasions, 'occasions'), uses: qte_(x.uses, 'usés'), note: x.note || '', ordre: String(i + 1), majPar: user };
+  });
+  bulk_('Drapeaux', L);
+  journal_(user, 'reprise', 'Drapeaux', '', L.length + ' lignes');
+  return { lignes: L.length };
+}
+
+// Quantité entière ≥ 0 (vide = 0)
+function qte_(v, label) {
+  const s = String(v === null || v === undefined ? '' : v).trim();
+  if (s === '') return '0';
+  const n = Number(s.replace(',', '.'));
+  if (!isFinite(n) || n < 0 || Math.round(n) !== n) throw new Error('Quantité invalide (' + label + ') : ' + v);
+  return String(n);
+}
+
 function bulk_(name, items) {
   if (!items.length) return;
   const sh = sheet_(name), head = headers_(sh);
@@ -488,7 +539,9 @@ function summary_(name, o) {
     case 'Commentaires': return (o.texte || '').slice(0, 80);
     case 'Nacelle': return o.nom + ' ' + fr_(o.debut) + ' → ' + fr_(o.fin);
     case 'Regisseurs': return o.regisseur + ' ' + o.statut + ' ' + o.dateDebut + ' → ' + o.dateFin;
-    case 'Cloisons': return o.date + (o.dateFin && o.dateFin !== o.date ? ' → ' + o.dateFin : '') + ' ' + o.hall + ' ' + o.mouvement + ' ' + o.statut;
+    case 'Drapeaux': return o.nom + ' ' + o.format + ' : ' + o.neufs + ' neufs, ' + o.occasions + ' occasions, ' + o.uses + ' usés';
+    case 'Pavoisements': return o.titre + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
+    case 'Cloisons': return (o.objet === 'Tribune' ? 'Tribune ' : '') + o.date + (o.dateFin && o.dateFin !== o.date ? ' → ' + o.dateFin : '') + ' ' + o.hall + ' ' + o.mouvement + ' ' + o.statut;
     case 'EDL': return o.date + ' ' + o.salon + ' ' + o.type + ' ' + o.statut;
     case 'BudgetLignes': return o.type + ' ' + o.code + ' ' + o.intitule + ' · budget ' + o.budget;
     case 'BudgetMvts': return o.nature + ' ' + o.montant + ' € ' + (o.numero || '') + ' ' + (o.libelle || '');

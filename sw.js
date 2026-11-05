@@ -1,5 +1,5 @@
 /* Service worker : garde l'écran de l'appli sur l'appareil. Les données passent toujours par le serveur. */
-const CACHE = "equipe-v10";
+const CACHE = "equipe-v11";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/icon.svg", "logo.png"];
 
 self.addEventListener("install", e => {
