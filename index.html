@@ -356,6 +356,10 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .dvh{display:flex;align-items:center;gap:8px;margin-bottom:8px}.dvh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy)}
 .dvf{flex:1;width:100%;border:1px solid var(--line);border-radius:8px;background:#f1f4f9}
 .dvn{margin:6px 0 0;font-size:12.5px}
+.dxcr{margin:6px 0 10px;font-size:14px;overflow-wrap:anywhere}.dxcr .lnk{background:none;border:0;padding:2px 0;color:var(--navy);font:inherit;font-weight:600;cursor:pointer}.dxcr .lnk:hover{text-decoration:underline}
+button.doccard.dxd{width:100%;text-align:left;font:inherit;cursor:pointer}button.doccard.dxd:hover{background:#f6f8fc}
+.dxall{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.dxsteps{padding-left:20px;line-height:1.55}.dxsteps li{margin-bottom:10px}
 /* Drapeaux & tribune */
 .drtbl{min-width:420px}.drtbl th.c,.pvtbl th.c{text-align:center}
 .drtbl tr.drg td{background:#f1f4f9;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#475569;cursor:default}
@@ -567,10 +571,10 @@ const TABS = [
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '7'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '8'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
-let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
@@ -2357,14 +2361,99 @@ function docEmbed(d){const a=docUrl(d.apercu);if(a)return a;
   return ''}
 function docView(id){const d=D.Documents.find(x=>x.id===id);if(!d)return;const e=docEmbed(d),u=docUrl(d.lien);
   if(!e){if(u)window.open(u,'_blank','noopener');return}
-  const src=d.source||docSource(d.lien);
-  modal(`<div class="dvh"><b>${DOC_CATS[d.categorie]||'📄'} ${esc(d.titre)}</b><span class="sp"></span>
+  docViewer(d.titre,DOC_CATS[d.categorie]||'📄',e,u,d.source||docSource(d.lien))}
+function docViewer(titre,ic,e,u,src){
+  modal(`<div class="dvh"><b>${ic} ${esc(titre)}</b><span class="sp"></span>
       ${u?`<a class="btn sm" href="${esc(u)}" target="_blank" rel="noopener noreferrer">↗ Ouvrir dans un onglet</a>`:''}
       <button class="btn sm" onclick="closeModal()">✕</button></div>
     <iframe class="dvf" src="${esc(e)}" allow="fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-    <p class="hint dvn">${src==='Teams'?'Aperçu vide ou demande de connexion Microsoft ? Ton navigateur bloque peut-être la connexion Microsoft dans l\'appli : utilise « Ouvrir dans un onglet ».'
+    <p class="hint dvn">${src==='Teams'?'Aperçu vide ou demande de connexion Microsoft ? Connecte-toi une fois à Teams / Office dans ce navigateur, ou utilise « Ouvrir dans un onglet ».'
       :'Aperçu vide ou « accès refusé » ? Vérifie que tu es connecté au bon compte Google, ou utilise « Ouvrir dans un onglet ».'}</p>`);
   $('.ov').classList.add('dvov')}
+
+/* ---- Dossiers Teams : explorateur des fichiers d'un dossier SharePoint (liste gardée dans Firebase, fichiers restés dans Teams) ---- */
+const DX_BM="javascript:(async()=>%7Bconst%20A='https:%2F%2Feurexpobatiment.github.io',c=window._spPageContextInfo;if(!c%7C%7C!%2F%5C.sharepoint%5C.com%24%2F.test(location.hostname))%7Balert('Index%20%C3%89quipe%20:%20%C3%A0%20utiliser%20sur%20un%20dossier%20ouvert%20dans%20SharePoint');return%7Dlet%20r=new%20URLSearchParams(location.search).get('id');if(!r)%7Bconst%20m=decodeURIComponent(location.pathname).match(%2F%5E(.*%3F)%5C%2FForms%5C%2F%2F);r=m%26%26m%5B1%5D%7Dif(!r)%7Balert('Index%20%C3%89quipe%20:%20ouvre%20le%20dossier%20voulu%20dans%20SharePoint,%20puis%20relance');return%7Dif(!confirm('Envoyer%20%C3%A0%20l%5C'appli%20%C3%89quipe%20la%20liste%20des%20fichiers%20du%20dossier%20%C2%AB%20'%2Br.split('%2F').pop()%2B'%20%C2%BB%20et%20de%20ses%20sous-dossiers%20%3F'))return;const%20W=c.webServerRelativeUrl.replace(%2F%5C%2F%24%2F,''),H=%7BAccept:'application%2Fjson;odata=nometadata'%7D;const%20b=document.createElement('div');b.style.cssText='position:fixed;top:12px;right:12px;z-index:99999;background:%231f2a44;color:%23fff;padding:12px%2016px;border-radius:10px;font:14px%20sans-serif;box-shadow:0%204px%2020px%20rgba(0,0,0,.3)';b.textContent='Index%20%C3%89quipe%20:%20lecture%E2%80%A6';document.body.appendChild(b);const%20g=async(p,k,s)=>%7Bconst%20x=await%20fetch(W%2B%22%2F_api%2Fweb%2FGetFolderByServerRelativePath(decodedurl='%22%2BencodeURIComponent(p.replace(%2F'%2Fg,%22''%22))%2B%22')%2F%22%2Bk%2B%22%3F%24select=%22%2Bs%2B%22%26%24top=5000%22,%7Bheaders:H%7D);if(!x.ok)throw%20new%20Error(x.status%2B'%20sur%20'%2Bp);return(await%20x.json()).value%7D;const%20folders=%5B%5D,files=%5B%5D,q=%5Br%5D;let%20act=0;const%20work=async()=>%7Bfor(;;)%7Bif(!q.length)%7Bif(!act)return;await%20new%20Promise(s=>setTimeout(s,40));continue%7Dconst%20p=q.shift();act%2B%2B;%20try%7Bconst%20i=folders.push(p===r%3F'':p.slice(r.length%2B1))-1;const%5BF,D%5D=await%20Promise.all(%5Bg(p,'Files','Name,UniqueId,TimeLastModified,Length'),g(p,'Folders','Name,ServerRelativeUrl')%5D);%20F.forEach(f=>files.push(%5Bi,f.Name,f.UniqueId,String(f.TimeLastModified).slice(0,10),%2Bf.Length%7C%7C0%5D));D.forEach(d=>%7Bif(!(p===r%26%26d.Name==='Forms'))q.push(d.ServerRelativeUrl)%7D);%20b.textContent='Index%20%C3%89quipe%20:%20'%2Bfiles.length%2B'%20fichiers%E2%80%A6'%7Dfinally%7Bact--%7D%7D%7D;try%7Bawait%20Promise.all(%5B1,2,3,4,5,6%5D.map(work))%7Dcatch(e)%7Bb.remove();alert('Index%20%C3%89quipe%20:%20erreur%20'%2Be.message);return%7Dconst%20msg=%7Btype:'equipe-docindex',root:r,web:location.origin%2BW,url:location.href,folders,files%7D;let%20ok=0;addEventListener('message',e=>%7Bif(e.origin!==A)return;if(e.data==='equipe-ready')e.source.postMessage(msg,A);if(e.data==='equipe-ok'%26%26!ok)%7Bok=1;b.textContent='%E2%9C%85%20'%2Bfiles.length%2B'%20fichiers%20envoy%C3%A9s%20%C3%A0%20l%5C'appli%20%C3%89quipe';setTimeout(()=>b.remove(),6000)%7D%7D);b.textContent=files.length%2B'%20fichiers%20:%20envoi%20%C3%A0%20l%5C'appli%E2%80%A6';try%7Bif(window.opener%26%26!window.opener.closed)window.opener.postMessage(msg,A)%7Dcatch(e)%7B%7DsetTimeout(()=>%7Bif(ok)return;b.textContent='';const%20t=document.createElement('button');t.textContent='%E2%9E%9C%20Ouvrir%20l%5C'appli%20%C3%89quipe%20pour%20recevoir%20la%20liste';t.style.cssText='font:inherit;padding:6px%2010px;border-radius:6px;border:0;cursor:pointer';t.onclick=()=>window.open(A%2B'%2Fequipe%2F%23docidx','_blank');b.appendChild(t)%7D,2500)%7D)();";
+const DX_OFF=/\.(docx?|xlsx?|xlsm|pptx?)$/i,DX_VIEW=/\.(pdf|png|jpe?g|gif|bmp|webp|tiff?|svg|dwg|dxf|txt|docx?|xlsx?|xlsm|pptx?)$/i,
+  DX_TECH=/\.(bak|log|dsd|exe|json|mib|fw|bvd|tmp|db|ini|dwl2?|htm|plt|err|sv\$)$/i;
+const DX_IC=n=>/\.pdf$/i.test(n)?'📕':/\.(dwg|dxf)$/i.test(n)?'📐':/\.(png|jpe?g|gif|bmp|webp|tiff?|svg)$/i.test(n)?'🖼️':/\.(xlsx?|xlsm)$/i.test(n)?'📗':/\.docx?$/i.test(n)?'📘':/\.pptx?$/i.test(n)?'📙':/\.zip$/i.test(n)?'🗜️':'📄';
+const DX_GUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let DIX={k:null,roots:[]};
+function dxRoots(){const L=D.DocsIndex||[],k=L.map(x=>x.id+'@'+x.majLe).sort().join();if(k===DIX.k)return DIX.roots;
+  const by={};L.forEach(x=>(by[x.root]=by[x.root]||[]).push(x));const roots=[];
+  for(const r in by){const P=by[r].sort((a,b)=>a.part-b.part);if(P.length!==P[0].parts||!/^https:\/\/[\w.-]+\.sharepoint\.com\//i.test(P[0].web))continue;
+    try{const o=JSON.parse(P.map(x=>x.data).join(''));
+      roots.push({root:r,web:P[0].web.replace(/\/$/,''),url:P[0].url,date:P[0].majLe,par:P[0].majPar,name:r.split('/').pop(),folders:o.folders,files:o.files.filter(f=>DX_GUID.test(f[2]))})}catch(e){}}
+  roots.sort((a,b)=>a.name.localeCompare(b.name,'fr'));DIX={k,roots};return roots}
+function dxFile(R,f){const dir=R.folders[f[0]]||'',name=String(f[1]),path=R.root+(dir?'/'+dir:'')+'/'+name,origin=new URL(R.web).origin,
+    direct=origin+path.split('/').map(encodeURIComponent).join('/'),off=DX_OFF.test(name),
+    doc=`${R.web}/_layouts/15/Doc.aspx?sourcedoc=%7B${f[2]}%7D&action=`;
+  return {dir,name,date:f[3],size:f[4],view:DX_VIEW.test(name)?(off?doc+'embedview':`${R.web}/_layouts/15/embed.aspx?UniqueId=${f[2]}`):'',open:off?doc+'default':direct+'?web=1'}}
+const dxSize=n=>!n?'':n<1e6?Math.max(1,Math.round(n/1e3))+' ko':(n/1e6).toFixed(n<1e7?1:0).replace('.',',')+' Mo';
+function dxView(ri,fi){const R=dxRoots()[ri],f=R&&R.files[fi];if(!f)return;const x=dxFile(R,f);
+  if(!x.view)return window.open(x.open,'_blank','noopener');docViewer(x.name,DX_IC(x.name),x.view,x.open,'Teams')}
+function dxFiche(ri,fi){const R=dxRoots()[ri],f=R&&R.files[fi];if(!f)return;const x=dxFile(R,f);
+  docForm({titre:x.name.replace(/\.\w+$/,''),lien:x.open,apercu:x.view,source:'Teams',categorie:/\.(dwg|dxf)$/i.test(x.name)||/plan/i.test(x.dir+x.name)?'Plans':/sch[ée]ma/i.test(x.dir+x.name)?'Schémas électriques':'Autre',dateDoc:x.date},'Nouvelle fiche')}
+function dxGo(p){UI.doc.tp=p;UI.doc.tq='';render();window.scrollTo(0,0)}
+function vDocsTeams(el,head){const st=UI.doc,roots=dxRoots();
+  if(!roots.length){el.innerHTML=head+`<p class="empty">Aucun dossier Teams dans l'appli pour l'instant.<br>Touche « 🔄 Mettre à jour la liste » pour y ajouter un dossier de Teams (par exemple « Plans et Schémas »).</p>`;return}
+  let ri=Math.max(0,roots.findIndex(r=>r.root===st.tr));const R=roots[ri];st.tr=R.root;
+  const p=st.tp||'',inP=d=>!p||d===p||d.startsWith(p+'/'),okF=f=>st.tall||!DX_TECH.test(f[1]);
+  if(p&&!R.folders.includes(p))st.tp='';
+  const segs=p?p.split('/'):[];
+  const crumb=`<div class="dxcr"><button class="lnk" data-p="" onclick="dxGo(this.dataset.p)">📁 ${esc(R.name)}</button>${segs.map((x,i)=>` › <button class="lnk" data-p="${esc(segs.slice(0,i+1).join('/'))}" onclick="dxGo(this.dataset.p)">${esc(x)}</button>`).join('')}</div>`;
+  const w=String(st.tq||'').toLowerCase().split(/\s+/).filter(Boolean);
+  const row=(f,fi,showDir)=>{const x=dxFile(R,f);return `<div class="doccard dxf"><span class="di">${DX_IC(x.name)}</span><div class="db">
+      <a class="dt" href="${esc(x.open)}" ${x.view?`onclick="event.preventDefault();dxView(${ri},${fi})"`:'target="_blank" rel="noopener noreferrer"'}>${esc(x.name)}</a>
+      <small>${[showDir&&x.dir?'📁 '+esc(x.dir):'',x.date&&fD(x.date,{day:'2-digit',month:'2-digit',year:'numeric'}),dxSize(x.size),!x.view?'pas d\'aperçu : s\'ouvre dans Teams':''].filter(Boolean).join(' · ')}</small></div>
+    <a class="btn sm" href="${esc(x.open)}" target="_blank" rel="noopener noreferrer" title="Ouvrir dans Teams / SharePoint">↗</a>
+    <button class="btn sm" onclick="dxFiche(${ri},${fi})" title="En faire une fiche (onglet Fiches)">⭐</button></div>`};
+  let body;
+  if(w.length){const L=[];R.files.forEach((f,fi)=>{if(okF(f)&&inP(R.folders[f[0]]||'')&&w.every(t=>((R.folders[f[0]]||'')+' '+f[1]).toLowerCase().includes(t)))L.push(fi)});
+    L.sort((a,b)=>String(R.files[a][1]).localeCompare(String(R.files[b][1]),'fr',{numeric:true}));
+    body=!L.length?'<p class="empty">Aucun fichier ne correspond à la recherche.</p>'
+      :`<div class="docgrp">${L.length} fichier${L.length>1?'s':''}${L.length>300?' (300 premiers affichés)':''}</div>`+L.slice(0,300).map(fi=>row(R.files[fi],fi,1)).join('')}
+  else{const cnt={};R.files.forEach(f=>{if(!okF(f))return;const d=R.folders[f[0]]||'';if(!inP(d)||d===p)return;const k=d.slice(p?p.length+1:0).split('/')[0];cnt[k]=(cnt[k]||0)+1});
+    const sub=[...new Set(R.folders.filter(d=>d&&inP(d)&&d!==p).map(d=>d.slice(p?p.length+1:0).split('/')[0]))].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true}));
+    const here=[];R.files.forEach((f,fi)=>{if(okF(f)&&(R.folders[f[0]]||'')===p)here.push(fi)});
+    here.sort((a,b)=>String(R.files[a][1]).localeCompare(String(R.files[b][1]),'fr',{numeric:true}));
+    body=(sub.length?sub.map(k=>`<button class="doccard dxd" data-p="${esc((p?p+'/':'')+k)}" onclick="dxGo(this.dataset.p)"><span class="di">📁</span><div class="db"><b>${esc(k)}</b><small>${cnt[k]||0} fichier${(cnt[k]||0)>1?'s':''}</small></div></button>`).join(''):'')
+      +here.map(fi=>row(R.files[fi],fi,0)).join('')
+      +(!sub.length&&!here.length?'<p class="empty">Dossier vide.</p>':'')}
+  el.innerHTML=head+`
+    <div class="bar chf">${roots.length>1?`<select class="sel" onchange="UI.doc.tr=this.value;UI.doc.tp='';UI.doc.tq='';render()">${roots.map(r=>`<option value="${esc(r.root)}" ${r===R?'selected':''}>${esc(r.name)}</option>`).join('')}</select>`:''}
+      <input class="search" type="search" placeholder="Rechercher un fichier${p?' dans ce dossier':''}…" value="${esc(st.tq||'')}" oninput="UI.doc.tq=this.value;pgRefresh()">
+      <label class="hint dxall"><input type="checkbox" ${st.tall?'checked':''} onchange="UI.doc.tall=this.checked;render()"> fichiers techniques (.bak, .log…)</label></div>
+    ${crumb}${body}
+    <p class="hint">Liste du dossier Teams « ${esc(R.name)} » mise à jour le ${fD(String(R.date).slice(0,10),{day:'numeric',month:'long',year:'numeric'})} par ${esc(R.par||'?')} (${R.files.length} fichiers).
+      Les fichiers restent dans Teams : chacun les voit avec ses propres droits. Un fichier ajouté dans Teams apparaît ici après « 🔄 Mettre à jour la liste ».</p>`}
+function dxUpdate(){const roots=dxRoots();
+  modal(`<h2>🔄 Mettre à jour la liste des dossiers Teams</h2>
+    <ol class="dxsteps">
+      <li><b>Une seule fois</b> : affiche la barre de favoris (Ctrl/Cmd + Maj + B) et <b>glisse-y ce bouton</b> : <a class="btn pri" href="${esc(DX_BM)}" onclick="event.preventDefault();toast('Glisse ce bouton dans ta barre de favoris')">📥 Index Équipe</a></li>
+      <li>Ouvre le dossier dans SharePoint : ${roots.filter(r=>/^https:\/\//.test(r.url)).map(r=>`<button class="btn sm" data-u="${esc(r.url)}" onclick="window.open(this.dataset.u,'_blank')">${esc(r.name)}</button>`).join(' ')}
+        ${roots.length?'ou un autre dossier : ':''}dans Teams, onglet <i>Fichiers / Partagé</i> › … › <i>Ouvrir dans SharePoint</i>, puis entre dans le dossier voulu.</li>
+      <li>Sur la page SharePoint, clique sur le favori <b>📥 Index Équipe</b> : la liste des fichiers (avec les sous-dossiers) arrive dans l'appli.</li></ol>
+    <p class="hint">Les fichiers ne sont pas copiés : l'appli garde seulement leurs noms et leur emplacement. Chacun les ouvre avec ses droits Teams.</p>
+    ${roots.length?`<p class="hint">Dossiers déjà dans l'appli : ${roots.map(r=>`<b>${esc(r.name)}</b> (${r.files.length} fichiers, ${fD(String(r.date).slice(0,10),{day:'numeric',month:'short'})})`).join(', ')}.</p>`:''}
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`)}
+// Réception de la liste envoyée par le favori « Index Équipe » depuis SharePoint
+let dxPending=null;
+window.addEventListener('message',e=>{
+  if(!/^https:\/\/[\w-]+\.sharepoint\.com$/i.test(e.origin))return;const m=e.data;
+  if(!m||m.type!=='equipe-docindex'||typeof m.root!=='string'||!Array.isArray(m.folders)||!Array.isArray(m.files)||String(m.web||'').indexOf(e.origin+'/')!==0)return;
+  if(m.files.length>60000||!m.folders.every(x=>typeof x==='string')||!m.files.every(f=>Array.isArray(f)&&Number.isInteger(f[0])&&f[0]>=0&&f[0]<m.folders.length&&typeof f[1]==='string'&&DX_GUID.test(f[2])))return toast('Liste reçue invalide',1);
+  try{e.source.postMessage('equipe-ok',e.origin)}catch(x){}
+  dxPending={root:m.root,web:m.web,url:String(m.url||'').startsWith(e.origin+'/')?m.url:'',folders:m.folders,files:m.files.map(f=>[f[0],String(f[1]).slice(0,300),f[2],String(f[3]||'').slice(0,10),+f[4]||0])};
+  if(loaded)dxAsk()});
+function dxAsk(){const m=dxPending;if(!m)return;const name=m.root.split('/').pop(),old=dxRoots().find(r=>r.root===m.root);
+  modal(`<h2>📥 Liste reçue de Teams</h2><p><b>${m.files.length} fichiers</b> dans le dossier <b>${esc(name)}</b> et ses ${m.folders.length-1} sous-dossiers.</p>
+    ${old?`<p class="hint">Elle remplacera la liste actuelle (${old.files.length} fichiers, du ${fD(String(old.date).slice(0,10),{day:'numeric',month:'short'})}).</p>`:'<p class="hint">Nouveau dossier : il sera visible par toute l\'équipe dans Documents › Dossiers Teams.</p>'}
+    <div class="acts"><button class="btn" onclick="dxPending=null;closeModal()">Annuler</button><span class="sp"></span><button class="btn pri" id="dxok" onclick="dxSave()">Enregistrer</button></div>`)}
+async function dxSave(){const m=dxPending;if(!m)return;const done=setBusy($('#dxok'),'Enregistrement…');
+  try{await FB.saveDocIndex(m);dxPending=null;closeModal(true);UI.doc=UI.doc||{q:'',cat:'',esp:'',src:'',group:'categorie'};UI.doc.mode='teams';UI.doc.tr=m.root;UI.doc.tp='';UI.doc.tq='';goTab('Docs');toast(`✓ ${m.files.length} fichiers dans l'appli`)}
+  catch(x){done();toast(x.message,1)}}
+function dxReady(){if(location.hash!=='#docidx')return;history.replaceState(null,'',location.pathname+location.search);
+  try{if(window.opener)window.opener.postMessage('equipe-ready','*')}catch(e){}}
 function docNew(){const st=UI.doc||{};docForm({categorie:st.cat||'Plans',espaces:st.esp||''},'Nouveau document')}
 function docEdit(id){const d=D.Documents.find(x=>x.id===id);if(d)docForm(d,d.titre)}
 function docFiltered(){const st=UI.doc,w=String(st.q||'').toLowerCase().split(/\s+/).filter(Boolean);
@@ -2381,6 +2470,9 @@ function docCard(d){const u=docUrl(d.lien),src=d.source||docSource(d.lien);
     <button class="btn sm" onclick="docEdit('${d.id}')" title="Modifier">✏️</button></div>`}
 function vDocs(el){
   const st=UI.doc||(UI.doc={q:'',cat:'',esp:'',src:'',group:'categorie'});
+  if(!st.mode)st.mode='fiches';
+  const sw=`<div class="seg-ctl">${[['fiches','📚 Fiches'],['teams','🟣 Dossiers Teams']].map(([k,l])=>`<button class="${st.mode===k?'on':''}" onclick="UI.doc.mode='${k}';render()">${l}</button>`).join('')}</div>`;
+  if(st.mode==='teams')return vDocsTeams(el,`<div class="bar"><h2>Documents techniques</h2>${sw}<span class="sp"></span><button class="btn" onclick="dxUpdate()">🔄 Mettre à jour la liste</button></div>`);
   const L=docFiltered().sort((a,b)=>String(a.titre).localeCompare(String(b.titre),'fr',{numeric:true}));
   const ix=x=>{const i=ESPACES().indexOf(x);return i<0?999:i};
   const esp=[...new Set(D.Documents.flatMap(d=>espList(d.espaces)))].sort((a,b)=>ix(a)-ix(b)||a.localeCompare(b,'fr'));
@@ -2388,7 +2480,7 @@ function vDocs(el){
   const g={};L.forEach(d=>{(st.group==='espace'?(espList(d.espaces).length?espList(d.espaces):['Tout le site']):[d.categorie||'Autre']).forEach(k=>(g[k]=g[k]||[]).push(d))});
   const ord=st.group==='espace'?Object.keys(g).sort((a,b)=>(a==='Tout le site')-(b==='Tout le site')||ix(a)-ix(b)||a.localeCompare(b,'fr'))
     :Object.keys(DOC_CATS).filter(k=>g[k]).concat(Object.keys(g).filter(k=>!DOC_CATS[k]));
-  el.innerHTML=`<div class="bar"><h2>Documents techniques</h2><span class="sp"></span>${liens}<button class="btn pri" onclick="docNew()">+ Document</button></div>
+  el.innerHTML=`<div class="bar"><h2>Documents techniques</h2>${sw}<span class="sp"></span>${liens}<button class="btn pri" onclick="docNew()">+ Document</button></div>
     ${globalThis.DOCS_ERR?`<div class="docwarn">⚠️ Onglet pas encore activé dans Firebase (${esc(globalThis.DOCS_ERR)}).<br>Le propriétaire doit publier les nouvelles règles : console Firebase › Firestore Database › Règles.</div>`:''}
     <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (titre, équipement, mot-clé…)" value="${esc(st.q)}" oninput="UI.doc.q=this.value;pgRefresh()">
       <select class="sel" onchange="UI.doc.cat=this.value;render()"><option value="">Toutes les catégories</option>${Object.keys(DOC_CATS).map(c=>`<option ${c===st.cat?'selected':''}>${esc(c)}</option>`).join('')}</select>
@@ -2505,7 +2597,7 @@ async function fbStart(){
         FB.start(D,()=>{
           D.Cloisons.forEach(x=>{x.mouvement=({'Fermeture':'À sortir','Ouverture':'À ranger'})[x.mouvement]||x.mouvement});
           SRV=new Set(Object.keys(D));
-          if(!loaded){loaded=true;fbSync();render();ouvrirLien();if(!navigator.onLine)toast('Hors connexion : tu vois la dernière version gardée sur le téléphone')}
+          if(!loaded){loaded=true;fbSync();render();ouvrirLien();dxReady();if(dxPending)dxAsk();if(!navigator.onLine)toast('Hors connexion : tu vois la dernière version gardée sur le téléphone')}
           else liveRender();
         },m=>{fbSync();toast(m,1)});}
       return;

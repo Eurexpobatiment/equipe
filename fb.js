@@ -6,7 +6,7 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=7';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=8';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -92,7 +92,9 @@ export function start(D, onChange, onErr) {
   const parts = {}; let pending = 0, done = false;
   const merge = (name) => {
     const L = []; Object.keys(parts).filter(k => k.split('|')[0] === name).forEach(k => L.push(...parts[k]));
-    D[name] = L;
+    // Documents : l'index des dossiers Teams est rangé dans la même collection (fiches à part)
+    if (name === 'Documents') { D.DocsIndex = L.filter(x => x.kind === 'index'); D[name] = L.filter(x => x.kind !== 'index'); }
+    else D[name] = L;
   };
   const sub = (name, q) => {
     const key = name + '|' + (pending++);
@@ -408,4 +410,26 @@ export async function resynchroniser(ownerNom, progress = () => {}) {
   }
   bg(F.addDoc(F.collection(db, 'Journal'), { date: now_(), auteur: me || ownerNom, action: 'reprise', feuille: 'Tout', id: '', detail: 'Mise à jour depuis le Google Sheet (bascule)' }));
   return bilan;
+}
+
+/* ---------- Index des dossiers Teams / SharePoint (onglet Documents) ----------
+ * idx = { root, web, url, folders:[chemins], files:[[iDossier, nom, UniqueId, date, taille]] }
+ * Rangé en morceaux dans la collection Documents (kind = 'index'), remplacés à chaque mise à jour. */
+export async function saveDocIndex(idx) {
+  if (!me) throw new Error('Non connecté');
+  const root = String(idx.root || ''), web = String(idx.web || '');
+  if (!root || !/^https:\/\/[\w.-]+\.sharepoint\.com\//i.test(web)) throw new Error('Index invalide');
+  const json = JSON.stringify({ folders: idx.folders, files: idx.files });
+  const CH = 250000, parts = [];
+  for (let i = 0; i < json.length; i += CH) parts.push(json.slice(i, i + CH));
+  let h = 0; for (const c of root) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const base = 'idx-' + h.toString(36), date = now_();
+  const old = ((D_ && D_.DocsIndex) || []).filter(x => x.root === root).map(x => x.id);
+  const b = F.writeBatch(db);
+  old.forEach(id => b.delete(ref('Documents', id)));
+  parts.forEach((data, i) => b.set(ref('Documents', base + '-' + i), {
+    kind: 'index', root, web, url: String(idx.url || '').slice(0, 1500), part: i, parts: parts.length,
+    n: idx.files.length, data, titre: root.split('/').pop(), majLe: date, majPar: me }));
+  await wrap(b.commit());
+  journal('index', 'Documents', base, root + ' · ' + idx.files.length + ' fichiers');
 }
