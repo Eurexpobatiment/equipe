@@ -6,7 +6,7 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=5';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=6';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -99,12 +99,15 @@ export function start(D, onChange, onErr) {
     let first = true, essais = 0;
     const go = () => unsub.push(F.onSnapshot(q, { includeMetadataChanges: false }, s => {
       parts[key] = s.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+      if (name === 'Documents') globalThis.DOCS_ERR = '';
       merge(name);
       if (first) { first = false; pending--; }
       if (!done && pending === 0) done = true;
       if (done) onChange(true, s.metadata.fromCache);
     }, e => {
       if (essais++ < 2) return setTimeout(go, 1500 * essais); // refus passager (accès en cours d'ouverture, jeton à renouveler)
+      // Documents : nouvelle collection, les règles Firebase peuvent ne pas être encore publiées → on le signale dans l'onglet seulement
+      if (name === 'Documents') { globalThis.DOCS_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (first) { first = false; pending--; } onErr(errMsg(e)); if (!done && pending === 0) { done = true; onChange(true, true); }
     }));
     go();

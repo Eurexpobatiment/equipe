@@ -22,10 +22,11 @@ export const SCHEMA = {
                  'luPar', 'creePar', 'creeLe', 'majLe', 'majPar'],
   Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
-                 'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar']
+                 'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar'],
+  Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar']
 };
 // Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
-export const HORS_SHEET = ['Clefs', 'ClefsPrets'];
+export const HORS_SHEET = ['Clefs', 'ClefsPrets', 'Documents'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -242,6 +243,16 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       o.majPar = user;
       break;
     }
+    case 'Documents':
+      if (!o.titre) throw new Error('Titre du document obligatoire');
+      o.lien = clean_(item.lien !== undefined ? item.lien : o.lien, 1500);
+      if (!/^https:\/\/[^\s]+$/i.test(o.lien)) throw new Error('Lien invalide : colle l\'adresse complète (https://…) du fichier ou du dossier');
+      o.source = sourceDoc_(o.lien);
+      if (o.dateDoc && !RE_DATE.test(o.dateDoc)) throw new Error('Date du document invalide');
+      if (!o.categorie) o.categorie = 'Autre';
+      if (!cur) { o.creePar = user; o.creeLe = now; }
+      o.majLe = now; o.majPar = user;
+      break;
     default: // EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       o.majPar = user;
@@ -250,6 +261,14 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
   const out = {};
   SCHEMA[name].forEach(k => { out[k] = o[k] === undefined || o[k] === null ? '' : String(o[k]); });
   return out;
+}
+
+// Où est rangé le document, d'après son lien
+export function sourceDoc_(u) {
+  const h = (String(u || '').match(/^https:\/\/([^/?#]+)/i) || [])[1] || '';
+  if (/(^|\.)(drive|docs|sheets|slides)\.google\.com$/i.test(h)) return 'Drive';
+  if (/(^|\.)sharepoint\.com$/i.test(h) || /(^|\.)teams\.microsoft\.com$/i.test(h) || /(^|\.)1drv\.ms$/i.test(h) || /(^|\.)onedrive\.live\.com$/i.test(h)) return 'Teams';
+  return 'Autre';
 }
 
 export function summary_(name, o) {
@@ -271,6 +290,7 @@ export function summary_(name, o) {
     case 'Memos': return o.type + ' · ' + o.titre + (o.niveau ? ' · ' + o.niveau : '') + ' · ' + o.statut;
     case 'Clefs': return (o.numero ? 'n° ' + o.numero + ' ' : '') + o.espace + ' - ' + o.acces + ' · stock ' + o.stock;
     case 'ClefsPrets': return o.societe + ' · ' + [o.prenom, o.nom].filter(Boolean).join(' ') + ' · ' + (o.numero || o.designation) + ' · ' + o.rendu + '/' + o.qte + ' rendue(s)' + (o.statut ? ' · ' + o.statut : '');
+    case 'Documents': return o.titre + ' · ' + o.categorie + (o.espaces ? ' · ' + o.espaces : '') + ' · ' + o.source;
     case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';

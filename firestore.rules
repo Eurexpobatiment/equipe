@@ -18,14 +18,14 @@ service cloud.firestore {
     // Données partagées par toute l'équipe
     match /{col}/{id} {
       allow read: if member() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
-                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets'];
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets', 'Documents'];
       allow create, update: if member() && small() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
-                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets']
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets', 'Documents']
                             && (isOwner() || request.resource.data.majPar == myNom());
       // « J'ai lu » sur un mémo : seule la liste des lecteurs change
       allow update: if member() && col == 'Memos' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luPar']);
       allow delete: if member() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
-                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets'];
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements', 'Clefs', 'ClefsPrets', 'Documents'];
     }
 
     // Tâches : les tâches perso ne sont visibles et modifiables que par leur auteur

@@ -340,6 +340,17 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .cltbl tr.clko td{background:#fde4e5}
 .clin{border:1px solid #d5d9e2;border-radius:6px;padding:5px 7px;font-size:14px;max-width:100%}
 .clres{max-height:260px;overflow:auto;margin-top:6px}
+/* Documents techniques */
+.docgrp{font-size:13px;color:#475569;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.docgrp .n{font-weight:400;color:var(--muted)}
+.doccard{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.doccard .di{font-size:22px;line-height:1;flex:none}
+.doccard .db{flex:1;min-width:0}
+.doccard a.dt{font-weight:600;color:var(--navy);text-decoration:none;overflow-wrap:anywhere}
+.doccard a.dt:hover{text-decoration:underline}
+.doccard small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;overflow-wrap:anywhere}
+.docwarn{background:#fff6e5;border:1px solid #f1d39a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+.docsrc{font-size:13px;margin-top:-4px}
 /* Drapeaux & tribune */
 .drtbl{min-width:420px}.drtbl th.c,.pvtbl th.c{text-align:center}
 .drtbl tr.drg td{background:#f1f4f9;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#475569;cursor:default}
@@ -380,6 +391,10 @@ const CONFIG = {
   halls: ['Hall 1','Hall 2.1 AB','Hall 2.1 Ext','Hall 2.2','Hall 2.3','Hall 3.1','Hall 3.2','Hall 4.1','Hall 4.2','Hall 4.3','Hall 5.1','Hall 5.2','Hall 6.1','Hall 6.2','Hall 6.3','Hall 7'],
   autresEspaces: ['Bureaux / administratif','Parvis','Parkings','Voiries / extérieurs','Toitures','Locaux techniques','Sous-sol / galeries techniques'],
   roles: ['Responsable','Technicien','Régisseur'],
+  // Onglet Documents : boutons vers les dossiers d'origine (laisser l'adresse vide pour masquer le bouton)
+  docsLiens: [
+    {l:'📁 Dossier Google Drive', u:''},
+    {l:'💬 Fichiers Teams', u:''}],
   refreshSec: 60,
   // Projet Firebase (console Firebase › Paramètres du projet › Vos applications › firebaseConfig). Vide = ancien fonctionnement (Google Sheet).
   firebase: {
@@ -539,6 +554,7 @@ const TABS = [
   {id:'Nacelle',l:'🏗️ Nacelle'},
   {id:'Regie',l:'🎪 Régie évènementielle'},
   {id:'Clefs',l:'🔑 Clefs'},
+  {id:'Docs',l:'📚 Documents'},
   {id:'Demandes',l:'📨 Demandes'},
   {id:'Travaux',l:'🚧 Travaux'},
   {id:'Budget',l:'💶 Budget'},
@@ -546,10 +562,10 @@ const TABS = [
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '5'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '6'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
-let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
@@ -651,7 +667,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
   hallsDatalist(); budgetDatalists();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -2284,6 +2300,72 @@ function pgAdd(d){d=d||today();
     <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
 }
 
+/* ================== DOCUMENTS TECHNIQUES ================== */
+// Bibliothèque : une fiche par document (titre, catégorie, halls…) avec le lien vers le fichier, rangé dans Google Drive ou Teams / SharePoint.
+// L'appli ne garde pas les fichiers : chacun les ouvre avec ses propres droits Drive / Microsoft.
+const DOC_CATS={'Plans':'📐','DOE':'🗂️','Notices / fiches techniques':'📘','Schémas électriques':'⚡','Rapports de contrôle':'✅',
+  'Contrats / maintenance':'📝','Sécurité / ERP':'🧯','Procédures / modes opératoires':'📋','Autre':'📄'};
+const DOC_SRC={Drive:'Google Drive',Teams:'Teams / SharePoint',Autre:'Autre lien'};
+const DOC_SRC_I={Drive:'🟢',Teams:'🟣',Autre:'🔗'};
+const docUrl=u=>/^https:\/\/[^\s]+$/i.test(String(u||''))?String(u):'';
+const docSource=u=>{const h=(String(u||'').match(/^https:\/\/([^/?#]+)/i)||[])[1]||'';
+  if(/(^|\.)(drive|docs|sheets|slides)\.google\.com$/i.test(h))return 'Drive';
+  if(/(^|\.)sharepoint\.com$/i.test(h)||/(^|\.)teams\.microsoft\.com$/i.test(h)||/(^|\.)1drv\.ms$/i.test(h)||/(^|\.)onedrive\.live\.com$/i.test(h))return 'Teams';
+  return 'Autre'};
+FORMS.Documents=[
+  {k:'titre',l:'Titre du document',req:1,full:1},
+  {k:'lien',l:'Lien du fichier ou du dossier (Drive / Teams)',req:1,full:1},
+  {k:'categorie',l:'Catégorie',t:'select',o:Object.keys(DOC_CATS),def:'Plans'},
+  {k:'equipement',l:'Équipement / installation (facultatif)',t:'dl',dl:'dl-docequip'},
+  {k:'espaces',l:'Halls / espaces concernés (aucun = tout le site)',t:'multi',o:()=>ESPACES()},
+  {k:'dateDoc',l:'Date du document',t:'date'},
+  {k:'version',l:'Version / indice'},
+  {k:'motsCles',l:'Mots-clés (pour la recherche)',full:1},
+  {k:'note',l:'Note',t:'textarea',rows:3}];
+function docDatalists(){let e=$('#dl-docequip');if(!e){e=document.createElement('datalist');e.id='dl-docequip';document.body.appendChild(e)}
+  e.innerHTML=[...new Set(D.Documents.map(d=>d.equipement).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr')).map(v=>`<option value="${esc(v)}">`).join('')}
+function docForm(d,title){docDatalists();
+  openForm('Documents',d,title,{
+    validate:o=>docUrl(o.lien)?'':'Lien invalide : colle l\'adresse complète du fichier (elle commence par https://)',
+    extra:`<p class="hint">Pour avoir le lien : <b>Drive</b> › clic droit sur le fichier › Partager › Copier le lien. <b>Teams</b> › onglet Fichiers › … › Copier le lien.
+      Chacun ouvre le fichier avec ses propres droits : vérifie que l'équipe y a accès.</p>${d&&d.majPar?`<div class="made">Ajouté par ${esc(d.creePar||'?')} · dernière modification par ${esc(d.majPar)}</div>`:''}`,
+    after:()=>{const i=$('#f_lien');if(!i)return;const m=document.createElement('div');m.className='docsrc hint';i.closest('.fl').appendChild(m);
+      const upd=()=>{const u=i.value.trim();m.textContent=!u?'':docUrl(u)?DOC_SRC_I[docSource(u)]+' '+DOC_SRC[docSource(u)]:'⚠️ L\'adresse doit commencer par https://'};
+      i.addEventListener('input',upd);upd()}})}
+function docNew(){const st=UI.doc||{};docForm({categorie:st.cat||'Plans',espaces:st.esp||''},'Nouveau document')}
+function docEdit(id){const d=D.Documents.find(x=>x.id===id);if(d)docForm(d,d.titre)}
+function docFiltered(){const st=UI.doc,w=String(st.q||'').toLowerCase().split(/\s+/).filter(Boolean);
+  return D.Documents.filter(d=>(!st.cat||d.categorie===st.cat)&&(!st.esp||espList(d.espaces).includes(st.esp))&&(!st.src||d.source===st.src)
+    &&w.every(x=>[d.titre,d.categorie,d.espaces,d.equipement,d.motsCles,d.note,d.version].join(' ').toLowerCase().includes(x)))}
+function docCard(d){const u=docUrl(d.lien),src=d.source||docSource(d.lien);
+  const meta=[espList(d.espaces).length?'🏢 '+esc(espList(d.espaces).join(', ')):'',d.equipement&&'⚙️ '+esc(d.equipement),
+    d.dateDoc&&'📅 '+fD(d.dateDoc,{day:'2-digit',month:'2-digit',year:'numeric'}),d.version&&esc(d.version),DOC_SRC_I[src]+' '+DOC_SRC[src]].filter(Boolean).join(' · ');
+  return `<div class="doccard"><span class="di">${DOC_CATS[d.categorie]||'📄'}</span><div class="db">
+    ${u?`<a class="dt" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(d.titre)}</a>`:`<b>${esc(d.titre)}</b> <span class="hint">(lien invalide)</span>`}
+    <small>${meta}</small>${d.note?`<small>${esc(d.note)}</small>`:''}</div>
+    <button class="btn sm" onclick="docEdit('${d.id}')" title="Modifier">✏️</button></div>`}
+function vDocs(el){
+  const st=UI.doc||(UI.doc={q:'',cat:'',esp:'',src:'',group:'categorie'});
+  const L=docFiltered().sort((a,b)=>String(a.titre).localeCompare(String(b.titre),'fr',{numeric:true}));
+  const ix=x=>{const i=ESPACES().indexOf(x);return i<0?999:i};
+  const esp=[...new Set(D.Documents.flatMap(d=>espList(d.espaces)))].sort((a,b)=>ix(a)-ix(b)||a.localeCompare(b,'fr'));
+  const liens=(CONFIG.docsLiens||[]).filter(x=>docUrl(x.u)).map(x=>`<a class="btn" href="${esc(x.u)}" target="_blank" rel="noopener noreferrer">${esc(x.l)}</a>`).join('');
+  const g={};L.forEach(d=>{(st.group==='espace'?(espList(d.espaces).length?espList(d.espaces):['Tout le site']):[d.categorie||'Autre']).forEach(k=>(g[k]=g[k]||[]).push(d))});
+  const ord=st.group==='espace'?Object.keys(g).sort((a,b)=>(a==='Tout le site')-(b==='Tout le site')||ix(a)-ix(b)||a.localeCompare(b,'fr'))
+    :Object.keys(DOC_CATS).filter(k=>g[k]).concat(Object.keys(g).filter(k=>!DOC_CATS[k]));
+  el.innerHTML=`<div class="bar"><h2>Documents techniques</h2><span class="sp"></span>${liens}<button class="btn pri" onclick="docNew()">+ Document</button></div>
+    ${globalThis.DOCS_ERR?`<div class="docwarn">⚠️ Onglet pas encore activé dans Firebase (${esc(globalThis.DOCS_ERR)}).<br>Le propriétaire doit publier les nouvelles règles : console Firebase › Firestore Database › Règles.</div>`:''}
+    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (titre, équipement, mot-clé…)" value="${esc(st.q)}" oninput="UI.doc.q=this.value;pgRefresh()">
+      <select class="sel" onchange="UI.doc.cat=this.value;render()"><option value="">Toutes les catégories</option>${Object.keys(DOC_CATS).map(c=>`<option ${c===st.cat?'selected':''}>${esc(c)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.doc.esp=this.value;render()"><option value="">Tous les espaces</option>${esp.map(e=>`<option ${e===st.esp?'selected':''}>${esc(e)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.doc.src=this.value;render()"><option value="">Drive et Teams</option>${Object.keys(DOC_SRC).map(k=>`<option value="${k}" ${k===st.src?'selected':''}>${DOC_SRC[k]}</option>`).join('')}</select>
+      <div class="seg-ctl">${[['categorie','Par catégorie'],['espace','Par hall']].map(([k,l])=>`<button class="${st.group===k?'on':''}" onclick="UI.doc.group='${k}';render()">${l}</button>`).join('')}</div></div>
+    ${!D.Documents.length?`<p class="empty">Aucun document pour l'instant. Touche « + Document » et colle le lien d'un fichier ou d'un dossier de ton Drive ou de Teams.</p>`
+      :!L.length?'<p class="empty">Aucun document ne correspond à la recherche.</p>'
+      :ord.map(k=>`<div class="docgrp">${st.group==='categorie'?(DOC_CATS[k]||'📄')+' ':''}${esc(k)} <span class="n">${g[k].length}</span></div>${g[k].map(docCard).join('')}`).join('')}
+    <p class="hint">${D.Documents.length} document${D.Documents.length>1?'s':''}. Les fichiers restent dans Drive ou Teams : le titre ouvre le fichier dans un nouvel onglet, avec tes propres droits d'accès.</p>`;
+}
+
 let DB=null;
 function demoSeed(){
   const t=today(), m=monday(), id=()=>Math.random().toString(36).slice(2,10);
@@ -2308,6 +2390,8 @@ function demoSeed(){
               {id:id(),objet:'Tribune',date:addDays(t,-10),dateFin:addDays(t,-10),hall:'Hall 1',mouvement:'À sortir',salon:'Salon précédent',statut:'Fait'},
               {id:id(),objet:'Tribune',date:addDays(t,2),dateFin:addDays(t,2),heure:'08:00',hall:'Hall 1',mouvement:'À rentrer',salon:'Salon précédent',responsable:'Julien',statut:'Prévu'}],
     BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Clefs:[],ClefsPrets:[],
+    Documents:[{id:id(),titre:'Plan sous-sol Hall 4',categorie:'Plans',espaces:'Hall 4.1, Hall 4.2',lien:'https://drive.google.com/file/d/demo/view',source:'Drive',dateDoc:'2025-03-12',version:'Ind. C'},
+      {id:id(),titre:'Schéma unifilaire TGBT Hall 5',categorie:'Schémas électriques',espaces:'Hall 5.1',equipement:'TGBT',lien:'https://exemple.sharepoint.com/sites/batiment/demo.pdf',source:'Teams'}],
     Drapeaux:drOct26Items().map((x,i)=>({id:id(),ordre:String(i+1),...x})),
     Pavoisements:[{id:id(),titre:'Salon démo',lieu:'Accueil Parvis',dateDebut:addDays(t,1),dateFin:addDays(t,5),statut:'Prévu',responsable:'Karim',
       liste:JSON.stringify(['France','Europe','Allemagne','Italie','Espagne','Eurexpo','GL events'].map(d=>({d,f:'200 x 300',q:d==='Eurexpo'||d==='GL events'?2:1})))},
