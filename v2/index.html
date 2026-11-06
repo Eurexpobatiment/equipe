@@ -533,6 +533,7 @@ const TABS = [
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
+const FB_VER = '3'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[]};
@@ -1996,7 +1997,7 @@ window.addEventListener('online',fbSync);window.addEventListener('offline',fbSyn
 
 async function fbStart(){
   $('#view').innerHTML='<div class="loading">Démarrage…</div>';
-  try{FB=await import('./fb.js');FB.init(CONFIG)}
+  try{FB=await import('./fb.js?v='+FB_VER);FB.init(CONFIG)}
   catch(e){$('#view').innerHTML=`<div class="loading">Impossible de démarrer l'appli (pas de connexion ?).<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Réessayer</button></div>`;return}
   FB.bind(D);
   FB.onBackgroundError(m=>{toast('Pas enregistré : '+m,1)});

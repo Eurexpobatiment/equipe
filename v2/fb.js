@@ -6,7 +6,7 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_ } from './logic.js';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_ } from './logic.js?v=3';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -63,14 +63,22 @@ export function onAuth(cb) {
     }
     // le jeton de connexion doit porter « e-mail vérifié » (il peut dater d'avant la vérification)
     try { const r = await u.getIdTokenResult(); if (r.claims.email_verified !== true) await u.getIdToken(true); } catch (e) {}
-    accUnsub = F.onSnapshot(F.doc(db, 'Acces', meEmail), s => {
-      const a = s.exists() ? s.data() : null;
-      const ok = a && a.actif !== 'non';
-      const chg = !!ok !== !!(meAcc && meAcc.actif !== 'non') || (a && a.nom) !== me;
-      meAcc = a; me = ok ? a.nom : '';
-      if (ok) { if (chg) cb({ etat: 'ok', email: meEmail, nom: me, role: a.role }); }
-      else cb({ etat: 'sans-acces', email: meEmail });
-    }, e => cb({ etat: 'sans-acces', email: meEmail, err: errMsg(e) }));
+    let essai = 0;
+    const ecoute = () => {
+      accUnsub = F.onSnapshot(F.doc(db, 'Acces', meEmail), s => {
+        const a = s.exists() ? s.data() : null;
+        const ok = a && a.actif !== 'non';
+        const chg = !!ok !== !!(meAcc && meAcc.actif !== 'non') || (a && a.nom) !== me;
+        meAcc = a; me = ok ? a.nom : '';
+        if (ok) { if (chg) cb({ etat: 'ok', email: meEmail, nom: me, role: a.role }); }
+        else cb({ etat: 'sans-acces', email: meEmail });
+      }, async e => {
+        // refus : le jeton peut être ancien (avant la vérification de l'adresse) → on en demande un neuf, une fois
+        if (e.code === 'permission-denied' && !essai++) { await u.getIdToken(true).catch(() => {}); return ecoute(); }
+        cb({ etat: 'sans-acces', email: meEmail, err: errMsg(e) });
+      });
+    };
+    ecoute();
   });
 }
 
@@ -88,14 +96,18 @@ export function start(D, onChange, onErr) {
   };
   const sub = (name, q) => {
     const key = name + '|' + (pending++);
-    let first = true;
-    unsub.push(F.onSnapshot(q, { includeMetadataChanges: false }, s => {
+    let first = true, essais = 0;
+    const go = () => unsub.push(F.onSnapshot(q, { includeMetadataChanges: false }, s => {
       parts[key] = s.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
       merge(name);
       if (first) { first = false; pending--; }
       if (!done && pending === 0) done = true;
       if (done) onChange(true, s.metadata.fromCache);
-    }, e => { if (first) { first = false; pending--; } onErr(errMsg(e)); if (!done && pending === 0) { done = true; onChange(true, true); } }));
+    }, e => {
+      if (essais++ < 2) return setTimeout(go, 1500 * essais); // refus passager (accès en cours d'ouverture, jeton à renouveler)
+      if (first) { first = false; pending--; } onErr(errMsg(e)); if (!done && pending === 0) { done = true; onChange(true, true); }
+    }));
+    go();
   };
   Object.keys(SCHEMA).forEach(name => {
     const c = F.collection(db, name);
