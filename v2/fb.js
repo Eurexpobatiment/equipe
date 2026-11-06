@@ -60,8 +60,9 @@ export function onAuth(cb) {
     if (!u.emailVerified) {
       await u.reload().catch(() => {});
       if (!auth.currentUser.emailVerified) return cb({ etat: 'non-verifie', email: meEmail });
-      await u.getIdToken(true).catch(() => {}); // le jeton doit porter « e-mail vérifié »
     }
+    // le jeton de connexion doit porter « e-mail vérifié » (il peut dater d'avant la vérification)
+    try { const r = await u.getIdTokenResult(); if (r.claims.email_verified !== true) await u.getIdToken(true); } catch (e) {}
     accUnsub = F.onSnapshot(F.doc(db, 'Acces', meEmail), s => {
       const a = s.exists() ? s.data() : null;
       const ok = a && a.actif !== 'non';
