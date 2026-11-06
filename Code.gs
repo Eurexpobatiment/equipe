@@ -62,8 +62,13 @@ function doPost(e) {
   return handle_(p);
 }
 
+// Depuis le 6 nov. 2026 l'appli utilise Firebase : ce Google Sheet n'est plus qu'une archive (lecture seule).
+const LECTURE_SEULE = true;
+
 function handle_(p) {
   try {
+    if (LECTURE_SEULE && ['save', 'delete', 'partFaite', 'lu', 'importDrapeaux', 'importBudget'].indexOf(p.action) >= 0)
+      throw new Error("L'appli a été mise à jour : ferme-la et rouvre-la (lien habituel) pour enregistrer.");
     switch (p.action) {
       case 'ping':   return out_({ ok: true, data: 'pong' });
       case 'all':    return out_({ ok: true, data: readAll_(p.user) });

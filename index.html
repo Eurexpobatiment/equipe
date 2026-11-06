@@ -368,7 +368,16 @@ const CONFIG = {
   halls: ['Hall 1','Hall 2.1 AB','Hall 2.1 Ext','Hall 2.2','Hall 2.3','Hall 3.1','Hall 3.2','Hall 4.1','Hall 4.2','Hall 4.3','Hall 5.1','Hall 5.2','Hall 6.1','Hall 6.2','Hall 6.3','Hall 7'],
   autresEspaces: ['Bureaux / administratif','Parvis','Parkings','Voiries / extérieurs','Toitures','Locaux techniques','Sous-sol / galeries techniques'],
   roles: ['Responsable','Technicien','Régisseur'],
-  refreshSec: 60
+  refreshSec: 60,
+  // Projet Firebase (console Firebase › Paramètres du projet › Vos applications › firebaseConfig). Vide = ancien fonctionnement (Google Sheet).
+  firebase: {
+    apiKey: 'AIzaSyARtP0RMkulG6c53-bnazwpGTspl0LgAhk', // clé publique (faite pour être dans la page)
+    authDomain: 'equipe-batiment.firebaseapp.com',
+    projectId: 'equipe-batiment',
+    storageBucket: 'equipe-batiment.firebasestorage.app',
+    messagingSenderId: '408022301135',
+    appId: '1:408022301135:web:69dee0a5fb479154657aba'
+  }
 };
 /* =================================================== */
 
@@ -523,10 +532,13 @@ const TABS = [
   {id:'Equipe',l:'👥 Équipe'}];
 
 /* ---------- état ---------- */
-const DEMO = !CONFIG.apiUrl;
+const FBM = !!CONFIG.firebase; // données dans Firebase
+const FB_VER = '4'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const DEMO = !FBM && !CONFIG.apiUrl;
+let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
-let me = lsGet('equipe.me') || '';
+let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
 let rgOld=['Regisseurs','Cloisons','EDL','Drapeaux'].includes(tab)?tab:''; // anciens onglets, désormais dans « Régie évènementielle »
 if (rgOld) tab='Regie';
@@ -576,6 +588,7 @@ function setSync(ok){const s=$('#sync');s.className='dot '+(ok?'ok':'ko');s.titl
 /* ---------- API ---------- */
 async function api(action,p={}){
   if(DEMO) return demoApi(action,JSON.parse(JSON.stringify({user:me,...p})));
+  if(FBM&&action!=='agenda'){if(!FB)throw new Error('Appli en cours de démarrage…');return FB.api(action,p)}
   const r=await fetch(CONFIG.apiUrl,{method:'POST',body:JSON.stringify({action,user:me,...p})});
   if(!r.ok) throw new Error('Serveur injoignable ('+r.status+')');
   const j=await r.json();
@@ -583,6 +596,7 @@ async function api(action,p={}){
   return j.data;
 }
 async function loadAll(silent){
+  if(FBM){if(loaded)render();return} // Firebase : les données arrivent en direct
   try{
     const d=await api('all');
     for(const k in D) D[k]=d[k]||[];
@@ -626,7 +640,7 @@ function render(){
   const el=$('#view');
   ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux})[tab](el);
   hallsDatalist(); budgetDatalists();
-  if((!me||!people().includes(me))&&!$('.ov')) pickUser();
+  if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
 function goTab(t){tab=t;lsSet('equipe.tab',t);render();window.scrollTo(0,0)}
 function hallsDatalist(){
@@ -647,7 +661,7 @@ function modal(html,locked){
   const f=ov.querySelector('input:not([type=date]):not([type=time]):not([type=datetime-local]),textarea');
   if(f&&window.innerWidth>820) f.focus();
 }
-function closeModal(force){if(modalLocked&&!force)return;const o=$('.ov');if(o)o.remove();document.body.style.overflow='';modalLocked=false}
+function closeModal(force){if(modalLocked&&!force)return;const o=$('.ov');if(o)o.remove();document.body.style.overflow='';modalLocked=false;if(liveRender.p)liveRender()}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
 function fieldHtml(f,v){
@@ -703,6 +717,7 @@ function openForm(sheet,item,title,opt={}){
 
 /* ---------- utilisateur & équipe ---------- */
 function pickUser(){
+  if(FBM) return fbCompte();
   const ns=people();
   modal(`<h2>Qui es-tu ?</h2><p class="hint">Choisis ton nom, il sera mémorisé sur cet appareil.</p>
     <div class="who">${ns.map(n=>`<button class="btn big" data-n="${esc(n)}" onclick="setMe(this.dataset.n)">${pill(n)}</button>`).join('')||'<p class="empty">Personne pour l\'instant : ajoute ton nom.</p>'}</div>
@@ -727,13 +742,13 @@ function vEquipe(el){
   const off=D.Equipe.filter(e=>e.actif==='non').sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
   const roleSel=e=>`<select class="sel sm" onchange="eqSet('${e.id}','role',this.value,this)">${CONFIG.roles.map(r=>`<option ${r===e.role?'selected':''}>${r}</option>`).join('')}</select>`;
   const row=e=>`<div class="eqrow">${pill(e.nom)}${e.nom===me?'<small class="me-tag">toi</small>':''}<span class="sp"></span>
-    <input class="eqmail" type="email" inputmode="email" autocomplete="off" placeholder="✉️ e-mail pour les notifications" value="${esc(e.email||'')}" onchange="eqSet('${e.id}','email',this.value.trim(),this)">${roleSel(e)}
+    <input class="eqmail" type="email" inputmode="email" autocomplete="off" placeholder="${FBM?'✉️ e-mail de connexion':'✉️ e-mail pour les notifications'}" value="${esc(e.email||'')}" onchange="eqSet('${e.id}','email',this.value.trim(),this)">${roleSel(e)}
     <button class="btn sm" onclick="eqSet('${e.id}','actif','non',this)">Retirer</button></div>`;
-  el.innerHTML=`<div class="bar"><h2>Équipe</h2><button class="btn" onclick="pickUser()">👤 Changer d'utilisateur</button></div>
+  el.innerHTML=`<div class="bar"><h2>Équipe</h2><button class="btn" onclick="pickUser()">${FBM?'👤 Mon compte':'👤 Changer d\'utilisateur'}</button></div>
     <div class="eqadd"><input id="eqn" placeholder="Prénom et nom du nouveau membre" autocomplete="off" onkeydown="if(event.key==='Enter')eqAdd()">
       <select id="eqr" class="sel">${CONFIG.roles.map(r=>`<option ${r===(UI.eqRole||'Technicien')?'selected':''}>${r}</option>`).join('')}</select>
       <button class="btn pri" id="eqb" onclick="eqAdd()">+ Ajouter</button></div>
-    <p class="hint">Les personnes avec le rôle <b>Régisseur</b> apparaissent dans le planning de présence. Une fois ajouté, chacun choisit son nom en ouvrant l'appli sur son téléphone.<br>✉️ Avec une adresse e-mail, la personne reçoit un mail dès qu'une tâche lui est attribuée (sauf si c'est elle-même qui se l'attribue). Sans adresse, pas de mail.</p>
+    <p class="hint">Les personnes avec le rôle <b>Régisseur</b> apparaissent dans le planning de présence. ${FBM?`<br>🔐 <b>L'adresse e-mail sert à se connecter</b> : sans adresse, la personne ne peut pas ouvrir l'appli. Une fois son adresse saisie, elle ouvre l'appli, touche « Première connexion » et choisit son mot de passe. Seuls les <b>Responsables</b> peuvent modifier l'équipe.<br>✉️ La même adresse reçoit un mail dès qu'une tâche lui est attribuée (sauf si c'est elle-même qui se l'attribue).`:`Une fois ajouté, chacun choisit son nom en ouvrant l'appli sur son téléphone.<br>✉️ Avec une adresse e-mail, la personne reçoit un mail dès qu'une tâche lui est attribuée (sauf si c'est elle-même qui se l'attribue). Sans adresse, pas de mail.`}</p>
     ${CONFIG.roles.map(r=>{const L=act.filter(e=>e.role===r);return `<h3 class="eqh">${r}s <span class="n">${L.length}</span></h3><div class="eqlist">${L.map(row).join('')||'<p class="empty">Personne pour l\'instant.</p>'}</div>`}).join('')}
     ${act.filter(e=>!CONFIG.roles.includes(e.role)).map(row).join('')}
     ${off.length?`<h3 class="eqh">Retirés <span class="n">${off.length}</span></h3><div class="eqlist">${off.map(e=>`<div class="eqrow off">${pill(e.nom)}<span class="sp"></span><button class="btn sm" onclick="eqSet('${e.id}','actif','oui',this)">Réactiver</button></div>`).join('')}</div>`:''}`;
@@ -1967,12 +1982,120 @@ function ouvrirLien(){
 }
 lireLien(); window.addEventListener('hashchange',()=>{lireLien();ouvrirLien()});
 
+
+/* ================== FIREBASE : connexion et données en direct ================== */
+// Rendu différé : pas pendant une fenêtre ouverte ni pendant une saisie dans la page
+let liveTimer=0;
+function liveRender(){clearTimeout(liveTimer);liveTimer=setTimeout(()=>{
+  const a=document.activeElement;
+  if($('.ov')||(a&&a.closest&&a.closest('#view')&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))){liveRender.p=true;return}
+  liveRender.p=false;render();ouvrirLien()},120)}
+liveRender.p=false;
+document.addEventListener('focusout',()=>{if(liveRender.p)setTimeout(liveRender,50)});
+function fbSync(){setSync(navigator.onLine)}
+window.addEventListener('online',fbSync);window.addEventListener('offline',fbSync);
+
+async function fbStart(){
+  $('#view').innerHTML='<div class="loading">Démarrage…</div>';
+  try{FB=await import('./fb.js?v='+FB_VER);FB.init(CONFIG)}
+  catch(e){$('#view').innerHTML=`<div class="loading">Impossible de démarrer l'appli (pas de connexion ?).<br>${esc(e.message)}<br><br><button class="btn" onclick="location.reload()">Réessayer</button></div>`;return}
+  FB.bind(D);
+  FB.onBackgroundError(m=>{toast('Pas enregistré : '+m,1)});
+  FB.onAuth(st=>{
+    if(st.etat==='ok'){
+      const ch=me!==st.nom; me=st.nom; render();
+      if($('.ov.fbauth'))closeModal(true);
+      if(ch){loaded=false;$('#view').innerHTML='<div class="loading">Chargement…</div>';
+        FB.start(D,()=>{
+          D.Cloisons.forEach(x=>{x.mouvement=({'Fermeture':'À sortir','Ouverture':'À ranger'})[x.mouvement]||x.mouvement});
+          SRV=new Set(Object.keys(D));
+          if(!loaded){loaded=true;fbSync();render();ouvrirLien();if(!navigator.onLine)toast('Hors connexion : tu vois la dernière version gardée sur le téléphone')}
+          else liveRender();
+        },m=>{fbSync();toast(m,1)});}
+      return;
+    }
+    FB.stop(); me=''; loaded=false; render();
+    $('#view').innerHTML='<div class="loading">Connexion nécessaire</div>';
+    fbAuthModal(st);
+  });
+}
+function fbModal(html){modal(html,true);$('.ov').classList.add('fbauth')}
+function fbAuthModal(st){
+  if(st.etat==='non-verifie') return fbModal(`<h2>Vérifie ton adresse</h2>
+    <p>Un mail de vérification a été envoyé à <b>${esc(st.email)}</b>. Ouvre-le et touche le lien (pense à regarder dans les indésirables), puis reviens ici.</p>
+    <div class="err" id="aerr"></div>
+    <div class="acts"><button class="btn" onclick="FB.logout()">Changer d'adresse</button><span class="sp"></span>
+      <button class="btn" id="arv" onclick="fbRenvoyer()">Renvoyer le mail</button><button class="btn pri" onclick="location.reload()">C'est fait</button></div>`);
+  if(st.etat==='sans-acces') return fbReprise(st);
+  fbLoginModal();
+}
+function fbSansAcces(st){
+  fbModal(`<h2>Accès pas encore ouvert</h2>
+    <p>Ton compte <b>${esc(st.email)}</b> est bien créé, mais cette adresse n'est pas encore dans l'équipe.</p>
+    <p class="hint">Demande à un responsable de saisir cette adresse e-mail à côté de ton nom, dans l'onglet 👥 Équipe. L'appli s'ouvrira alors toute seule.</p>
+    ${st.err?`<p class="hint negt">${esc(st.err)}</p>`:''}
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="FB.logout()">Se déconnecter</button></div>`);
+}
+function fbLoginModal(){
+  const em=lsGet('equipe.email')||'';
+  fbModal(`<h2>${esc(CONFIG.titre)} · connexion</h2>
+    <div class="form">
+      <label class="fl full"><span>Adresse e-mail</span><input id="aem" type="email" inputmode="email" autocomplete="username" value="${esc(em)}"></label>
+      <label class="fl full"><span>Mot de passe</span><input id="apw" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')fbLogin()"></label>
+    </div>
+    <div class="err" id="aerr"></div>
+    <div class="acts"><button class="btn" onclick="fbOubli()">Mot de passe oublié</button><span class="sp"></span>
+      <button class="btn" id="asu" onclick="fbSignup()">Première connexion</button><button class="btn pri" id="ali" onclick="fbLogin()">Se connecter</button></div>
+    <p class="hint">Première fois ? Saisis ton adresse (celle donnée au responsable), choisis un mot de passe et touche « Première connexion ». Tu restes connecté sur ce téléphone.</p>`);
+  if(!em)$('#aem').focus();
+}
+const aErr=m=>{const e=$('#aerr');if(e)e.textContent=m||''};
+const aVals=()=>{const e=$('#aem').value.trim(),p=$('#apw').value;lsSet('equipe.email',e);return [e,p]};
+async function fbLogin(){const [e,p]=aVals();if(!e||!p)return aErr('Adresse et mot de passe obligatoires');const done=setBusy($('#ali'),'Connexion…');
+  try{await FB.login(e,p)}catch(x){done();aErr(x.message)}}
+async function fbSignup(){const [e,p]=aVals();if(!e)return aErr('Saisis ton adresse e-mail');if(p.length<6)return aErr('Choisis un mot de passe d\'au moins 6 caractères');
+  const done=setBusy($('#asu'),'Création…');try{await FB.signup(e,p)}catch(x){done();aErr(x.message)}}
+async function fbOubli(){const e=$('#aem').value.trim();if(!e)return aErr('Saisis d\'abord ton adresse e-mail');
+  try{await FB.resetPw(e);aErr('');toast('Mail envoyé à '+e+' pour choisir un nouveau mot de passe')}catch(x){aErr(x.message)}}
+async function fbRenvoyer(){const done=setBusy($('#arv'),'Envoi…');try{await FB.resendVerif();toast('Mail renvoyé ✓')}catch(x){aErr(x.message)}done()}
+function fbCompte(){const w=FB?FB.whoami():{};
+  modal(`<h2>Mon compte</h2><p>${pill(me)}</p><p class="hint">Connecté avec <b>${esc(w.email||'')}</b>${w.role?' · '+esc(w.role):''}.</p>
+    <div class="acts"><button class="btn" onclick="fbOubli2()">Changer de mot de passe</button><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn danger" onclick="closeModal(true);FB.logout()">Se déconnecter</button></div>`)}
+async function fbOubli2(){try{await FB.resetPw(FB.whoami().email);toast('Mail envoyé pour choisir un nouveau mot de passe')}catch(x){toast(x.message,1)}}
+// Reprise du Google Sheet : une seule fois, par le propriétaire
+async function fbReprise(st){
+  fbModal(`<h2>Mise en route</h2><p class="hint">Vérification…</p>`);
+  try{
+    const dr=await FB.dejaRepris();
+    if(dr===null) return fbSansAcces(st); // pas propriétaire : l'accès doit être ouvert par un responsable
+    if(dr) return fbModal(`<h2>Bienvenue</h2><p>Les données sont déjà dans Firebase, mais ton adresse <b>${esc(st.email)}</b> n'est liée à aucun membre de l'équipe.</p>
+      <p class="hint">Un responsable peut la saisir à côté de ton nom dans 👥 Équipe.</p><div class="acts"><span class="sp"></span><button class="btn" onclick="FB.logout()">Se déconnecter</button></div>`);
+    const L=await FB.repriseMembres();
+    fbModal(`<h2>Reprise des données du Google Sheet</h2>
+      <p>Tu es le propriétaire : cette étape copie toutes les données de l'appli actuelle (tâches, nacelle, régie, drapeaux, budget, travaux…) dans Firebase. Le Google Sheet n'est pas modifié.</p>
+      <label class="fl full"><span>Qui es-tu dans l'équipe ?</span><select id="rnom" class="sel">${L.map(e=>`<option>${esc(e.nom)}</option>`).join('')}</select></label>
+      <div class="err" id="aerr"></div>
+      <div class="acts"><button class="btn" onclick="FB.logout()">Se déconnecter</button><span class="sp"></span><button class="btn pri" id="rgo" onclick="fbRepriseGo()">Reprendre les données</button></div>
+      <p class="hint" id="rprog"></p>`);
+  }catch(e){fbModal(`<h2>Mise en route</h2><p class="negt">${esc(e.message)}</p><div class="acts"><span class="sp"></span><button class="btn" onclick="FB.logout()">Se déconnecter</button><button class="btn pri" onclick="location.reload()">Réessayer</button></div>`)}
+}
+async function fbRepriseGo(){
+  const nom=$('#rnom').value;const done=setBusy($('#rgo'),'Reprise en cours…');
+  try{const r=await FB.reprise(nom,m=>{const p=$('#rprog');if(p)p.textContent=m});
+    toast(r.elements+' éléments repris ✓');
+    if(r.sansEmail.length)setTimeout(()=>toast('Sans adresse e-mail (ne peuvent pas encore se connecter) : '+r.sansEmail.join(', '),1),2500);
+  }catch(e){done();aErr(e.message)}
+}
+
 /* ================== DÉMARRAGE ================== */
 $('#demo').hidden=!DEMO;
-render(); loadAll(); dtLoad();
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
-setInterval(()=>{if(!document.hidden&&!$('.ov'))loadAll(true)},CONFIG.refreshSec*1000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('.ov'))loadAll(true)});
+if(FBM){ fbStart(); dtLoad(); }
+else {
+  render(); loadAll(); dtLoad();
+  setInterval(()=>{if(!document.hidden&&!$('.ov'))loadAll(true)},CONFIG.refreshSec*1000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!$('.ov'))loadAll(true)});
+}
 </script>
 </body>
 </html>

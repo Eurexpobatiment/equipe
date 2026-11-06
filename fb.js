@@ -6,7 +6,7 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_ } from './logic.js?v=3';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_ } from './logic.js?v=4';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -331,4 +331,49 @@ export async function reprise(ownerNom, progress = () => {}) {
   }
   bg(F.addDoc(F.collection(db, 'Journal'), { date: now_(), auteur: ownerNom, action: 'reprise', feuille: 'Tout', id: '', detail: 'Reprise du Google Sheet : ' + n + ' éléments' }));
   return { elements: n, membres: data.Equipe.length, sansEmail: data.Equipe.filter(e => !e.email && e.actif !== 'non').map(e => e.nom) };
+}
+
+/* Mise à jour depuis le Google Sheet (au moment de la bascule) : le Sheet fait foi.
+ * Ajoute / remplace chaque élément, supprime ceux qui n'existent plus dans le Sheet (hors tâches perso des autres). */
+export async function resynchroniser(ownerNom, progress = () => {}) {
+  progress('Lecture du Google Sheet…');
+  const all = await oldCall(ownerNom);
+  const noms = (all.Equipe || []).map(e => e.nom).filter(Boolean);
+  const perso = {};
+  for (let i = 0; i < noms.length; i += 4) {
+    const r = await Promise.all(noms.slice(i, i + 4).map(n => oldCall(n).then(d => [n, d])));
+    r.forEach(([n, d]) => { perso[n] = d; });
+  }
+  const data = normaliserReprise(all, perso);
+  const moi = data.Equipe.find(e => e.nom === ownerNom);
+  if (!moi) throw new Error('Nom introuvable dans l\'équipe : ' + ownerNom);
+  data.Equipe.filter(e => e.email === meEmail && e !== moi).forEach(e => { e.email = ''; });
+  moi.email = meEmail; moi.actif = 'oui';
+  const bilan = {};
+  // équipe et accès
+  const accAvant = await F.getDocsFromServer(F.collection(db, 'Acces'));
+  const b = F.writeBatch(db);
+  const garder = new Set();
+  data.Equipe.forEach(e => { b.set(ref('Equipe', e.id), e); if (e.email) { garder.add(e.email); b.set(ref('Acces', e.email), { nom: e.nom, role: e.role, actif: e.actif, equipeId: e.id }); } });
+  accAvant.docs.forEach(d => { if (!garder.has(d.id)) b.delete(d.ref); });
+  await wrap(b.commit());
+  for (const k of Object.keys(SCHEMA)) {
+    progress('Mise à jour : ' + k + '…');
+    const ids = new Set(data[k].map(o => o.id));
+    let suppr = [];
+    if (k === 'Taches' || k === 'Commentaires') {
+      const s = await F.getDocsFromServer(F.query(F.collection(db, k), F.where('prive', '==', 'non')));
+      suppr = s.docs.filter(d => !ids.has(d.id)).map(d => d.id);
+    } else {
+      const s = await F.getDocsFromServer(F.collection(db, k));
+      suppr = s.docs.filter(d => !ids.has(d.id)).map(d => d.id);
+    }
+    if (k !== 'Equipe') await bulk(k, data[k]);
+    for (let i = 0; i < suppr.length; i += 400) {
+      const bb = F.writeBatch(db); suppr.slice(i, i + 400).forEach(id => bb.delete(ref(k, id))); await wrap(bb.commit());
+    }
+    bilan[k] = data[k].length + (suppr.length ? ' (−' + suppr.length + ')' : '');
+  }
+  bg(F.addDoc(F.collection(db, 'Journal'), { date: now_(), auteur: me || ownerNom, action: 'reprise', feuille: 'Tout', id: '', detail: 'Mise à jour depuis le Google Sheet (bascule)' }));
+  return bilan;
 }
