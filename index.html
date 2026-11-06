@@ -351,6 +351,11 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .doccard small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;overflow-wrap:anywhere}
 .docwarn{background:#fff6e5;border:1px solid #f1d39a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px}
 .docsrc{font-size:13px;margin-top:-4px}
+.dvov{padding:2vh 2vw;align-items:stretch}
+.dvov .mod{max-width:1400px;display:flex;flex-direction:column;padding:10px 12px;height:96vh}
+.dvh{display:flex;align-items:center;gap:8px;margin-bottom:8px}.dvh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy)}
+.dvf{flex:1;width:100%;border:1px solid var(--line);border-radius:8px;background:#f1f4f9}
+.dvn{margin:6px 0 0;font-size:12.5px}
 /* Drapeaux & tribune */
 .drtbl{min-width:420px}.drtbl th.c,.pvtbl th.c{text-align:center}
 .drtbl tr.drg td{background:#f1f4f9;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#475569;cursor:default}
@@ -562,7 +567,7 @@ const TABS = [
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '6'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '7'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[]};
@@ -2315,6 +2320,7 @@ const docSource=u=>{const h=(String(u||'').match(/^https:\/\/([^/?#]+)/i)||[])[1
 FORMS.Documents=[
   {k:'titre',l:'Titre du document',req:1,full:1},
   {k:'lien',l:'Lien du fichier ou du dossier (Drive / Teams)',req:1,full:1},
+  {k:'apercu',l:'Code d\'incorporation Teams / SharePoint (facultatif, pour l\'aperçu dans l\'appli)',full:1},
   {k:'categorie',l:'Catégorie',t:'select',o:Object.keys(DOC_CATS),def:'Plans'},
   {k:'equipement',l:'Équipement / installation (facultatif)',t:'dl',dl:'dl-docequip'},
   {k:'espaces',l:'Halls / espaces concernés (aucun = tout le site)',t:'multi',o:()=>ESPACES()},
@@ -2328,10 +2334,37 @@ function docForm(d,title){docDatalists();
   openForm('Documents',d,title,{
     validate:o=>docUrl(o.lien)?'':'Lien invalide : colle l\'adresse complète du fichier (elle commence par https://)',
     extra:`<p class="hint">Pour avoir le lien : <b>Drive</b> › clic droit sur le fichier › Partager › Copier le lien. <b>Teams</b> › onglet Fichiers › … › Copier le lien.
-      Chacun ouvre le fichier avec ses propres droits : vérifie que l'équipe y a accès.</p>${d&&d.majPar?`<div class="made">Ajouté par ${esc(d.creePar||'?')} · dernière modification par ${esc(d.majPar)}</div>`:''}`,
+      Chacun ouvre le fichier avec ses propres droits : vérifie que l'équipe y a accès.<br>
+      <b>Aperçu dans l'appli</b> : automatique pour les fichiers et dossiers Drive. Pour un fichier Teams, ouvre-le dans SharePoint (… › Ouvrir dans SharePoint), puis sur le fichier … › <b>Incorporer</b> › copie le code et colle-le dans le champ « Code d'incorporation ».</p>${d&&d.majPar?`<div class="made">Ajouté par ${esc(d.creePar||'?')} · dernière modification par ${esc(d.majPar)}</div>`:''}`,
     after:()=>{const i=$('#f_lien');if(!i)return;const m=document.createElement('div');m.className='docsrc hint';i.closest('.fl').appendChild(m);
       const upd=()=>{const u=i.value.trim();m.textContent=!u?'':docUrl(u)?DOC_SRC_I[docSource(u)]+' '+DOC_SRC[docSource(u)]:'⚠️ L\'adresse doit commencer par https://'};
       i.addEventListener('input',upd);upd()}})}
+// Adresse affichable dans l'appli (iframe), ou '' si le site refuse l'affichage intégré (ex. canal Teams)
+function docEmbed(d){const a=docUrl(d.apercu);if(a)return a;
+  const u=docUrl(d.lien);if(!u)return '';let x;try{x=new URL(u)}catch(e){return ''}
+  const h=x.hostname.toLowerCase(),p=x.pathname;let m;
+  if(h==='drive.google.com'){
+    if(m=p.match(/\/file\/d\/([\w-]+)/))return `https://drive.google.com/file/d/${m[1]}/preview`;
+    if(m=p.match(/\/folders\/([\w-]+)/))return `https://drive.google.com/embeddedfolderview?id=${m[1]}#list`;
+    const id=x.searchParams.get('id');if(id&&/^[\w-]+$/.test(id))return `https://drive.google.com/file/d/${id}/preview`;
+    return ''}
+  if(h==='docs.google.com'&&(m=p.match(/^\/(document|spreadsheets|presentation|drawings)\/d\/([\w-]+)/)))return `https://docs.google.com/${m[1]}/d/${m[2]}/preview`;
+  if(/(^|\.)sharepoint\.com$/.test(h)){
+    if(/\/_layouts\/15\/embed\.aspx/i.test(p)||x.searchParams.get('action')==='embedview')return u;
+    if(/\/_layouts\/15\/doc2?\.aspx/i.test(p)||/^\/:[wxp]:\//i.test(p)){x.searchParams.set('action','embedview');return x.toString()}
+    return ''}
+  if(/\.(pdf|png|jpe?g|gif|webp|svg)$/i.test(p))return u;
+  return ''}
+function docView(id){const d=D.Documents.find(x=>x.id===id);if(!d)return;const e=docEmbed(d),u=docUrl(d.lien);
+  if(!e){if(u)window.open(u,'_blank','noopener');return}
+  const src=d.source||docSource(d.lien);
+  modal(`<div class="dvh"><b>${DOC_CATS[d.categorie]||'📄'} ${esc(d.titre)}</b><span class="sp"></span>
+      ${u?`<a class="btn sm" href="${esc(u)}" target="_blank" rel="noopener noreferrer">↗ Ouvrir dans un onglet</a>`:''}
+      <button class="btn sm" onclick="closeModal()">✕</button></div>
+    <iframe class="dvf" src="${esc(e)}" allow="fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <p class="hint dvn">${src==='Teams'?'Aperçu vide ou demande de connexion Microsoft ? Ton navigateur bloque peut-être la connexion Microsoft dans l\'appli : utilise « Ouvrir dans un onglet ».'
+      :'Aperçu vide ou « accès refusé » ? Vérifie que tu es connecté au bon compte Google, ou utilise « Ouvrir dans un onglet ».'}</p>`);
+  $('.ov').classList.add('dvov')}
 function docNew(){const st=UI.doc||{};docForm({categorie:st.cat||'Plans',espaces:st.esp||''},'Nouveau document')}
 function docEdit(id){const d=D.Documents.find(x=>x.id===id);if(d)docForm(d,d.titre)}
 function docFiltered(){const st=UI.doc,w=String(st.q||'').toLowerCase().split(/\s+/).filter(Boolean);
@@ -2341,8 +2374,10 @@ function docCard(d){const u=docUrl(d.lien),src=d.source||docSource(d.lien);
   const meta=[espList(d.espaces).length?'🏢 '+esc(espList(d.espaces).join(', ')):'',d.equipement&&'⚙️ '+esc(d.equipement),
     d.dateDoc&&'📅 '+fD(d.dateDoc,{day:'2-digit',month:'2-digit',year:'numeric'}),d.version&&esc(d.version),DOC_SRC_I[src]+' '+DOC_SRC[src]].filter(Boolean).join(' · ');
   return `<div class="doccard"><span class="di">${DOC_CATS[d.categorie]||'📄'}</span><div class="db">
-    ${u?`<a class="dt" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(d.titre)}</a>`:`<b>${esc(d.titre)}</b> <span class="hint">(lien invalide)</span>`}
+    ${!u?`<b>${esc(d.titre)}</b> <span class="hint">(lien invalide)</span>`:docEmbed(d)?`<a class="dt" href="${esc(u)}" onclick="event.preventDefault();docView('${d.id}')">${esc(d.titre)}</a>`
+      :`<a class="dt" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(d.titre)}</a> <span class="hint" title="Ce lien ne peut pas s'afficher dans l'appli (lien d'un canal ou d'un dossier Teams) : ajoute le code d'incorporation du fichier">↗</span>`}
     <small>${meta}</small>${d.note?`<small>${esc(d.note)}</small>`:''}</div>
+    ${u&&docEmbed(d)?`<a class="btn sm" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="Ouvrir dans un nouvel onglet">↗</a>`:''}
     <button class="btn sm" onclick="docEdit('${d.id}')" title="Modifier">✏️</button></div>`}
 function vDocs(el){
   const st=UI.doc||(UI.doc={q:'',cat:'',esp:'',src:'',group:'categorie'});
@@ -2363,7 +2398,7 @@ function vDocs(el){
     ${!D.Documents.length?`<p class="empty">Aucun document pour l'instant. Touche « + Document » et colle le lien d'un fichier ou d'un dossier de ton Drive ou de Teams.</p>`
       :!L.length?'<p class="empty">Aucun document ne correspond à la recherche.</p>'
       :ord.map(k=>`<div class="docgrp">${st.group==='categorie'?(DOC_CATS[k]||'📄')+' ':''}${esc(k)} <span class="n">${g[k].length}</span></div>${g[k].map(docCard).join('')}`).join('')}
-    <p class="hint">${D.Documents.length} document${D.Documents.length>1?'s':''}. Les fichiers restent dans Drive ou Teams : le titre ouvre le fichier dans un nouvel onglet, avec tes propres droits d'accès.</p>`;
+    <p class="hint">${D.Documents.length} document${D.Documents.length>1?'s':''}. Les fichiers restent dans Drive ou Teams : le titre affiche le fichier dans l'appli (↗ pour l'ouvrir dans un onglet), avec tes propres droits d'accès.</p>`;
 }
 
 let DB=null;

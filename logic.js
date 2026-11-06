@@ -23,7 +23,7 @@ export const SCHEMA = {
   Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
                  'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar'],
-  Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar']
+  Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar']
 };
 // Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
 export const HORS_SHEET = ['Clefs', 'ClefsPrets', 'Documents'];
@@ -248,6 +248,9 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       o.lien = clean_(item.lien !== undefined ? item.lien : o.lien, 1500);
       if (!/^https:\/\/[^\s]+$/i.test(o.lien)) throw new Error('Lien invalide : colle l\'adresse complète (https://…) du fichier ou du dossier');
       o.source = sourceDoc_(o.lien);
+      o.apercu = clean_(o.apercu, 1500);
+      { const m = o.apercu.match(/src\s*=\s*["']([^"']+)["']/i); if (m) o.apercu = m[1].replace(/&amp;/g, '&'); }
+      if (o.apercu && !/^https:\/\/[^\s]+$/i.test(o.apercu)) throw new Error('Lien d\'aperçu invalide : colle le code d\'incorporation ou une adresse https://');
       if (o.dateDoc && !RE_DATE.test(o.dateDoc)) throw new Error('Date du document invalide');
       if (!o.categorie) o.categorie = 'Autre';
       if (!cur) { o.creePar = user; o.creeLe = now; }
