@@ -328,6 +328,18 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .pgfrise .gtrack{position:relative}
 .pgfrise .gbar{bottom:auto;height:20px;line-height:20px}
 @media (max-width:900px){.pgweek{grid-template-columns:1fr}.pgweek .pgday{min-height:0}}
+/* Clefs */
+.clcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.clcard.cllate{border-color:#f0b6b9;box-shadow:inset 4px 0 0 var(--accent)}
+.clhd{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}
+.clhd .sub{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:2px}
+.cln{font-size:20px;color:var(--navy);min-width:34px;text-align:right}
+.cltbl{min-width:0}.cltbl td{padding:6px 8px}.cltbl .c,.btbl th.c,.btbl td.c{text-align:center}
+.clnum{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;white-space:nowrap}
+.clcard .acts{margin-top:8px}
+.cltbl tr.clko td{background:#fde4e5}
+.clin{border:1px solid #d5d9e2;border-radius:6px;padding:5px 7px;font-size:14px;max-width:100%}
+.clres{max-height:260px;overflow:auto;margin-top:6px}
 /* Drapeaux & tribune */
 .drtbl{min-width:420px}.drtbl th.c,.pvtbl th.c{text-align:center}
 .drtbl tr.drg td{background:#f1f4f9;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#475569;cursor:default}
@@ -357,7 +369,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
   <div class="demo" id="demo" hidden>Mode démo : les données ne sont pas enregistrées. Renseigne l'adresse Apps Script dans CONFIG.apiUrl.</div>
 </div>
 <main id="view"><div class="loading">Chargement…</div></main>
-<datalist id="dl-halls"></datalist><datalist id="dl-familles"></datalist><datalist id="dl-presta"></datalist><datalist id="dl-avanc"></datalist><datalist id="dl-resp"></datalist><datalist id="dl-espaces"></datalist><datalist id="dl-codes"></datalist><datalist id="dl-drformats"></datalist><datalist id="dl-drgroupes"></datalist>
+<datalist id="dl-halls"></datalist><datalist id="dl-familles"></datalist><datalist id="dl-presta"></datalist><datalist id="dl-avanc"></datalist><datalist id="dl-resp"></datalist><datalist id="dl-espaces"></datalist><datalist id="dl-codes"></datalist><datalist id="dl-drformats"></datalist><datalist id="dl-drgroupes"></datalist><datalist id="dl-clsoc"></datalist><datalist id="dl-clesp"></datalist>
 
 <script>
 /* ================== CONFIGURATION ================== */
@@ -526,6 +538,7 @@ const TABS = [
   {id:'Taches',l:'✅ Tâches'},
   {id:'Nacelle',l:'🏗️ Nacelle'},
   {id:'Regie',l:'🎪 Régie évènementielle'},
+  {id:'Clefs',l:'🔑 Clefs'},
   {id:'Demandes',l:'📨 Demandes'},
   {id:'Travaux',l:'🚧 Travaux'},
   {id:'Budget',l:'💶 Budget'},
@@ -533,10 +546,10 @@ const TABS = [
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '4'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '5'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
-let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
@@ -638,7 +651,7 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs})[tab](el);
   hallsDatalist(); budgetDatalists();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -1126,6 +1139,7 @@ function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
   if(id==='Memo'&&me){const n=memoNonLus().length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Regie'){const n=pvAVenir().filter(p=>pvManques(p).length).length;if(n)return `<span class="badge">${n}</span>`;if(trEtat().late.length)return `<span class="badge">!</span>`}
+  if(id==='Clefs'){const n=clLotsRetard().length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Demandes'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
   return '';
 }
@@ -1701,6 +1715,344 @@ async function drExport(){
     XLSX.writeFile(wb,`Drapeaux - ${t}.xlsx`)}catch(e){toast(e.message,1)}
 }
 
+/* ================== CLEFS ================== */
+// Remises de clefs aux salons / sociétés : une ligne par clef (ClefsPrets), regroupées par remise (lot). Inventaire du tableau à clefs (Clefs).
+const CL_FACT_J=8; // facturation des clefs non rendues : à partir de fin de démontage + 8 jours (comme dans le classeur)
+const clDehors=p=>p.statut?0:Math.max(0,(+p.qte||0)-(+p.rendu||0));
+const clOuvert=p=>clDehors(p)>0;
+const clFactLe=p=>/^\d{4}-\d{2}-\d{2}$/.test(p.finDemontage||'')?addDays(p.finDemontage,CL_FACT_J):'';
+const clRetard=p=>clOuvert(p)&&clFactLe(p)&&today()>=clFactLe(p);
+const clDes=c=>[c.espace,c.acces].filter(Boolean).join(' - ');
+const clNomP=p=>[p.prenom,p.nom].filter(Boolean).join(' ');
+const clNumIdx=()=>{const m={};D.Clefs.forEach(c=>{const k=String(c.numero||'').trim().toUpperCase();if(k)(m[k]=m[k]||[]).push(c)});return m};
+// clef de l'inventaire liée à une remise (par son identifiant, sinon par un n° qui n'existe qu'une fois)
+function clClefOf(p,idx){if(p.clefId){const c=D.Clefs.find(x=>x.id===p.clefId);if(c)return c}
+  const L=(idx||clNumIdx())[String(p.numero||'').trim().toUpperCase()];return L&&L.length===1?L[0]:null}
+function clEnPret(){const m={},idx=clNumIdx();D.ClefsPrets.forEach(p=>{const n=clDehors(p);if(!n)return;const c=clClefOf(p,idx);if(c)m[c.id]=(m[c.id]||0)+n});return m}
+function clLots(L){const m=new Map();L.forEach(p=>{const k=p.lot||p.id;if(!m.has(k))m.set(k,[]);m.get(k).push(p)});
+  return [...m].map(([lot,l])=>{l.sort((a,b)=>String(a.designation).localeCompare(String(b.designation),'fr'));const h=l[0];
+    return {lot,l,h,dehors:l.reduce((a,p)=>a+clDehors(p),0),retard:l.some(clRetard),fact:l.map(clFactLe).filter(Boolean).sort()[0]||'',
+      date:l.map(p=>p.datePrepa).filter(Boolean).sort()[0]||''}})}
+const clLotsRetard=()=>clLots(D.ClefsPrets.filter(clOuvert)).filter(g=>g.retard);
+const clSocietes=()=>[...new Set(D.ClefsPrets.map(p=>p.societe).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+
+FORMS.Clefs=[
+  {k:'espace',l:'Espace (bâtiment, hall…)',t:'dl',dl:'dl-clesp',full:1},
+  {k:'acces',l:'Accès / local',req:1,full:1},
+  {k:'numero',l:'N° de clef (ou marque + n°)'},
+  {k:'stock',l:'Au tableau (quantité)',t:'qte'},
+  {k:'reserve',l:'Archivées (réserve)',t:'qte'},
+  {k:'commentaire',l:'Commentaire',t:'textarea',rows:2}];
+FORMS.ClefsPrets=[
+  {k:'societe',l:'Société / salon',t:'dl',dl:'dl-clsoc',req:1,full:1},
+  {k:'prenom',l:'Prénom'},{k:'nom',l:'Nom'},
+  {k:'contact',l:'Téléphone / e-mail',full:1},
+  {k:'numero',l:'N° de clef'},{k:'designation',l:'Désignation',full:1},
+  {k:'qte',l:'Sorties',t:'qte',req:1},{k:'rendu',l:'Rendues',t:'qte'},
+  {k:'remisPar',l:'Remise par',t:'person'},{k:'datePrepa',l:'Remise le',t:'date',req:1},
+  {k:'remisA',l:'Retirée par (si autre personne)'},{k:'retireLe',l:'Retirée le (si autre jour)',t:'date'},
+  {k:'finDemontage',l:'Fin de démontage (date ou RAS)'},
+  {k:'statut',l:'Clef manquante',t:'select',o:['','Perdue','Facturée']},
+  {k:'renduLe',l:'Rendue le',t:'date'},{k:'recuperePar',l:'Récupérée par',t:'person'},
+  {k:'renduPar',l:'Rendue par (si autre personne)'},
+  {k:'commentaire',l:'Commentaire',t:'textarea',rows:2}];
+
+function clDatalists(){
+  const box=$('#dl-clsoc');if(box)box.innerHTML=clSocietes().map(s=>`<option value="${esc(s)}">`).join('');
+  const e=$('#dl-clesp');if(e)e.innerHTML=[...new Set(D.Clefs.map(c=>c.espace).filter(Boolean))].sort().map(s=>`<option value="${esc(s)}">`).join('');
+}
+const CL_SUB=[['Pret','📤 En prêt'],['Inv','🗝️ Inventaire'],['Hist','📜 Historique']];
+function vClefs(el){
+  const st=UI.cl||(UI.cl={sub:lsGet('equipe.cl')||'Pret',q:'',iq:'',ie:'',ip:false,hq:'',hy:'',he:'Tous'});
+  if(!CL_SUB.some(s=>s[0]===st.sub))st.sub='Pret';
+  clDatalists();
+  const nR=clLotsRetard().length;
+  el.innerHTML=`<div class="bar"><h2>Gestion des clefs</h2><span class="sp"></span><button class="btn" onclick="clExport()">⬇️ Excel</button><button class="btn pri" onclick="clNew()">+ Remise de clefs</button></div>
+    <div class="seg-ctl bsub">${CL_SUB.map(([k,l])=>`<button class="${st.sub===k?'on':''}" onclick="UI.cl.sub='${k}';lsSet('equipe.cl','${k}');render()">${l}${k==='Pret'&&nR?` <span class="badge">${nR}</span>`:''}</button>`).join('')}</div>
+    <div id="clview"></div>`;
+  if(!D.Clefs.length&&!D.ClefsPrets.length) return clVide($('#clview'));
+  ({Pret:clVuePret,Inv:clVueInv,Hist:clVueHist})[st.sub]($('#clview'));
+}
+function clVide(el){
+  el.innerHTML=`<p class="empty">Aucune clef pour l'instant.</p>
+    <div class="bar"><button class="btn pri" id="climp" onclick="clImport()">⬇️ Reprendre le classeur « CLEFS - Inventaire &amp; suivi »</button><input type="file" id="clfile" accept=".xlsx,.xlsm,.xls" hidden onchange="clImportFile(this)"><button class="btn" onclick="clNewClef()">+ Clef</button></div>
+    <p class="hint">Choisis le fichier Excel « CLEFS - Inventaire &amp; suivi ». Reprise de l'onglet <b>Références</b> (inventaire du tableau : espace, accès, n°, quantité au tableau, archivées) et de l'onglet <b>Suivi des remises</b> (toutes les remises depuis janvier 2025, avec les clefs encore dehors). À faire une seule fois.<br>
+    Si la reprise est refusée (« Accès refusé »), les règles Firebase n'ont pas encore été mises à jour (Firestore Database › Règles).</p>`;
+}
+function clImport(){$('#clfile').value='';$('#clfile').click()}
+async function clImportFile(inp){const f=inp.files[0];if(!f)return;
+  try{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});const data=clLireClasseur(wb);
+    const dehors=data.prets.reduce((a,p)=>a+(p.statut?0:Math.max(0,+p.qte-(+p.rendu))),0);
+    modal(`<h2>Reprise des clefs</h2><p>Fichier <b>${esc(f.name)}</b> :</p>
+      <ul><li><b>${data.clefs.length}</b> clefs dans l'inventaire</li><li><b>${data.prets.length}</b> remises, dont <b>${dehors}</b> clefs encore dehors</li></ul>
+      <p class="hint">La reprise ne se fait qu'une fois. Ensuite, tout se saisit dans l'appli.</p><div class="err" id="ferr"></div>
+      <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="clgo">Reprendre</button></div>`);
+    $('#clgo').onclick=async()=>{const done=setBusy($('#clgo'),'Reprise en cours…');
+      try{const res=await api('importClefs',{data});closeModal(true);toast(res.clefs+' clefs et '+res.prets+' remises reprises ✓');if(!FBM)await loadAll(true)}
+      catch(e){done();$('#ferr').textContent=e.message}};
+  }catch(e){toast(e.message,1)}
+}
+// Classeur « CLEFS - Inventaire & suivi » : onglets Références (inventaire) et Suivi des remises (lignes à partir de la 7e)
+function clLireClasseur(wb){
+  const sh=n=>{const k=wb.SheetNames.find(x=>x.trim().toLowerCase()===n.toLowerCase());if(!k)throw new Error('Onglet « '+n+' » introuvable dans le fichier');return XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,raw:true,defval:null})};
+  const norm=v=>String(v??'').replace(/\s+/g,' ').trim(), K=v=>norm(v).toUpperCase();
+  const num=v=>v==null?'':typeof v==='number'?String(Math.round(v*1000)/1000):norm(v);
+  const dt=v=>v instanceof Date&&v.getFullYear()>=2000?ymd(new Date(v.getTime()+12*3600e3)):'';
+  const q=v=>String(Math.max(0,parseInt(v,10)||0));
+  const nid=()=>Math.random().toString(16).slice(2,12);
+  const clefs=sh('Références').slice(1).filter(r=>r[0]!=null||r[1]!=null||r[2]!=null).map(r=>({id:'k'+nid(),espace:norm(r[0]),acces:norm(r[1]),numero:num(r[2]),
+    stock:q(r[9]),reserve:q(r[12]),commentaire:[norm(r[14]),norm(r[15])].filter(Boolean).join(' · ')})).filter(c=>c.numero||c.acces);
+  const byDN={},byN={},byD={};clefs.forEach(c=>{const d=K(clDes(c)),n=K(c.numero);(byDN[d+'|'+n]=byDN[d+'|'+n]||[]).push(c);(byN[n]=byN[n]||[]).push(c);(byD[d]=byD[d]||[]).push(c)});
+  const lots={};
+  const prets=sh('Suivi des remises').slice(6).filter(r=>r[2]||r[7]||r[8]).map(r=>{
+    const numero=num(r[7]),des=norm(r[8]),nom=K(r[4]),prepa=dt(r[10]);
+    const m=byDN[K(des)+'|'+K(numero)]||((byN[K(numero)]||[]).length===1?byN[K(numero)]:null)||(!numero&&(byD[K(des)]||[]).length===1?byD[K(des)]:null);
+    let sortie=parseInt(r[5],10)||0;const rendu=parseInt(r[6],10)||0;if(rendu>sortie)sortie=rendu;
+    const com=norm(r[17]);let statut='';if(sortie>rendu&&/perdu/i.test(com))statut=/factur/i.test(com)?'Facturée':'Perdue';
+    const lk=K(r[2])+'|'+nom+'|'+prepa;lots[lk]=lots[lk]||'l'+nid();
+    const remisPar=typeof r[9]==='number'?'':norm(r[9]),remisA=K(r[11])!==nom?norm(r[11]):'';
+    return {id:'p'+nid(),lot:lots[lk],societe:norm(r[2]),prenom:norm(r[3]).toLowerCase().replace(/(^|[\s-])\S/g,x=>x.toUpperCase()),nom,clefId:m?m[0].id:'',
+      numero,designation:des,qte:String(sortie),rendu:String(rendu),statut,remisPar,remisA,datePrepa:prepa,retireLe:dt(r[12])!==prepa?dt(r[12]):'',renduLe:dt(r[13]),
+      recuperePar:norm(r[14])!==norm(r[9])?norm(r[14]):'',renduPar:K(r[15])!==(K(r[11])||nom)?norm(r[15]):'',finDemontage:K(r[16])==='RAS'?'RAS':dt(r[16]),commentaire:com}});
+  if(!clefs.length&&!prets.length)throw new Error('Rien à reprendre dans ce fichier');
+  return {clefs,prets};
+}
+
+/* ----- en prêt ----- */
+function clVuePret(el){
+  const st=UI.cl,q=(st.q||'').toLowerCase(),t=today();
+  const open=D.ClefsPrets.filter(clOuvert);
+  let G=clLots(open);
+  const tot=open.reduce((a,p)=>a+clDehors(p),0), nRet=G.filter(g=>g.retard).length;
+  const m0=t.slice(0,7), rendM=D.ClefsPrets.filter(p=>(p.renduLe||'').slice(0,7)===m0).reduce((a,p)=>a+(+p.rendu||0),0);
+  if(q)G=G.filter(g=>[g.h.societe,clNomP(g.h),g.h.contact,g.h.remisPar,...g.l.map(p=>p.numero+' '+p.designation)].join(' ').toLowerCase().includes(q));
+  G.sort((a,b)=>(b.retard-a.retard)||(a.fact||'9').localeCompare(b.fact||'9')||b.date.localeCompare(a.date));
+  el.innerHTML=`<div class="kpis kc"><div class="kpi"><span>Clefs dehors</span><b>${tot}</b><small>${open.length} ligne${open.length>1?'s':''}</small></div>
+      <div class="kpi"><span>Remises en cours</span><b>${clLots(open).length}</b><small>sociétés / personnes</small></div>
+      <div class="kpi ${nRet?'neg':''}"><span>À facturer</span><b>${nRet}</b><small>démontage + ${CL_FACT_J} j dépassé</small></div>
+      <div class="kpi"><span>Rendues ce mois</span><b>${rendM}</b></div></div>
+    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°, local…)" value="${esc(st.q)}" oninput="UI.cl.q=this.value;pgRefresh()"></div>
+    ${G.map(clCarte).join('')||`<p class="empty">${q?'Aucun résultat.':'Aucune clef dehors 👍'}</p>`}
+    <p class="hint">Facturation des clefs non rendues à partir de la fin de démontage + ${CL_FACT_J} jours (« RAS » = pas de facturation). Touche une ligne pour la corriger.</p>`;
+}
+function clCarte(g){
+  const h=g.h,o=g.l.filter(clOuvert),fin=h.finDemontage;
+  return `<div class="clcard ${g.retard?'cllate':''}">
+    <div class="clhd"><div><b>🔑 ${esc(h.societe||'—')}</b>${clNomP(h)?' — '+esc(clNomP(h)):''}
+      <div class="sub">${g.date?`<span>📅 remise le ${fD(g.date,{day:'numeric',month:'short',year:'numeric'})}</span>`:''}${h.remisPar?`<span>👤 par ${esc(h.remisPar)}</span>`:''}${h.contact?`<span>📞 ${esc(h.contact)}</span>`:''}
+      ${fin==='RAS'?'<span>Fin de démontage : RAS</span>':fin?`<span>🏁 fin de démontage ${fD(fin,{day:'numeric',month:'short'})}</span>`:'<span class="negt">fin de démontage non renseignée</span>'}
+      ${g.retard?`<span class="negt">💶 à facturer depuis le ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:g.fact?`<span>facturable à partir du ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:''}</div></div>
+      <span class="sp"></span><b class="cln">${g.dehors}</b></div>
+    <table class="btbl cltbl"><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}</td>
+      <td class="c">${+p.rendu?`${p.rendu}/${p.qte} rendue${+p.rendu>1?'s':''}`:`× ${p.qte}`}</td>
+      <td class="c"><button class="btn sm" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
+    <div class="acts"><button class="btn sm" onclick="clBon('${g.lot}')">🖨️ Bon de remise</button><button class="btn sm" onclick="clEditLot('${g.lot}')">✏️ Modifier / ajouter</button><span class="sp"></span>
+      <button class="btn sm pri" onclick="clRendre('${g.lot}')">✅ Retour des clefs…</button></div></div>`;
+}
+function clLigne(id){const p=D.ClefsPrets.find(x=>x.id===id);if(!p)return;clDatalists();
+  openForm('ClefsPrets',p,'Clef '+(p.numero||'')+' · '+(p.societe||''),{extra:p.majPar?`<div class="made">Dernière modification par ${esc(p.majPar)}</div>`:''})}
+async function clRenduLigne(id,btn){const p=D.ClefsPrets.find(x=>x.id===id);if(!p)return;const done=setBusy(btn,'…');
+  try{await clSaveLot([{...p,rendu:p.qte,renduLe:today(),recuperePar:me}]);toast('Clef '+(p.numero||'')+' rendue ✓')}catch(e){done();toast(e.message,1)}}
+async function clSaveLot(items){
+  const R=await api('saveClefsLot',{items});
+  R.forEach(r=>{const i=D.ClefsPrets.findIndex(x=>x.id===r.id);if(i<0)D.ClefsPrets.push(r);else D.ClefsPrets[i]=r});
+  render();return R;
+}
+// Retour des clefs : quantités rendues, ou clefs perdues / facturées
+function clRendre(lot){
+  const L=D.ClefsPrets.filter(p=>(p.lot||p.id)===lot&&clOuvert(p));if(!L.length)return;const h=L[0];
+  modal(`<h2>Retour des clefs · ${esc(h.societe)}</h2><p class="hint" style="margin-top:-8px">${esc(clNomP(h))}</p>
+    <div class="tblwrap"><table class="btbl cltbl" style="min-width:0"><thead><tr><th>Clef</th><th class="c">Dehors</th><th class="c">Rendues</th><th>Si manquante</th></tr></thead><tbody>
+    ${L.map(p=>`<tr><td><b>${esc(p.numero||'—')}</b> ${esc(p.designation||'')}</td><td class="c">${clDehors(p)}</td>
+      <td class="c"><input class="pvn clr" type="number" min="0" max="${clDehors(p)}" inputmode="numeric" value="${clDehors(p)}" data-id="${p.id}"></td>
+      <td><select class="sel sm cls" data-id="${p.id}"><option value="">Encore dehors</option><option>Perdue</option><option>Facturée</option></select></td></tr>`).join('')}</tbody></table></div>
+    <div class="form" style="margin-top:12px">
+      <label class="fl"><span>Rendues le</span><input type="date" id="clrle" value="${today()}"></label>
+      ${fieldHtml({k:'clrpar',l:'Récupérées par',t:'person'},me)}
+      <label class="fl full"><span>Rendues par (si autre que ${esc(clNomP(h)||'la personne')})</span><input id="clrby" autocomplete="off"></label></div>
+    <div class="err" id="ferr"></div>
+    <div class="acts"><button class="btn" type="button" onclick="document.querySelectorAll('.clr').forEach(i=>i.value=0)">Tout à 0</button><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="clrgo">Enregistrer</button></div>`);
+  $('#clrgo').onclick=async()=>{
+    const le=$('#clrle').value||today(),par=$('#f_clrpar').value,by=$('#clrby').value.trim(),items=[];
+    for(const p of L){const n=Math.max(0,Math.min(clDehors(p),parseInt($(`.clr[data-id="${p.id}"]`).value,10)||0)),s=$(`.cls[data-id="${p.id}"]`).value;
+      if(!n&&!s)continue;const r=(+p.rendu||0)+n;
+      items.push({...p,rendu:String(r),statut:r<+p.qte?s:'',renduLe:n?le:p.renduLe,recuperePar:n?par:p.recuperePar,renduPar:n?by:p.renduPar})}
+    if(!items.length)return $('#ferr').textContent='Rien à enregistrer';
+    const b=$('#clrgo');b.disabled=true;b.textContent='Enregistrement…';
+    try{await clSaveLot(items);closeModal();const n=items.reduce((a,x)=>a+(+x.rendu-(+L.find(p=>p.id===x.id).rendu||0)),0);toast(n+' clef'+(n>1?'s':'')+' rendue'+(n>1?'s':'')+' ✓')}
+    catch(e){$('#ferr').textContent=e.message;b.disabled=false;b.textContent='Enregistrer'}
+  };
+}
+
+/* ----- nouvelle remise / modification d'une remise ----- */
+let CL={lot:'',lines:[],conf:''};
+function clNew(pre={}){clLotForm('',[],{datePrepa:today(),remisPar:me,...pre})}
+function clEditLot(lot){const L=D.ClefsPrets.filter(p=>(p.lot||p.id)===lot);if(L.length)clLotForm(lot,L,L[0])}
+function clLotForm(lot,L,h){
+  clDatalists();
+  CL={lot:lot||('l'+Math.random().toString(16).slice(2,12)),lines:L.map(p=>({...p})),conf:'',isNew:!lot};
+  const fin=h.finDemontage||'';
+  modal(`<h2>${lot?'Remise · '+esc(h.societe):'Nouvelle remise de clefs'}</h2>
+    <div class="form">
+      <label class="fl full"><span>Société / salon *</span><input id="cl_soc" list="dl-clsoc" value="${esc(h.societe||'')}" autocomplete="off"></label>
+      <label class="fl"><span>Prénom</span><input id="cl_pre" value="${esc(h.prenom||'')}" autocomplete="off"></label>
+      <label class="fl"><span>Nom</span><input id="cl_nom" value="${esc(h.nom||'')}" autocomplete="off"></label>
+      <label class="fl full"><span>Téléphone / e-mail</span><input id="cl_ct" value="${esc(h.contact||'')}" autocomplete="off"></label>
+      ${fieldHtml({k:'cl_par',l:'Remise par',t:'person'},h.remisPar||me)}
+      <label class="fl"><span>Remise le *</span><input type="date" id="cl_le" value="${esc(h.datePrepa||today())}"></label>
+      <label class="fl"><span>Fin de démontage</span><input type="date" id="cl_fin" value="${fin==='RAS'?'':esc(fin)}" ${fin==='RAS'?'disabled':''}></label>
+      <label class="chk" style="align-self:end;padding-bottom:9px"><input type="checkbox" id="cl_ras" ${fin==='RAS'?'checked':''} onchange="$('#cl_fin').disabled=this.checked"> RAS (pas de facturation)</label>
+      <label class="fl full"><span>Commentaire</span><textarea id="cl_com" rows="2">${esc(L.length===1||!lot?h.commentaire||'':'')}</textarea></label></div>
+    <div class="coms"><h3>Clefs remises · <span id="cltot"></span></h3>
+      <div id="cllines"></div>
+      <input class="search" id="clq" type="search" placeholder="Ajouter une clef : n°, espace, local…" style="max-width:none;width:100%;margin-top:8px" autocomplete="off">
+      <div id="clres"></div>
+      <button class="link" type="button" onclick="clAddLibre()">+ Clef hors inventaire</button></div>
+    <div class="err" id="ferr"></div>
+    <div class="acts">${lot?`<button class="btn" type="button" onclick="clBon('${CL.lot}')">🖨️ Bon</button>`:''}<span class="sp"></span><button class="btn" onclick="closeModal(true)">Annuler</button><button class="btn pri" id="clgo">Enregistrer</button></div>`,true);
+  $('#clq').addEventListener('input',clSearch);
+  $('#cl_soc').addEventListener('change',()=>{const s=$('#cl_soc').value.trim().toLowerCase(),p=D.ClefsPrets.filter(x=>String(x.societe).toLowerCase()===s&&x.finDemontage).sort((a,b)=>String(b.datePrepa).localeCompare(a.datePrepa))[0];
+    if(p&&!$('#cl_fin').value&&!$('#cl_ras').checked&&(p.finDemontage==='RAS'||p.finDemontage>=today())){if(p.finDemontage==='RAS'){$('#cl_ras').checked=true;$('#cl_fin').disabled=true}else $('#cl_fin').value=p.finDemontage}});
+  $('#clgo').onclick=clLotSave;
+  clLines();
+}
+function clSearch(){
+  const box=$('#clres'),q=($('#clq').value||'').trim().toLowerCase();if(!q){box.innerHTML='';return}
+  const E=clEnPret(),words=q.split(/\s+/);
+  const rk=c=>{const n=String(c.numero||'').toLowerCase();return n===q?0:n.startsWith(q)?1:clDes(c).toLowerCase().includes(q)?2:3};
+  const R=D.Clefs.filter(c=>{const s=(c.numero+' '+clDes(c)).toLowerCase();return words.every(w=>s.includes(w))}).sort((a,b)=>rk(a)-rk(b)||clDes(a).localeCompare(clDes(b),'fr')).slice(0,25);
+  box.innerHTML=R.length?`<div class="eqlist clres">${R.map(c=>{const dis=(+c.stock||0)-(E[c.id]||0)-CL.lines.filter(l=>l.clefId===c.id&&!l.id).reduce((a,l)=>a+(+l.qte||0),0);
+    return `<div class="eqrow" style="cursor:pointer" onclick="clAdd('${c.id}')"><span><b>${esc(c.numero||'—')}</b> ${esc(clDes(c))}</span><span class="sp"></span><small class="${dis<=0?'negt':'hint'}" style="margin:0">${dis} dispo</small></div>`}).join('')}</div>`
+    :`<p class="empty">Aucune clef trouvée. <button class="link" type="button" onclick="clAddLibre()">Ajouter une clef hors inventaire</button></p>`;
+}
+function clAdd(id){const c=D.Clefs.find(x=>x.id===id);if(!c)return;
+  const ex=CL.lines.find(l=>l.clefId===id&&!(+l.rendu));if(ex)ex.qte=String((+ex.qte||0)+1);else CL.lines.push({clefId:id,numero:c.numero,designation:clDes(c),qte:'1',rendu:'0'});
+  $('#clq').value='';$('#clres').innerHTML='';CL.conf='';clLines();$('#clq').focus()}
+function clAddLibre(){const v=($('#clq')&&$('#clq').value.trim())||'';CL.lines.push({clefId:'',numero:'',designation:v,qte:'1',rendu:'0',libre:1});if($('#clq'))$('#clq').value='';$('#clres').innerHTML='';clLines()}
+function clLines(){
+  const box=$('#cllines');if(!box)return;const E=clEnPret(),idx=clNumIdx();
+  box.innerHTML=CL.lines.length?`<div class="tblwrap"><table class="btbl cltbl" style="min-width:0"><tbody>${CL.lines.map((l,i)=>{
+    const c=l.clefId?D.Clefs.find(x=>x.id===l.clefId):clClefOf(l,idx);
+    // disponibles pour cette ligne : au tableau − dehors ailleurs
+    const mine=l.id?clDehors(D.ClefsPrets.find(p=>p.id===l.id)||{}):0;
+    const autres=CL.lines.filter((x,j)=>j!==i&&c&&x.clefId===c.id).reduce((a,x)=>a+Math.max(0,(+x.qte||0)-(+x.rendu||0)),0)-CL.lines.filter((x,j)=>j!==i&&c&&x.clefId===c.id&&x.id).reduce((a,x)=>a+clDehors(D.ClefsPrets.find(p=>p.id===x.id)||{}),0);
+    const dis=c?(+c.stock||0)-(E[c.id]||0)+mine-autres:null, ko=dis!==null&&(+l.qte||0)-(+l.rendu||0)>dis;
+    return `<tr class="${ko?'clko':''}"><td class="clnum">${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="N°" value="${esc(l.numero||'')}" oninput="CL.lines[${i}].numero=this.value">`:esc(l.numero||'—')}</td>
+      <td>${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="Désignation (espace - local)" value="${esc(l.designation||'')}" oninput="CL.lines[${i}].designation=this.value" style="width:100%">`:esc(l.designation||'')}
+        ${+l.rendu?`<small class="hint" style="display:block;margin:0">${l.rendu} déjà rendue${+l.rendu>1?'s':''}</small>`:''}</td>
+      <td class="c" style="white-space:nowrap"><input class="pvn" type="number" min="1" inputmode="numeric" value="${esc(l.qte)}" oninput="CL.lines[${i}].qte=this.value;CL.conf='';clTot()">${dis!==null?`<small class="${ko?'negt':''}">/${Math.max(0,dis)}</small>`:''}</td>
+      <td class="c"><button class="btn sm" type="button" title="Retirer" onclick="CL.lines.splice(${i},1);CL.conf='';clLines()">✕</button></td></tr>`}).join('')}</tbody></table></div>`
+    :'<p class="empty">Aucune clef : cherche-les ci-dessous par n° ou par local.</p>';
+  clTot();
+}
+function clTot(){const n=CL.lines.reduce((a,l)=>a+(+l.qte||0),0),e=$('#cltot');if(e)e.textContent=n+' clef'+(n>1?'s':'')}
+async function clLotSave(){
+  const err=m=>{$('#ferr').textContent=m||''};
+  const h={lot:CL.lot,societe:$('#cl_soc').value.trim(),prenom:$('#cl_pre').value.trim(),nom:$('#cl_nom').value.trim().toUpperCase(),contact:$('#cl_ct').value.trim(),
+    remisPar:$('#f_cl_par').value,datePrepa:$('#cl_le').value,finDemontage:$('#cl_ras').checked?'RAS':$('#cl_fin').value};
+  const com=$('#cl_com').value.trim();
+  if(!h.societe)return err('Société / salon obligatoire');
+  if(!h.datePrepa)return err('Date de remise obligatoire');
+  const lines=CL.lines.filter(l=>l.numero||l.designation);
+  if(!lines.length)return err('Ajoute au moins une clef');
+  if(lines.some(l=>!(+l.qte>=1)))return err('Quantité d\'au moins 1 pour chaque clef');
+  // contrôle des disponibles : on prévient, un 2e clic enregistre quand même
+  const E=clEnPret(),need={};lines.forEach(l=>{if(l.clefId)need[l.clefId]=(need[l.clefId]||0)+Math.max(0,(+l.qte||0)-(+l.rendu||0))-(l.id?clDehors(D.ClefsPrets.find(p=>p.id===l.id)||{}):0)});
+  const manque=Object.keys(need).map(id=>{const c=D.Clefs.find(x=>x.id===id);const dis=(+c.stock||0)-(E[id]||0);return need[id]>dis?`${c.numero||clDes(c)} (${dis} dispo)`:''}).filter(Boolean);
+  const sig=manque.join('|');
+  if(manque.length&&CL.conf!==sig){CL.conf=sig;return err('⚠️ Plus de clefs que disponibles au tableau : '+manque.join(', ')+'. Clique encore sur Enregistrer pour enregistrer quand même.')}
+  const old=D.ClefsPrets.filter(p=>(p.lot||p.id)===CL.lot), keep=new Set(lines.filter(l=>l.id).map(l=>l.id));
+  const items=lines.map(l=>{const o={...l,...h};delete o.libre;o.commentaire=(!l.id||lines.length===1)?com:(com||l.commentaire||'');return o});
+  const b=$('#clgo');b.disabled=true;b.textContent='Enregistrement…';
+  try{await clSaveLot(items);for(const p of old)if(!keep.has(p.id))await delItem('ClefsPrets',p.id);
+    closeModal(true);toast('Remise enregistrée ✓ · 🖨️ bon de remise sur la carte')}
+  catch(e){err(e.message);b.disabled=false;b.textContent='Enregistrer'}
+}
+
+/* ----- bon de remise (à faire signer) ----- */
+function clBon(lot){
+  const L=D.ClefsPrets.filter(p=>(p.lot||p.id)===lot);if(!L.length)return toast('Enregistre d\'abord la remise',1);const h=L[0];
+  const f=h.finDemontage, fact=clFactLe(h);
+  const w=window.open('','_blank');if(!w)return toast('Fenêtre bloquée par le navigateur : autorise les fenêtres pour ce site',1);
+  w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bon de remise de clefs - ${esc(h.societe)}</title>
+  <style>body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:14px}h1{font-size:20px;margin:0 0 4px}.top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14213d;padding-bottom:10px;margin-bottom:16px}
+  .top img{height:44px}table{width:100%;border-collapse:collapse;margin:14px 0}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#eef1f6}td.c,th.c{text-align:center;width:70px}
+  .g{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px}.sig div{border:1px solid #999;height:90px;padding:6px}
+  .note{font-size:12px;color:#444;margin-top:12px}@media print{button{display:none}}</style></head><body>
+  <div class="top"><img src="${location.href.replace(/[^/]*$/,'')}logo.png" onerror="this.remove()"><div><h1>Bon de remise de clefs</h1>Eurexpo Lyon · Service Bâtiment</div></div>
+  <div class="g"><div><b>Société / salon :</b> ${esc(h.societe)}</div><div><b>Remise le :</b> ${h.datePrepa?fD(h.datePrepa,{day:'2-digit',month:'2-digit',year:'numeric'}):''}</div>
+  <div><b>Remise à :</b> ${esc(clNomP(h))}${h.contact?' · '+esc(h.contact):''}</div><div><b>Remise par :</b> ${esc(h.remisPar||'')}</div>
+  <div><b>Fin de démontage :</b> ${f==='RAS'?'—':f?fD(f,{day:'2-digit',month:'2-digit',year:'numeric'}):''}</div></div>
+  <table><thead><tr><th style="width:150px">N° de clef</th><th>Désignation</th><th class="c">Qté</th><th class="c">Rendue</th></tr></thead>
+  <tbody>${L.map(p=>`<tr><td>${esc(p.numero||'')}</td><td>${esc(p.designation||'')}</td><td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu?esc(p.rendu):''}</td></tr>`).join('')}
+  <tr><th colspan="2" style="text-align:right">Total</th><th class="c">${L.reduce((a,p)=>a+(+p.qte||0),0)}</th><th></th></tr></tbody></table>
+  <p class="note">Les clefs sont à rendre au service Bâtiment au plus tard à la fin du démontage.${fact?` Les clefs non rendues seront facturées à partir du ${fD(fact,{day:'2-digit',month:'2-digit',year:'numeric'})}.`:''}</p>
+  <div class="sig"><div>Signature du bénéficiaire (remise)</div><div>Signature au retour des clefs</div></div>
+  <p><button onclick="print()">🖨️ Imprimer</button></p></body></html>`);
+  w.document.close();setTimeout(()=>{try{w.print()}catch(e){}},400);
+}
+
+/* ----- inventaire ----- */
+function clNewClef(pre={}){clDatalists();openForm('Clefs',{stock:'1',reserve:'0',espace:UI.cl&&UI.cl.ie||'',...pre},'Nouvelle clef')}
+function clEditClef(id){const c=D.Clefs.find(x=>x.id===id);if(!c)return;clDatalists();const idx=clNumIdx();
+  const P=D.ClefsPrets.filter(p=>clOuvert(p)&&clClefOf(p,idx)===c);
+  openForm('Clefs',c,(c.numero?'Clef '+c.numero+' · ':'')+clDes(c),{extra:`<div class="coms"><h3>Dehors en ce moment (${P.reduce((a,p)=>a+clDehors(p),0)})</h3>
+    ${P.map(p=>`<div class="eqrow"><span><b>${esc(p.societe)}</b> ${esc(clNomP(p))} · ×${clDehors(p)}</span><span class="sp"></span><small class="hint" style="margin:0">depuis le ${fD(p.datePrepa,{day:'numeric',month:'short'})}</small></div>`).join('')||'<p class="empty">Aucune.</p>'}
+    ${c.majPar?`<div class="made">Dernière modification par ${esc(c.majPar)}</div>`:''}</div>`})}
+function clVueInv(el){
+  const st=UI.cl,q=(st.iq||'').toLowerCase(),E=clEnPret();
+  const esp=[...new Set(D.Clefs.map(c=>c.espace).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+  let L=D.Clefs.filter(c=>(!st.ie||c.espace===st.ie)&&(!q||(c.numero+' '+clDes(c)+' '+(c.commentaire||'')).toLowerCase().includes(q))&&(!st.ip||E[c.id]));
+  L.sort((a,b)=>(!a.espace&&!a.acces)-(!b.espace&&!b.acces)||String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')||String(a.numero).localeCompare(String(b.numero),'fr',{numeric:true}));
+  const sum=k=>D.Clefs.reduce((a,c)=>a+(+c[k]||0),0), pret=Object.values(E).reduce((a,v)=>a+v,0), neg=D.Clefs.filter(c=>(+c.stock||0)-(E[c.id]||0)<0).length;
+  el.innerHTML=`<div class="kpis kc"><div class="kpi"><span>Références</span><b>${D.Clefs.length}</b><small>${esp.length} espaces</small></div>
+      <div class="kpi"><span>Au tableau</span><b>${sum('stock')}</b><small>clefs</small></div>
+      <div class="kpi ${neg?'neg':''}"><span>En prêt</span><b>${pret}</b><small>${neg?neg+' réf. plus sorties qu\'au tableau':''}</small></div>
+      <div class="kpi"><span>Archivées</span><b>${sum('reserve')}</b><small>réserve</small></div></div>
+    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (n°, local, espace…)" value="${esc(st.iq)}" oninput="UI.cl.iq=this.value;pgRefresh()">
+      <select class="sel" onchange="UI.cl.ie=this.value;render()"><option value="">Tous les espaces</option>${esp.map(e=>`<option ${e===st.ie?'selected':''}>${esc(e)}</option>`).join('')}</select>
+      <label class="chk"><input type="checkbox" ${st.ip?'checked':''} onchange="UI.cl.ip=this.checked;render()"> En prêt seulement</label>
+      <span class="sp"></span><button class="btn pri" onclick="clNewClef()">+ Clef</button></div>
+    <div class="tblwrap"><table class="btbl"><thead><tr><th>Espace</th><th>Accès / local</th><th>N° de clef</th><th class="c">Au tableau</th><th class="c">En prêt</th><th class="c">Dispo</th><th class="c">Archivées</th><th>Commentaire</th></tr></thead>
+      <tbody>${L.slice(0,600).map(c=>{const p=E[c.id]||0,d=(+c.stock||0)-p;return `<tr onclick="clEditClef('${c.id}')"><td>${esc(c.espace)}</td><td>${c.acces?`<b>${esc(c.acces)}</b>`:'<span class="hint">(sans désignation)</span>'}</td><td class="clnum">${esc(c.numero)}</td>
+        <td class="c">${+c.stock||''}</td><td class="c">${p||''}</td><td class="c ${d<0?'negt':''}"><b>${d}</b></td><td class="c">${+c.reserve||''}</td><td><small>${esc(c.commentaire||'')}</small></td></tr>`}).join('')
+        ||'<tr><td colspan="8" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
+    <p class="hint">« Dispo » = au tableau − en prêt. Touche une ligne pour corriger les quantités (clef refaite, perdue…) et voir qui l'a en ce moment.</p>`;
+}
+
+/* ----- historique ----- */
+function clVueHist(el){
+  const st=UI.cl,q=(st.hq||'').toLowerCase();
+  const ans=[...new Set(D.ClefsPrets.map(p=>(p.datePrepa||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const etat=p=>clOuvert(p)?'Dehors':p.statut||'Rendue';
+  let L=D.ClefsPrets.filter(p=>(!st.hy||(p.datePrepa||'').startsWith(st.hy))&&(st.he==='Tous'||etat(p)===st.he)
+    &&(!q||[p.societe,clNomP(p),p.numero,p.designation,p.remisPar,p.commentaire].join(' ').toLowerCase().includes(q)));
+  L.sort((a,b)=>String(b.datePrepa).localeCompare(String(a.datePrepa))||String(a.societe).localeCompare(String(b.societe),'fr'));
+  const col={'Dehors':'#e09a2b','Rendue':'#2a9d5c','Perdue':'#c0392b','Facturée':'#8e5bd1'};
+  el.innerHTML=`<div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°…)" value="${esc(st.hq)}" oninput="UI.cl.hq=this.value;pgRefresh()">
+      <select class="sel" onchange="UI.cl.hy=this.value;render()"><option value="">Toutes les années</option>${ans.map(a=>`<option ${a===st.hy?'selected':''}>${a}</option>`).join('')}</select>
+      <div class="seg-ctl">${['Tous','Dehors','Rendue','Perdue','Facturée'].map(k=>`<button class="${st.he===k?'on':''}" onclick="UI.cl.he='${k}';render()">${k}</button>`).join('')}</div></div>
+    <div class="tblwrap"><table class="btbl"><thead><tr><th>État</th><th>Remise</th><th>Société / salon</th><th>Personne</th><th>N°</th><th>Désignation</th><th class="c">Sorties</th><th class="c">Rendues</th><th>Rendue le</th><th>Fin démontage</th><th>Par</th></tr></thead>
+    <tbody>${L.slice(0,400).map(p=>{const e=etat(p);return `<tr onclick="clLigne('${p.id}')"><td><span class="st" style="background:${col[e]}">${e}</span></td><td>${fD(p.datePrepa,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+      <td>${esc(p.societe)}</td><td>${esc(clNomP(p))}</td><td class="clnum">${esc(p.numero)}</td><td>${esc(p.designation)}</td><td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu||''}</td>
+      <td>${p.renduLe?fD(p.renduLe,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td>${p.finDemontage==='RAS'?'RAS':p.finDemontage?fD(p.finDemontage,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td><small>${esc(p.remisPar||'')}</small></td></tr>`}).join('')
+      ||'<tr><td colspan="11" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
+    <p class="hint">${L.length} ligne${L.length>1?'s':''}${L.length>400?' (400 premières affichées : affine la recherche, ou ⬇️ Excel pour tout avoir)':''}.</p>`;
+}
+async function clExport(){
+  try{await loadXLSX();const wb=XLSX.utils.book_new(),E=clEnPret(),idx=clNumIdx();
+    const add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(50,Math.max(9,k.length+2,...rows.slice(0,300).map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
+    const ligne=p=>({'État':clOuvert(p)?'Dehors':p.statut||'Rendue','À facturer à partir du':clFactLe(p)||(p.finDemontage==='RAS'?'NC':''),'Société / salon':p.societe,'Prénom':p.prenom,'Nom':p.nom,'Contact':p.contact,
+      'Sorties':+p.qte||0,'Rendues':+p.rendu||0,'N° clef':p.numero,'Désignation':p.designation,'Remise par':p.remisPar,'Remise le':p.datePrepa,'Retirée par':p.remisA||p.nom,'Retirée le':p.retireLe||p.datePrepa,
+      'Rendue le':p.renduLe,'Récupérée par':p.recuperePar||(+p.rendu?p.remisPar:''),'Rendue par':p.renduPar||(+p.rendu?(p.remisA||p.nom):''),'Fin démontage':p.finDemontage,'Commentaire':p.commentaire});
+    const byD=(a,b)=>String(a.datePrepa).localeCompare(String(b.datePrepa));
+    add(D.ClefsPrets.filter(clOuvert).sort(byD).map(ligne),'En prêt');
+    add(D.ClefsPrets.slice().sort(byD).map(ligne),'Suivi des remises');
+    add(D.Clefs.slice().sort((a,b)=>String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')).map(c=>({'Espace':c.espace,'Accès':c.acces,'N° clef':c.numero,'Désignation':clDes(c),
+      'Au tableau':+c.stock||0,'En prêt':E[c.id]||0,'Dispo':(+c.stock||0)-(E[c.id]||0),'Archivées':+c.reserve||0,'Commentaire':c.commentaire})),'Références');
+    XLSX.writeFile(wb,`CLEFS - suivi ${today()}.xlsx`)}catch(e){toast(e.message,1)}
+}
+
 /* ================== RÉGIE ÉVÈNEMENTIELLE ================== */
 const RG_SUB=[['Regisseurs','🎧 Régisseurs'],['Cloisons','🧱 Cloisons & tribune'],['EDL','📋 États des lieux'],['Drapeaux','🚩 Drapeaux']];
 function vRegie(el){
@@ -1932,7 +2284,7 @@ function demoSeed(){
               {id:id(),date:addDays(t,6),heure:'18:00',hall:'Hall 2.1',mouvement:'À sortir',cloison:'C3',salon:'Salon démo',statut:'Prévu'},
               {id:id(),objet:'Tribune',date:addDays(t,-10),dateFin:addDays(t,-10),hall:'Hall 1',mouvement:'À sortir',salon:'Salon précédent',statut:'Fait'},
               {id:id(),objet:'Tribune',date:addDays(t,2),dateFin:addDays(t,2),heure:'08:00',hall:'Hall 1',mouvement:'À rentrer',salon:'Salon précédent',responsable:'Julien',statut:'Prévu'}],
-    BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],
+    BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Clefs:[],ClefsPrets:[],
     Drapeaux:drOct26Items().map((x,i)=>({id:id(),ordre:String(i+1),...x})),
     Pavoisements:[{id:id(),titre:'Salon démo',lieu:'Accueil Parvis',dateDebut:addDays(t,1),dateFin:addDays(t,5),statut:'Prévu',responsable:'Karim',
       liste:JSON.stringify(['France','Europe','Allemagne','Italie','Espagne','Eurexpo','GL events'].map(d=>({d,f:'200 x 300',q:d==='Eurexpo'||d==='GL events'?2:1})))},
@@ -1959,6 +2311,8 @@ function demoHandle(a,p){
   if(a==='lu'){const cur=DB.Memos.find(x=>x.id===p.id);if(!cur)throw new Error('Mémo introuvable');const l=String(cur.luPar||'').split(',').map(x=>x.trim()).filter(n=>n&&n!==p.user);if(p.lu)l.push(p.user);cur.luPar=l.join(', ');return cur}
   if(a==='importDrapeaux'){if(DB.Drapeaux.length)throw new Error("L'inventaire contient déjà des drapeaux : reprise refusée");DB.Drapeaux=p.items.map((x,i)=>({...x,id:Math.random().toString(36).slice(2,10),ordre:String(i+1)}));return {lignes:DB.Drapeaux.length}}
   if(a==='importBudget'){const id=()=>Math.random().toString(36).slice(2,10);p.data.lignes.forEach(l=>{const o={...l,id:id()};delete o.mvts;DB.BudgetLignes.push(o);(l.mvts||[]).forEach(m=>DB.BudgetMvts.push({...m,id:id(),ligneId:o.id,montant:String(m.montant)}))});(p.data.inventaire||[]).forEach(x=>DB.Inventaire.push({...x,id:id()}));(p.data.sap||[]).forEach(x=>DB.SAP.push({...x,id:id()}));return {ok:1}}
+  if(a==='importClefs'){if(DB.Clefs.length||DB.ClefsPrets.length)throw new Error('Les clefs sont déjà reprises : reprise refusée');DB.Clefs=p.data.clefs.map(x=>({...x}));DB.ClefsPrets=p.data.prets.map(x=>({...x,datePrepa:x.datePrepa||x.renduLe||'2025-01-01'}));return {clefs:DB.Clefs.length,prets:DB.ClefsPrets.length}}
+  if(a==='saveClefsLot')return p.items.map(it=>{const o={...it};if(+o.rendu>0&&!o.renduLe)o.renduLe=today();if(+o.rendu>=+o.qte)o.statut='';if(!o.lot)o.lot=o.id;return demoHandle('save',{sheet:'ClefsPrets',user:p.user,item:o})});
   const L=DB[p.sheet]; if(!L) throw new Error('Onglet inconnu');
   if(a==='save'){
     const cur=p.item.id?L.find(x=>x.id===p.item.id):null; const o={...(cur||{}),...p.item}; const now=nowISO();

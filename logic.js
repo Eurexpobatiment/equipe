@@ -19,8 +19,13 @@ export const SCHEMA = {
   Drapeaux:     ['id', 'nom', 'groupe', 'format', 'neufs', 'occasions', 'uses', 'note', 'ordre', 'majPar'],
   Pavoisements: ['id', 'titre', 'lieu', 'dateDebut', 'dateFin', 'statut', 'responsable', 'liste', 'note', 'creeLe', 'majLe', 'majPar'],
   Memos:        ['id', 'type', 'titre', 'niveau', 'texte', 'decisions', 'lieu', 'jusquau', 'epingle', 'statut', 'dateReunion', 'participants',
-                 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar']
+                 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar'],
+  Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
+  ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
+                 'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar']
 };
+// Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
+export const HORS_SHEET = ['Clefs', 'ClefsPrets'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -214,6 +219,29 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (o.dateFin === o.date && o.heure && o.heureFin && o.heureFin < o.heure) throw new Error("L'heure de fin est avant l'heure de début");
       o.majPar = user;
       break;
+    case 'Clefs':
+      if (!o.numero && !o.acces) throw new Error('N° de clef ou accès obligatoire');
+      o.stock = qte_(o.stock, 'stock'); o.reserve = qte_(o.reserve, 'archivées');
+      o.majPar = user;
+      break;
+    case 'ClefsPrets': {
+      if (!o.societe) throw new Error('Société / salon obligatoire');
+      if (!o.numero && !o.designation) throw new Error('Clef obligatoire (n° ou désignation)');
+      if (!RE_DATE.test(o.datePrepa || '')) throw new Error('Date de remise obligatoire');
+      ['retireLe', 'renduLe'].forEach(k => { if (o[k] && !RE_DATE.test(o[k])) throw new Error('Date invalide : ' + o[k]); });
+      if (o.finDemontage && o.finDemontage !== 'RAS' && !RE_DATE.test(o.finDemontage)) throw new Error('Fin de démontage : une date ou « RAS »');
+      o.qte = qte_(o.qte, 'sorties'); o.rendu = qte_(o.rendu, 'rendues');
+      if (Number(o.qte) < 1) throw new Error('Au moins 1 clef sortie');
+      if (Number(o.rendu) > Number(o.qte)) throw new Error('Plus de clefs rendues (' + o.rendu + ') que sorties (' + o.qte + ')');
+      if (['', 'Perdue', 'Facturée'].indexOf(o.statut || '') < 0) throw new Error('Statut inconnu : ' + o.statut);
+      if (Number(o.rendu) === Number(o.qte)) o.statut = '';
+      if (Number(o.rendu) > 0 && !o.renduLe) o.renduLe = now.slice(0, 10);
+      if (Number(o.rendu) === 0 && !o.statut) o.renduLe = '';
+      if (!o.lot) o.lot = o.id;
+      if (!cur) o.creeLe = now;
+      o.majPar = user;
+      break;
+    }
     default: // EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       o.majPar = user;
@@ -241,6 +269,8 @@ export function summary_(name, o) {
     case 'Inventaire': return (o.designation || '').slice(0, 80) + ' ' + o.montant;
     case 'SAP': return o.societe + ' ' + o.sap;
     case 'Memos': return o.type + ' · ' + o.titre + (o.niveau ? ' · ' + o.niveau : '') + ' · ' + o.statut;
+    case 'Clefs': return (o.numero ? 'n° ' + o.numero + ' ' : '') + o.espace + ' - ' + o.acces + ' · stock ' + o.stock;
+    case 'ClefsPrets': return o.societe + ' · ' + [o.prenom, o.nom].filter(Boolean).join(' ') + ' · ' + (o.numero || o.designation) + ' · ' + o.rendu + '/' + o.qte + ' rendue(s)' + (o.statut ? ' · ' + o.statut : '');
     case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';

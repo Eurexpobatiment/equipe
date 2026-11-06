@@ -6,7 +6,7 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_ } from './logic.js?v=4';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=5';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -269,6 +269,33 @@ async function importBudget(data) {
   return { lignes: L.length, mvts: M.length };
 }
 
+// Reprise du classeur « CLEFS - Inventaire & suivi » (fichier clefs-reprise.json), une seule fois
+async function importClefs(data) {
+  if (!data || !Array.isArray(data.clefs) || !Array.isArray(data.prets)) throw new Error('Fichier de reprise illisible');
+  if ((D_.Clefs || []).length || (D_.ClefsPrets || []).length) throw new Error('Les clefs sont déjà reprises : reprise refusée');
+  const ids = new Set();
+  const C = data.clefs.map(x => { const o = prepare('Clefs', x, me, null, [], { keepId: true }); ids.add(o.id); return o; });
+  const P = data.prets.map((x, i) => {
+    try { return prepare('ClefsPrets', Object.assign({}, x, { clefId: ids.has(x.clefId) ? x.clefId : '', datePrepa: x.datePrepa || x.renduLe || '2025-01-01' }), me, null, [], { keepId: true }); }
+    catch (e) { throw new Error('Remise ' + (i + 1) + ' (' + (x.societe || '') + ' ' + (x.numero || '') + ') : ' + e.message); }
+  });
+  await bulk('Clefs', C); await bulk('ClefsPrets', P);
+  journal('reprise', 'Clefs', '', C.length + ' clefs, ' + P.length + ' remises');
+  return { clefs: C.length, prets: P.length };
+}
+
+// Plusieurs remises de clefs d'un coup (une ligne par clef), en un seul envoi
+async function saveClefsLot(items) {
+  if (!Array.isArray(items) || !items.length) throw new Error('Aucune clef');
+  const L = D_.ClefsPrets || [];
+  const out = items.map(it => { const cur = it.id ? L.find(x => x.id === String(it.id)) || null : null; return [prepare('ClefsPrets', it, me, cur, L, {}), cur]; });
+  const b = F.writeBatch(db);
+  out.forEach(([o]) => b.set(ref('ClefsPrets', o.id), o));
+  bg(b.commit());
+  out.forEach(([o, cur]) => journal(cur ? 'modification' : 'ajout', 'ClefsPrets', o.id, summary_('ClefsPrets', o)));
+  return out.map(x => x[0]);
+}
+
 // Même interface que l'ancien api(action, p) de l'appli
 export async function api(action, p = {}) {
   switch (action) {
@@ -278,6 +305,8 @@ export async function api(action, p = {}) {
     case 'lu': return memoLu(p.id, p.lu);
     case 'importDrapeaux': return importDrapeaux(p.items);
     case 'importBudget': return importBudget(p.data);
+    case 'importClefs': return importClefs(p.data);
+    case 'saveClefsLot': return saveClefsLot(p.items);
     default: throw new Error('Action inconnue : ' + action);
   }
 }
@@ -323,7 +352,7 @@ export async function reprise(ownerNom, progress = () => {}) {
   data.Equipe.forEach(e => { b.set(ref('Equipe', e.id), e); if (e.email) b.set(ref('Acces', e.email), { nom: e.nom, role: e.role, actif: e.actif, equipeId: e.id }); });
   await wrap(b.commit());
 
-  const noms2 = Object.keys(SCHEMA).filter(k => k !== 'Equipe');
+  const noms2 = Object.keys(SCHEMA).filter(k => k !== 'Equipe' && HORS_SHEET.indexOf(k) < 0);
   let n = 0;
   for (const k of noms2) {
     progress(`Copie : ${k} (${data[k].length})…`);
@@ -357,7 +386,7 @@ export async function resynchroniser(ownerNom, progress = () => {}) {
   data.Equipe.forEach(e => { b.set(ref('Equipe', e.id), e); if (e.email) { garder.add(e.email); b.set(ref('Acces', e.email), { nom: e.nom, role: e.role, actif: e.actif, equipeId: e.id }); } });
   accAvant.docs.forEach(d => { if (!garder.has(d.id)) b.delete(d.ref); });
   await wrap(b.commit());
-  for (const k of Object.keys(SCHEMA)) {
+  for (const k of Object.keys(SCHEMA).filter(k => HORS_SHEET.indexOf(k) < 0)) {
     progress('Mise à jour : ' + k + '…');
     const ids = new Set(data[k].map(o => o.id));
     let suppr = [];
