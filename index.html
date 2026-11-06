@@ -571,7 +571,7 @@ const TABS = [
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '8'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '9'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[]};
@@ -1143,9 +1143,11 @@ const DT = {
   list: null, err: '', loading: false, at: 0
 };
 // Même adresse que l'appli travaux : on partage son code Bâtiment mémorisé (clé dt_code)
-const dtCode = ()=>{try{return JSON.parse(localStorage.getItem('dt_code')||'""')}catch(e){return ''}};
+const dtCode = ()=>{if(FBM)return me?'firebase':'';try{return JSON.parse(localStorage.getItem('dt_code')||'""')}catch(e){return ''}};
 const dtSetCode = c=>{try{c?localStorage.setItem('dt_code',JSON.stringify(c)):localStorage.removeItem('dt_code')}catch(e){}};
 async function dtApi(action,p={}){
+  // Version Firebase : les demandes sont dans le même projet Firebase (appli travaux basculée le 7 nov. 2026)
+  if(FBM){if(!FB)throw new Error('Appli en cours de démarrage…');if(action==='list')return FB.dtList();if(action==='update')return FB.dtUpdate(p.id,p.item);throw new Error('Action inconnue')}
   const r=await fetch(DT.api,{method:'POST',body:JSON.stringify({action,code:dtCode(),user:me,...p})});
   if(!r.ok) throw new Error('Serveur des demandes injoignable ('+r.status+')');
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Erreur serveur'); return j.data;
@@ -1200,7 +1202,7 @@ function vTravaux(el){
       <small>${esc([d.demandeur,d.service,d.lieu].filter(Boolean).join(' · '))}${d.nbFichiers?' · 📎 '+d.nbFichiers:''}</small>
       <small>${d.chargeDe?'👤 '+esc(d.chargeDe):'<i>Personne en charge</i>'}${d.datePrevue?' · 📅 prévue '+fD(d.datePrevue):''}${d.dateImperative?` · <span class="${soon(d)?'late':''}">⏰ impératif ${fD(d.dateImperative)}</span>`:''}</small></span>
       <span class="sp"></span>${d.priorite?`<span class="etat ${d.priorite==='Urgente'||d.priorite==='Haute'?'ko':'ok'}">${esc(d.priorite)}</span>`:''}${dtBadge(d.statut)}</div>`).join('')||'<p class="empty" style="padding:10px">Aucune demande.</p>'}</div>
-    <p class="hint">${DT.list.length} demande${DT.list.length>1?'s':''} au total · mis à jour à ${new Date(DT.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · <a href="#" onclick="dtSetCode('');DT.list=null;render();return false">se déconnecter</a></p>`;
+    <p class="hint">${DT.list.length} demande${DT.list.length>1?'s':''} au total · mis à jour à ${new Date(DT.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · ${FBM?'':`<a href="#" onclick="dtSetCode('');DT.list=null;render();return false">se déconnecter</a>`}</p>`;
 }
 async function dtLogin(){
   const c=$('#dtc').value.trim(); if(!c) return;

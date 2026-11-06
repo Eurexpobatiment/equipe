@@ -433,3 +433,37 @@ export async function saveDocIndex(idx) {
   await wrap(b.commit());
   journal('index', 'Documents', base, root + ' · ' + idx.files.length + ' fichiers');
 }
+
+/* ---------- Demandes de travaux (appli « travaux », même projet Firebase) ---------- */
+const DT_STATUTS = ['Nouvelle', "À l'étude", 'Chiffrage', 'Validée', 'Planifiée', 'En cours', 'Terminée', 'Refusée'];
+const dtParse = s => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+const dtCles = new Map();
+export async function dtList() {
+  if (!me) throw new Error('Connexion nécessaire');
+  const s = await wrap(F.getDocs(F.collection(db, 'Demandes')));
+  return s.docs.map(x => { const d = x.data(); dtCles.set(d.id, x.id);
+    return { id: d.id, numero: d.numero, creeLe: d.creeLe, majLe: d.majLe, statut: d.statut, priorite: d.priorite || '', chargeDe: d.chargeDe || '',
+      datePrevue: d.datePrevue || '', demandeur: d.demandeur, service: d.service, lieu: d.lieu, intitule: d.intitule, dateDebut: d.dateDebut,
+      dateFin: d.dateFin, dateImperative: d.dateImperative, impact: d.impact, budget: d.budget, nbFichiers: dtParse(d.fichiers).length }; });
+}
+// Statut, priorité, prise en charge, date prévue (sans e-mail au demandeur, comme avant)
+export async function dtUpdate(id, item) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const cle = dtCles.get(String(id));
+  if (!cle) throw new Error('Demande introuvable : actualise la liste');
+  const r = F.doc(db, 'Demandes', cle);
+  const s = await wrap(F.getDoc(r));
+  if (!s.exists()) throw new Error('Demande introuvable (supprimée ?)');
+  const d = s.data(), up = {};
+  ['statut', 'priorite', 'chargeDe', 'datePrevue'].forEach(k => { if (k in item) up[k] = String(item[k] || '').trim().slice(0, 300); });
+  if (up.statut && DT_STATUTS.indexOf(up.statut) < 0) throw new Error('Statut inconnu');
+  up.majLe = now_(); up.majPar = me;
+  const b = F.writeBatch(db);
+  b.update(r, up);
+  if (up.statut && up.statut !== d.statut) {
+    const sid = Array.from(crypto.getRandomValues(new Uint8Array(5)), x => x.toString(16).padStart(2, '0')).join('');
+    b.set(F.doc(db, 'Demandes', cle, 'Suivi', sid), { id: sid, demandeId: d.id, date: up.majLe, auteur: me, type: 'statut', texte: up.statut, public: 'oui' });
+  }
+  await wrap(b.commit());
+  return up;
+}
