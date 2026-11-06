@@ -664,7 +664,7 @@ function testerAgenda() {
 // L'appli Firebase appelle l'action « notify » avec le jeton de connexion de la personne.
 // Le script relit la tâche et l'équipe dans Firestore avec ce jeton : seul un membre connecté peut déclencher un mail,
 // et seulement vers les personnes réellement attribuées à la tâche.
-const FIREBASE_PROJECT = ''; // identifiant du projet Firebase (projectId), ex. eurexpo-batiment
+const FIREBASE_PROJECT = 'equipe-batiment'; // identifiant du projet Firebase (projectId), ex. eurexpo-batiment
 
 function notifyFirebase_(p) {
   if (!FIREBASE_PROJECT) throw new Error('FIREBASE_PROJECT non renseigné dans Code.gs');
