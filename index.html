@@ -1734,6 +1734,7 @@ function clLots(L){const m=new Map();L.forEach(p=>{const k=p.lot||p.id;if(!m.has
     return {lot,l,h,dehors:l.reduce((a,p)=>a+clDehors(p),0),retard:l.some(clRetard),fact:l.map(clFactLe).filter(Boolean).sort()[0]||'',
       date:l.map(p=>p.datePrepa).filter(Boolean).sort()[0]||''}})}
 const clLotsRetard=()=>clLots(D.ClefsPrets.filter(clOuvert)).filter(g=>g.retard);
+const clOpts=L=>[...new Set(L.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
 const clSocietes=()=>[...new Set(D.ClefsPrets.map(p=>p.societe).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
 
 FORMS.Clefs=[
@@ -1763,7 +1764,7 @@ function clDatalists(){
 }
 const CL_SUB=[['Pret','📤 En prêt'],['Inv','🗝️ Inventaire'],['Hist','📜 Historique']];
 function vClefs(el){
-  const st=UI.cl||(UI.cl={sub:lsGet('equipe.cl')||'Pret',q:'',iq:'',ie:'',ip:false,hq:'',hy:'',he:'Tous'});
+  const st=UI.cl||(UI.cl={sub:lsGet('equipe.cl')||'Pret',q:'',iq:'',ie:'',ip:false,hq:'',hy:'',he:'Tous',tri:lsGet('equipe.cltri')||'fact',fs:'',fp:'',fe:'',htri:'desc',hs:'',hp:''});
   if(!CL_SUB.some(s=>s[0]===st.sub))st.sub='Pret';
   clDatalists();
   const nR=clLotsRetard().length;
@@ -1825,14 +1826,30 @@ function clVuePret(el){
   let G=clLots(open);
   const tot=open.reduce((a,p)=>a+clDehors(p),0), nRet=G.filter(g=>g.retard).length;
   const m0=t.slice(0,7), rendM=D.ClefsPrets.filter(p=>(p.renduLe||'').slice(0,7)===m0).reduce((a,p)=>a+(+p.rendu||0),0);
+  const Gall=G, socs=clOpts(Gall.map(g=>g.h.societe)), pars=clOpts(Gall.map(g=>g.h.remisPar));
   if(q)G=G.filter(g=>[g.h.societe,clNomP(g.h),g.h.contact,g.h.remisPar,...g.l.map(p=>p.numero+' '+p.designation)].join(' ').toLowerCase().includes(q));
-  G.sort((a,b)=>(b.retard-a.retard)||(a.fact||'9').localeCompare(b.fact||'9')||b.date.localeCompare(a.date));
+  if(st.fs)G=G.filter(g=>g.h.societe===st.fs);
+  if(st.fp)G=G.filter(g=>g.h.remisPar===st.fp);
+  const fin=g=>g.h.finDemontage||'';
+  if(st.fe)G=G.filter(g=>({fact:g.retard,bientot:!g.retard&&g.fact,sans:!fin(g),ras:fin(g)==='RAS'})[st.fe]);
+  const T={fact:(a,b)=>(b.retard-a.retard)||(a.fact||'9').localeCompare(b.fact||'9')||b.date.localeCompare(a.date),
+    recent:(a,b)=>b.date.localeCompare(a.date)||String(a.h.societe).localeCompare(String(b.h.societe),'fr'),
+    ancien:(a,b)=>(a.date||'9').localeCompare(b.date||'9')||String(a.h.societe).localeCompare(String(b.h.societe),'fr'),
+    fin:(a,b)=>(/^\d/.test(fin(a))?fin(a):'9').localeCompare(/^\d/.test(fin(b))?fin(b):'9')||b.date.localeCompare(a.date),
+    soc:(a,b)=>String(a.h.societe).localeCompare(String(b.h.societe),'fr')||b.date.localeCompare(a.date)};
+  G.sort(T[st.tri]||T.fact);
+  const nf=[st.fs,st.fp,st.fe].filter(Boolean).length;
   el.innerHTML=`<div class="kpis kc"><div class="kpi"><span>Clefs dehors</span><b>${tot}</b><small>${open.length} ligne${open.length>1?'s':''}</small></div>
       <div class="kpi"><span>Remises en cours</span><b>${clLots(open).length}</b><small>sociétés / personnes</small></div>
       <div class="kpi ${nRet?'neg':''}"><span>À facturer</span><b>${nRet}</b><small>démontage + ${CL_FACT_J} j dépassé</small></div>
       <div class="kpi"><span>Rendues ce mois</span><b>${rendM}</b></div></div>
-    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°, local…)" value="${esc(st.q)}" oninput="UI.cl.q=this.value;pgRefresh()"></div>
-    ${G.map(clCarte).join('')||`<p class="empty">${q?'Aucun résultat.':'Aucune clef dehors 👍'}</p>`}
+    <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°, local…)" value="${esc(st.q)}" oninput="UI.cl.q=this.value;pgRefresh()">
+      <label class="chk">Trier <select class="sel" onchange="UI.cl.tri=this.value;lsSet('equipe.cltri',this.value);render()">${[['fact','À facturer d\'abord'],['recent','Remise : plus récentes'],['ancien','Remise : plus anciennes'],['fin','Fin de démontage (la plus proche)'],['soc','Société A → Z']].map(([k,l])=>`<option value="${k}" ${st.tri===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
+    <div class="bar chf"><select class="sel" onchange="UI.cl.fs=this.value;render()"><option value="">Toutes les sociétés / salons</option>${socs.map(x=>`<option ${x===st.fs?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.cl.fp=this.value;render()"><option value="">Remises par : tous</option>${pars.map(x=>`<option ${x===st.fp?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.cl.fe=this.value;render()">${[['','Tous les états'],['fact','💶 À facturer'],['bientot','Facturables plus tard'],['sans','Sans fin de démontage'],['ras','RAS (pas de facturation)']].map(([k,l])=>`<option value="${k}" ${st.fe===k?'selected':''}>${l}</option>`).join('')}</select>
+      ${nf||q?`<button class="btn sm" onclick="Object.assign(UI.cl,{q:'',fs:'',fp:'',fe:''});render()">✕ Effacer les filtres</button><span class="hint" style="margin:0">${G.length} remise${G.length>1?'s':''} sur ${Gall.length}</span>`:''}</div>
+    ${G.map(clCarte).join('')||`<p class="empty">${q||nf?'Aucun résultat.':'Aucune clef dehors 👍'}</p>`}
     <p class="hint">Facturation des clefs non rendues à partir de la fin de démontage + ${CL_FACT_J} jours (« RAS » = pas de facturation). Touche une ligne pour la corriger.</p>`;
 }
 function clCarte(g){
@@ -2025,13 +2042,19 @@ function clVueHist(el){
   const st=UI.cl,q=(st.hq||'').toLowerCase();
   const ans=[...new Set(D.ClefsPrets.map(p=>(p.datePrepa||'').slice(0,4)).filter(Boolean))].sort().reverse();
   const etat=p=>clOuvert(p)?'Dehors':p.statut||'Rendue';
-  let L=D.ClefsPrets.filter(p=>(!st.hy||(p.datePrepa||'').startsWith(st.hy))&&(st.he==='Tous'||etat(p)===st.he)
+  const socs=clOpts(D.ClefsPrets.map(p=>p.societe)), pars=clOpts(D.ClefsPrets.map(p=>p.remisPar));
+  let L=D.ClefsPrets.filter(p=>(!st.hy||(p.datePrepa||'').startsWith(st.hy))&&(st.he==='Tous'||etat(p)===st.he)&&(!st.hs||p.societe===st.hs)&&(!st.hp||p.remisPar===st.hp)
     &&(!q||[p.societe,clNomP(p),p.numero,p.designation,p.remisPar,p.commentaire].join(' ').toLowerCase().includes(q)));
-  L.sort((a,b)=>String(b.datePrepa).localeCompare(String(a.datePrepa))||String(a.societe).localeCompare(String(b.societe),'fr'));
+  const dk=p=>st.htri==='rendu'?(p.renduLe||''):(p.datePrepa||'');
+  L.sort((a,b)=>(st.htri==='asc'?dk(a).localeCompare(dk(b)):dk(b).localeCompare(dk(a)))||String(a.societe).localeCompare(String(b.societe),'fr'));
   const col={'Dehors':'#e09a2b','Rendue':'#2a9d5c','Perdue':'#c0392b','Facturée':'#8e5bd1'};
   el.innerHTML=`<div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°…)" value="${esc(st.hq)}" oninput="UI.cl.hq=this.value;pgRefresh()">
       <select class="sel" onchange="UI.cl.hy=this.value;render()"><option value="">Toutes les années</option>${ans.map(a=>`<option ${a===st.hy?'selected':''}>${a}</option>`).join('')}</select>
       <div class="seg-ctl">${['Tous','Dehors','Rendue','Perdue','Facturée'].map(k=>`<button class="${st.he===k?'on':''}" onclick="UI.cl.he='${k}';render()">${k}</button>`).join('')}</div></div>
+    <div class="bar chf"><select class="sel" onchange="UI.cl.hs=this.value;render()"><option value="">Toutes les sociétés / salons</option>${socs.map(x=>`<option ${x===st.hs?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.cl.hp=this.value;render()"><option value="">Remises par : tous</option>${pars.map(x=>`<option ${x===st.hp?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <label class="chk">Trier <select class="sel" onchange="UI.cl.htri=this.value;render()">${[['desc','Remise : plus récentes'],['asc','Remise : plus anciennes'],['rendu','Retour : plus récents']].map(([k,l])=>`<option value="${k}" ${st.htri===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      ${st.hs||st.hp||st.hy||q||st.he!=='Tous'?`<button class="btn sm" onclick="Object.assign(UI.cl,{hq:'',hy:'',he:'Tous',hs:'',hp:''});render()">✕ Effacer les filtres</button>`:''}</div>
     <div class="tblwrap"><table class="btbl"><thead><tr><th>État</th><th>Remise</th><th>Société / salon</th><th>Personne</th><th>N°</th><th>Désignation</th><th class="c">Sorties</th><th class="c">Rendues</th><th>Rendue le</th><th>Fin démontage</th><th>Par</th></tr></thead>
     <tbody>${L.slice(0,400).map(p=>{const e=etat(p);return `<tr onclick="clLigne('${p.id}')"><td><span class="st" style="background:${col[e]}">${e}</span></td><td>${fD(p.datePrepa,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
       <td>${esc(p.societe)}</td><td>${esc(clNomP(p))}</td><td class="clnum">${esc(p.numero)}</td><td>${esc(p.designation)}</td><td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu||''}</td>
