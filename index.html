@@ -1768,7 +1768,7 @@ const AGENDA_BASE=[
   horaires:'Tous les jours pendant les vacances scolaires · 31 décembre et 1er janvier de 14h à 20h30',url:'https://www.europarcloisirs.fr/',annonce:1}]);
 const agKey=e=>String(e.nom||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').replace(/(salon|de|du|des|lyon|20\d\d)/g,'').slice(0,8)+'|'+String(e.d0||'').slice(0,7);
 const AGE={list:null,loading:false,done:false};
-function agList(){ // base + ce que le serveur a déjà renvoyé (gardé en local pour conserver les évènements passés)
+function evtList(){ // base + ce que le serveur a déjà renvoyé (gardé en local pour conserver les évènements passés)
   if(AGE.list) return AGE.list;
   let c=[];try{c=JSON.parse(lsGet('equipe.agenda')||'[]')}catch(e){}
   const m={};[...c,...AGENDA_BASE].forEach(e=>{if(e&&e.url&&e.d0)m[e.url]={...m[e.url],...e,horaires:e.horaires||(m[e.url]||{}).horaires||''}});
@@ -1786,7 +1786,7 @@ async function agLoad(){
   }catch(e){/* script pas encore à jour ou site injoignable : on garde la liste connue */}
   AGE.loading=false; AGE.done=true;
 }
-function agOpen(i){const e=agList()[i];if(!e)return;
+function agOpen(i){const e=evtList()[i];if(!e)return;
   modal(`<h2>🎟️ ${esc(e.nom)}</h2>
     <p><b>${e.d0===e.d1?'Le '+fD(e.d0,{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'Du '+fD(e.d0,{weekday:'long',day:'numeric',month:'long'})+' au '+fD(e.d1,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</b></p>
     ${e.type?`<p>${esc(e.type)} · Eurexpo Lyon${e.hall?' · '+esc(e.hall):''}</p>`:''}${e.horaires?`<p class="hint">🕒 ${esc(e.horaires)}</p>`:''}
@@ -1799,7 +1799,7 @@ function pgToggle(k){const o=pgOff(),i=o.indexOf(k);i<0?o.push(k):o.splice(i,1);
 function pgEvents(){
   const E=[], S=PG_SRC, t=today();
   const add=(src,o)=>E.push({src,col:S[src].c,qui:[],lieu:'',h:'',sub:'',...o});
-  agList().forEach((a,i)=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:a.hall?'Eurexpo · '+a.hall:'Eurexpo',sub:[a.type,a.annonce&&'dates annoncées'].filter(Boolean).join(' · '),click:`agOpen(${i})`}));
+  evtList().forEach((a,i)=>add('Agenda',{d0:a.d0,d1:a.d1||a.d0,titre:a.nom,lieu:a.hall?'Eurexpo · '+a.hall:'Eurexpo',sub:[a.type,a.annonce&&'dates annoncées'].filter(Boolean).join(' · '),click:`agOpen(${i})`}));
   D.Chantiers.filter(c=>c.statut!=='Annulé'&&c.dateDebut).forEach(c=>add('Chantiers',{d0:c.dateDebut,d1:c.dateFin||c.dateDebut,titre:c.titre,col:chCol(c),
     lieu:[c.espace,c.zone].filter(Boolean).join(' · '),qui:[c.responsable].filter(Boolean),h:c.horaires||'',
     sub:[c.entreprise,c.type,c.statut&&c.statut!=='Prévu'&&c.statut,chConflicts(c).length&&'⚠️ chevauchement'].filter(Boolean).join(' · '),click:`chEdit('${c.id}')`}));
