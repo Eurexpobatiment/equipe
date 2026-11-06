@@ -1,0 +1,79 @@
+rules_version = '2';
+// Appli Équipe – Eurexpo · règles de sécurité Firestore
+// À coller dans la console Firebase › Firestore Database › Règles, puis « Publier ».
+// Remplacer VOTRE_EMAIL par l'adresse du propriétaire (en minuscules).
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isOwner() { return signedIn() && myEmail() == 'VOTRE_EMAIL'; }
+    function accPath() { return /databases/$(db)/documents/Acces/$(myEmail()); }
+    function hasAcc() { return signedIn() && exists(accPath()) && get(accPath()).data.actif != 'non'; }
+    function member() { return isOwner() || hasAcc(); }
+    function myNom() { return get(accPath()).data.nom; }
+    function admin() { return isOwner() || (hasAcc() && get(accPath()).data.role == 'Responsable'); }
+    function small() { return request.resource.data.keys().size() <= 40; }
+
+    // Données partagées par toute l'équipe
+    match /{col}/{id} {
+      allow read: if member() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements'];
+      allow create, update: if member() && small() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements']
+                            && (isOwner() || request.resource.data.majPar == myNom());
+      // « J'ai lu » sur un mémo : seule la liste des lecteurs change
+      allow update: if member() && col == 'Memos' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luPar']);
+      allow delete: if member() && col in ['Memos', 'Nacelle', 'Regisseurs', 'Cloisons', 'EDL', 'BudgetLignes', 'BudgetMvts',
+                                          'Inventaire', 'SAP', 'Chantiers', 'Drapeaux', 'Pavoisements'];
+    }
+
+    // Tâches : les tâches perso ne sont visibles et modifiables que par leur auteur
+    match /Taches/{id} {
+      allow read: if member() && (resource.data.prive == 'non' || (resource.data.prive == 'oui' && resource.data.creePar == myNom()));
+      allow create: if member() && small() && (isOwner() || (
+                      request.resource.data.majPar == myNom() && request.resource.data.creePar == myNom()
+                      && request.resource.data.prive in ['oui', 'non']));
+      allow update: if member() && small() && (isOwner() || (
+                      request.resource.data.majPar == myNom()
+                      && request.resource.data.creePar == resource.data.creePar
+                      && request.resource.data.prive in ['oui', 'non']
+                      && (resource.data.prive == 'non' || resource.data.creePar == myNom())
+                      && (request.resource.data.prive == 'non' || request.resource.data.creePar == myNom())));
+      allow delete: if member() && (resource.data.prive == 'non' || resource.data.creePar == myNom());
+    }
+
+    // Commentaires : ceux d'une tâche perso suivent la tâche
+    match /Commentaires/{id} {
+      allow read: if member() && (resource.data.prive == 'non' || (resource.data.prive == 'oui' && resource.data.proprio == myNom()));
+      allow create: if member() && small() && (isOwner() || (
+                      request.resource.data.auteur == myNom()
+                      && ((request.resource.data.prive == 'non' && request.resource.data.proprio == '')
+                          || (request.resource.data.prive == 'oui' && request.resource.data.proprio == myNom()))));
+      allow update: if member() && small() && resource.data.auteur == myNom()
+                    && request.resource.data.prive == resource.data.prive && request.resource.data.proprio == resource.data.proprio;
+      allow delete: if member() && (resource.data.prive == 'non' || resource.data.proprio == myNom());
+    }
+
+    // Équipe et droits d'accès : modifiables par les responsables seulement
+    match /Equipe/{id} {
+      allow read: if member();
+      allow write: if admin();
+    }
+    match /Acces/{email} {
+      allow read: if (signedIn() && email == myEmail()) || member();
+      allow write: if admin();
+    }
+
+    // Journal : chacun ajoute ses lignes, les responsables le consultent
+    match /Journal/{id} {
+      allow create: if member() && (isOwner() || request.resource.data.auteur == myNom());
+      allow read: if admin();
+    }
+
+    // Verrou de la nacelle (évite deux réservations simultanées)
+    match /Verrous/{id} {
+      allow read, write: if member();
+    }
+  }
+}

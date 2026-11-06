@@ -74,6 +74,7 @@ function handle_(p) {
       case 'importDrapeaux': return out_({ ok: true, data: withLock_(function () { return importDrapeaux_(p.items, p.user); }) });
       case 'importBudget': return out_({ ok: true, data: withLock_(function () { return importBudget_(p.data, p.user); }) });
       case 'agenda': return out_({ ok: true, data: agenda_() });
+      case 'notify': return out_({ ok: true, data: notifyFirebase_(p) });
       default: throw new Error('Action inconnue : ' + p.action);
     }
   } catch (err) {
@@ -656,4 +657,73 @@ function testerAgenda() {
   CacheService.getScriptCache().remove('agendaEurexpo2');
   const l = agenda_();
   Logger.log(l.length + ' évènements Eurexpo : ' + l.map(function (e) { return e.d0 + ' ' + e.nom; }).join(' | '));
+}
+
+
+/* ---------- Version Firebase : mails d'attribution ---------- */
+// L'appli Firebase appelle l'action « notify » avec le jeton de connexion de la personne.
+// Le script relit la tâche et l'équipe dans Firestore avec ce jeton : seul un membre connecté peut déclencher un mail,
+// et seulement vers les personnes réellement attribuées à la tâche.
+const FIREBASE_PROJECT = ''; // identifiant du projet Firebase (projectId), ex. eurexpo-batiment
+
+function notifyFirebase_(p) {
+  if (!FIREBASE_PROJECT) throw new Error('FIREBASE_PROJECT non renseigné dans Code.gs');
+  const tok = String(p.idToken || '');
+  if (!tok) throw new Error('Connexion nécessaire');
+  const base = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/';
+  const get = function (path) {
+    const r = UrlFetchApp.fetch(base + path, { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) throw new Error('Accès refusé');
+    return JSON.parse(r.getContentText());
+  };
+  // qui appelle : e-mail du jeton (le jeton vient d'être accepté par Firestore)
+  const payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(tok.split('.')[1] + '==='.slice((tok.split('.')[1].length + 3) % 4))).getDataAsString());
+  const email = String(payload.email || '').toLowerCase();
+  const acc = fsObj_(get('Acces/' + encodeURIComponent(email)));
+  const user = acc.nom;
+  if (!user || acc.actif === 'non') throw new Error('Accès refusé');
+
+  const t = fsObj_(get('Taches/' + encodeURIComponent(String(p.id || ''))));
+  if (t.prive === 'oui' || t.statut === 'Terminé') return { envoyes: 0 };
+  const assigne = list_(t.assigne);
+  const noms = (Array.isArray(p.nouveaux) ? p.nouveaux : []).map(String)
+    .filter(function (n) { return assigne.indexOf(n) >= 0 && n !== user; });
+  if (!noms.length) return { envoyes: 0 };
+
+  const mails = {};
+  let page = '';
+  do {
+    const r = get('Equipe?pageSize=300' + (page ? '&pageToken=' + encodeURIComponent(page) : ''));
+    (r.documents || []).map(fsObj_).forEach(function (e) { if (e.actif !== 'non' && e.email) mails[e.nom] = e.email; });
+    page = r.nextPageToken || '';
+  } while (page);
+
+  const appUrl = /^https:\/\/eurexpobatiment\.github\.io\//.test(String(p.appUrl || '')) ? String(p.appUrl).split('#')[0] : APP_URL;
+  const cache = CacheService.getScriptCache();
+  let n = 0;
+  noms.forEach(function (nom) {
+    if (!mails[nom]) return;
+    const k = 'mail_' + t.id + '_' + Utilities.base64EncodeWebSafe(nom);
+    if (cache.get(k)) return; // déjà prévenu il y a peu
+    const m = mailTache_(t, nom, user, mails[nom]);
+    m.htmlBody = m.htmlBody.split(APP_URL + '#tache=').join(appUrl + '#tache=');
+    m.body = m.body.split(APP_URL + '#tache=').join(appUrl + '#tache=');
+    MailApp.sendEmail(m);
+    cache.put(k, '1', 600);
+    n++;
+  });
+  return { envoyes: n };
+}
+
+// Document Firestore (API REST) → objet simple
+function fsObj_(d) {
+  const o = {};
+  const f = (d && d.fields) || {};
+  Object.keys(f).forEach(function (k) {
+    const v = f[k];
+    o[k] = 'stringValue' in v ? v.stringValue : 'integerValue' in v ? String(v.integerValue) : 'doubleValue' in v ? String(v.doubleValue)
+      : 'booleanValue' in v ? String(v.booleanValue) : '';
+  });
+  if (!o.id && d && d.name) o.id = d.name.split('/').pop();
+  return o;
 }
