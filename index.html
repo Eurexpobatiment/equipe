@@ -354,6 +354,11 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .dvov{padding:2vh 2vw;align-items:stretch}
 .dvov .mod{max-width:1400px;display:flex;flex-direction:column;padding:10px 12px;height:96vh}
 .dvh{display:flex;align-items:center;gap:8px;margin-bottom:8px}.dvh b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy)}
+#devisWrap{position:fixed;left:0;right:0;bottom:0;top:var(--toph,110px);display:flex;flex-direction:column;background:var(--bg,#f4f6fa);z-index:5}
+#devisWrap[hidden]{display:none}
+.dvbar{display:flex;align-items:center;gap:10px;padding:6px 14px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dvbar .hint{margin:0}
+#devisFrame{flex:1;width:100%;border:0;background:#fff}
 .dvf{flex:1;width:100%;border:1px solid var(--line);border-radius:8px;background:#f1f4f9}
 .dvn{margin:6px 0 0;font-size:12.5px}
 .dxcr{margin:6px 0 10px;font-size:14px;overflow-wrap:anywhere}.dxcr .lnk{background:none;border:0;padding:2px 0;color:var(--navy);font:inherit;font-weight:600;cursor:pointer}.dxcr .lnk:hover{text-decoration:underline}
@@ -389,6 +394,12 @@ button.doccard.dxd{width:100%;text-align:left;font:inherit;cursor:pointer}button
   <div class="demo" id="demo" hidden>Mode démo : les données ne sont pas enregistrées. Renseigne l'adresse Apps Script dans CONFIG.apiUrl.</div>
 </div>
 <main id="view"><div class="loading">Chargement…</div></main>
+<div id="devisWrap" hidden>
+  <div class="dvbar"><b>🧾 Devis EDL</b><span class="hint">Application devis BatiScript (réserves des salons)</span><span class="sp"></span>
+    <button class="btn sm" onclick="devisReload()" title="Recharger l'appli devis">🔄</button>
+    <a class="btn sm" href="https://eurexpobatiment.github.io/devis/v2/" target="_blank" rel="noopener">↗ Ouvrir dans un onglet</a></div>
+  <iframe id="devisFrame" title="Devis EDL" allow="fullscreen; clipboard-write"></iframe>
+</div>
 <datalist id="dl-halls"></datalist><datalist id="dl-familles"></datalist><datalist id="dl-presta"></datalist><datalist id="dl-avanc"></datalist><datalist id="dl-resp"></datalist><datalist id="dl-espaces"></datalist><datalist id="dl-codes"></datalist><datalist id="dl-drformats"></datalist><datalist id="dl-drgroupes"></datalist><datalist id="dl-clsoc"></datalist><datalist id="dl-clesp"></datalist>
 
 <script>
@@ -566,6 +577,7 @@ const TABS = [
   {id:'Docs',l:'📚 Documents'},
   {id:'Demandes',l:'📨 Demandes'},
   {id:'Travaux',l:'🚧 Travaux'},
+  {id:'Devis',l:'🧾 Devis EDL'},
   {id:'Budget',l:'💶 Budget'},
   {id:'Equipe',l:'👥 Équipe'}];
 
@@ -668,6 +680,14 @@ function nacConflict(o){
   return c?`Nacelle déjà réservée par ${c.nom} du ${fDT(c.debut)} au ${fDT(c.fin)}`:'';
 }
 
+/* ---------- Devis EDL : appli devis BatiScript intégrée (même compte Firebase, gardée chargée d'un onglet à l'autre) ---------- */
+const DEVIS_URL='https://eurexpobatiment.github.io/devis/v2/';
+function devisTop(){const t=$('.top');if(t)document.documentElement.style.setProperty('--toph',Math.round(t.getBoundingClientRect().bottom)+'px')}
+function vDevis(el){el.hidden=true;const w=$('#devisWrap');w.hidden=false;document.body.style.overflow='hidden';window.scrollTo(0,0);devisTop();
+  const f=$('#devisFrame');if(!f.getAttribute('src'))f.src=DEVIS_URL}
+function devisReload(){const f=$('#devisFrame');f.src=DEVIS_URL+'?t='+Date.now()}
+addEventListener('resize',()=>{if(tab==='Devis')devisTop()});
+
 /* ---------- rendu général ---------- */
 function render(){
   $('#apptitle').textContent=CONFIG.titre;
@@ -676,7 +696,8 @@ function render(){
   $('#tabs').innerHTML=TABS.map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')">${t.l}${tabBadge(t.id,mine)}</button>`).join('');
   if(!loaded) return;
   const el=$('#view');
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
+  if(tab!=='Devis'){el.hidden=false;$('#devisWrap').hidden=true;document.body.style.overflow=''}
+  ({Devis:vDevis,Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
   hallsDatalist(); budgetDatalists();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
