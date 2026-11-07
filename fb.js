@@ -15,8 +15,8 @@ const unsub = [];
 export function init(cfg) {
   CFG = cfg;
   app = initializeApp(cfg.firebase);
-  auth = A.getAuth(app);
-  A.setPersistence(auth, A.browserLocalPersistence).catch(() => {});
+  // Connexion partagée entre toutes les applis eurexpobatiment.github.io : même rangement partout (sinon elles se « volent » la session)
+  try { auth = A.initializeAuth(app, { persistence: [A.browserLocalPersistence, A.indexedDBLocalPersistence] }); } catch (e) { auth = A.getAuth(app); }
   try {
     db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
   } catch (e) { db = F.getFirestore(app); } // navigation privée : pas de copie locale
@@ -55,7 +55,7 @@ export function onAuth(cb) {
   let accUnsub = null;
   A.onAuthStateChanged(auth, async u => {
     if (accUnsub) { accUnsub(); accUnsub = null; }
-    if (!u) { meEmail = ''; me = ''; meAcc = null; return cb({ etat: 'deconnecte' }); }
+    if (!u || u.isAnonymous) { meEmail = ''; me = ''; meAcc = null; return cb({ etat: 'deconnecte' }); } // anonyme = session des applis de saisie (compteurs, températures…)
     meEmail = String(u.email || '').toLowerCase();
     if (!u.emailVerified) {
       await u.reload().catch(() => {});
