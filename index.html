@@ -44,7 +44,20 @@ header h1 small{display:block;font-size:11px;font-weight:400;opacity:.7}
 main{margin-left:var(--navw)!important;max-width:none!important;padding:20px 24px 80px!important}
 main>*{max-width:1300px}
 .appWrap{left:var(--navw)!important}
-.menuBtn{display:none}
+.menuBtn{display:inline-block;margin-right:2px}
+/* Menu rabattu (ordinateur) : seulement les icônes, le nom apparaît au survol */
+@media(min-width:900px){
+  body.navmini{--navw:64px}
+  #tabs{transition:width .18s ease}
+  body.navmini #tabs{padding:10px 8px 24px;overflow-x:hidden}
+  body.navmini #tabs .nl,body.navmini #tabs .ngt{display:none}
+  body.navmini #tabs .ng{border-top:1px solid var(--line);padding-top:6px}
+  body.navmini #tabs .ng:first-child{border-top:0;padding-top:0}
+  body.navmini #tabs button{justify-content:center;padding:9px 0}
+  body.navmini #tabs button.on::before{left:-8px}
+  body.navmini #tabs .ni{font-size:18px}
+  body.navmini #tabs .badge{position:absolute;top:2px;right:4px;min-width:16px;line-height:16px;font-size:10px;padding:0 4px}
+}
 @media(max-width:899px){
   :root{--navw:0px;--bnh:62px}
   #tabs{width:280px;max-width:85vw;top:0;z-index:40;transform:translateX(-105%);transition:transform .2s ease;box-shadow:4px 0 24px rgba(0,0,0,.18);padding-top:max(14px,env(safe-area-inset-top))}
@@ -414,7 +427,7 @@ button.doccard.dxd{width:100%;text-align:left;font:inherit;cursor:pointer}button
 <body>
 <div class="top">
   <header>
-    <button class="hbtn menuBtn" onclick="navOpen()" title="Menu">☰</button>
+    <button class="hbtn menuBtn" onclick="navToggle()" title="Afficher / rabattre le menu">☰</button>
     <img src="logo.png" alt="GL events Lyon" onerror="this.style.display='none'">
     <h1><span id="apptitle">Équipe</span><small>Eurexpo · tâches &amp; plannings</small></h1>
     <span class="dot" id="sync" title="Synchronisation"></span>
@@ -745,7 +758,7 @@ function render(){
 }
 function navRender(mine){
   const ico=t=>t.l.split(' ')[0], nom=t=>t.l.slice(t.l.indexOf(' ')+1);
-  const btn=t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')"><span class="ni">${ico(t)}</span><span class="nl">${esc(nom(t))}</span>${tabBadge(t.id,mine)}</button>`;
+  const btn=t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')" title="${esc(nom(t))}"><span class="ni">${ico(t)}</span><span class="nl">${esc(nom(t))}</span>${tabBadge(t.id,mine)}</button>`;
   const grps=[...new Set(TABS.map(t=>t.g))];
   $('#tabs').innerHTML=grps.map(g=>`<div class="ng"><div class="ngt">${esc(g)}</div>${TABS.filter(t=>t.g===g).map(btn).join('')}</div>`).join('');
   const cur=TABS.find(t=>t.id===tab);
@@ -754,6 +767,12 @@ function navRender(mine){
 }
 function navOpen(){document.body.classList.add('navo')}
 function navClose(){document.body.classList.remove('navo')}
+// Ordinateur : rabat / déplie la colonne de menu (choix gardé sur l'appareil) · téléphone : ouvre le menu
+function navToggle(){
+  if(innerWidth<900)return navOpen();
+  const m=document.body.classList.toggle('navmini');lsSet('equipe.navmini',m?'1':'');
+}
+if(lsGet('equipe.navmini'))document.body.classList.add('navmini');
 function goTab(t){navClose();tab=t;lsSet('equipe.tab',t);render();window.scrollTo(0,0)}
 function hallsDatalist(){
   const used=new Set(CONFIG.halls);
