@@ -384,7 +384,8 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .clres{max-height:260px;overflow:auto;margin-top:6px}
 .cldrop{border:2px dashed #c3cad8;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin:0 0 12px}
 .cldrop .link{font-size:13px}
-.mod.cldrag .cldrop,#clview.cldrag{outline:2px dashed var(--navy);outline-offset:4px;background:#eef3ff}
+#cldropban{position:fixed;inset:0;z-index:9999;background:rgba(20,33,61,.55);display:flex;align-items:center;justify-content:center;pointer-events:none}
+#cldropban div{background:#fff;border:3px dashed var(--navy);border-radius:16px;padding:34px 40px;font-size:20px;font-weight:700;color:var(--navy)}
 .cltbl tr.clwarn td{background:#fff3d6}
 .clximp{font-size:13px;margin:-4px 0 12px}.clximp .btn{margin:4px 6px 0 0}
 /* Documents techniques */
@@ -1897,10 +1898,7 @@ function vClefs(el){
     <div class="seg-ctl bsub">${CL_SUB.map(([k,l])=>`<button class="${st.sub===k?'on':''}" onclick="UI.cl.sub='${k}';lsSet('equipe.cl','${k}');render()">${l}${k==='Pret'&&nR?` <span class="badge">${nR}</span>`:''}</button>`).join('')}</div>
     <div id="clview"></div>`;
   if(!D.Clefs.length&&!D.ClefsPrets.length) return clVide($('#clview'));
-  const cv=$('#clview'); // déposer un formulaire Excel sur la page ouvre une nouvelle remise pré-remplie
-  cv.ondragover=e=>{if([...(e.dataTransfer.types||[])].includes('Files')){e.preventDefault();cv.classList.add('cldrag')}};
-  cv.ondragleave=e=>{if(!cv.contains(e.relatedTarget))cv.classList.remove('cldrag')};
-  cv.ondrop=e=>{const f=e.dataTransfer.files[0];if(!f)return;e.preventDefault();cv.classList.remove('cldrag');clNew();clXFile(f)};
+
   ({Pret:clVuePret,Inv:clVueInv,Hist:clVueHist})[st.sub]($('#clview'));
 }
 function clVide(el){
@@ -2064,15 +2062,22 @@ function clLotForm(lot,L,h){
     if(p&&!$('#cl_fin').value&&!$('#cl_ras').checked&&(p.finDemontage==='RAS'||p.finDemontage>=today())){if(p.finDemontage==='RAS'){$('#cl_ras').checked=true;$('#cl_fin').disabled=true}else $('#cl_fin').value=p.finDemontage}});
   $('#clgo').onclick=clLotSave;
   const md=$('.ov .mod');
-  md.addEventListener('dragover',e=>{if([...(e.dataTransfer.types||[])].includes('Files')){e.preventDefault();md.classList.add('cldrag')}});
-  md.addEventListener('dragleave',e=>{if(!md.contains(e.relatedTarget))md.classList.remove('cldrag')});
-  md.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(!f)return;e.preventDefault();md.classList.remove('cldrag');clXFile(f)});
   md.addEventListener('paste',e=>{const t=(e.clipboardData||window.clipboardData).getData('text')||'';
     if(!/\t|\n.*\S/.test(t.trim()))return; // une simple valeur : collage normal dans le champ
     e.preventDefault();clXApply(clXRows(t.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.split('\t'))),'le collage')});
   clLines();
 }
 /* ----- import d'un formulaire Excel de demande de clefs (glisser-déposer, fichier ou copier-coller) ----- */
+// glisser-déposer n'importe où dans la page : sur l'onglet Clefs ou fenêtre de remise ouverte
+(()=>{let n=0;const zone=()=>$('#clxf')||$('#clview'),isF=e=>[...(e.dataTransfer&&e.dataTransfer.types||[])].some(t=>t==='Files'||t==='application/x-moz-file');
+  const ban=on=>{let b=$('#cldropban');if(on&&!b){b=document.createElement('div');b.id='cldropban';b.innerHTML='<div>📥 Dépose le formulaire Excel de demande de clefs</div>';document.body.appendChild(b)}if(!on&&b)b.remove()};
+  window.addEventListener('dragenter',e=>{if(!isF(e))return;n++;if(zone())ban(1)});
+  window.addEventListener('dragleave',e=>{if(!isF(e))return;if(--n<=0){n=0;ban(0)}});
+  window.addEventListener('dragover',e=>{if(!isF(e))return;e.preventDefault();e.dataTransfer.dropEffect=zone()?'copy':'none'});
+  window.addEventListener('drop',e=>{if(!isF(e)&&!(e.dataTransfer&&e.dataTransfer.files.length))return;e.preventDefault();n=0;ban(0); // jamais d'ouverture du fichier par le navigateur
+    const f=e.dataTransfer.files[0];if(!f||!zone())return;if(!/\.(xlsx|xlsm|xls|csv)$/i.test(f.name))return toast('Dépose un fichier Excel (.xlsx)',1);
+    if(!$('#clxf'))clNew();clXFile(f)});
+})();
 const clXN=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
 const clXV=v=>v==null?'':typeof v==='number'?String(Math.round(v*1000)/1000):String(v).replace(/\s+/g,' ').trim();
 function clXDate(v){
