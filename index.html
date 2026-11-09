@@ -2285,18 +2285,55 @@ function clVueHist(el){
       ||'<tr><td colspan="11" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
     <p class="hint">${L.length} ligne${L.length>1?'s':''}${L.length>400?' (400 premières affichées : affine la recherche, ou ⬇️ Excel pour tout avoir)':''}.</p>`;
 }
+async function loadExcelJS(){if(window.ExcelJS)return;toast('Préparation du fichier…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
+// Export Excel des clefs avec le visuel du classeur « CLEFS - Inventaire & suivi » (en-têtes, couleurs S / R, bordures, filtres, volets figés)
 async function clExport(){
-  try{await loadXLSX();const wb=XLSX.utils.book_new(),E=clEnPret(),idx=clNumIdx();
-    const add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(50,Math.max(9,k.length+2,...rows.slice(0,300).map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
-    const ligne=p=>({'État':clOuvert(p)?'Dehors':p.statut||'Rendue','À facturer à partir du':clFactLe(p)||(p.finDemontage==='RAS'?'NC':''),'Société / salon':p.societe,'Prénom':p.prenom,'Nom':p.nom,'Contact':p.contact,
-      'Sorties':+p.qte||0,'Rendues':+p.rendu||0,'N° clef':p.numero,'Désignation':p.designation,'Remise par':p.remisPar,'Remise le':p.datePrepa,'Retirée par':p.remisA||p.nom,'Retirée le':p.retireLe||p.datePrepa,
-      'Rendue le':p.renduLe,'Récupérée par':p.recuperePar||(+p.rendu?p.remisPar:''),'Rendue par':p.renduPar||(+p.rendu?(p.remisA||p.nom):''),'Fin démontage':p.finDemontage,'Commentaire':p.commentaire});
+  try{await loadExcelJS();const wb=new ExcelJS.Workbook(),E=clEnPret(),t=today();
+    const F='Arial Nova',fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:'FF'+c}}),thin={style:'thin',color:{argb:'FF000000'}},bord={top:thin,left:thin,bottom:thin,right:thin};
+    const dt=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||'');return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):(s||null)};
+    const ROUGE='FCD9D3',VERT='DFF5EF',ORANGE='FFE6D3';
+    // Onglets « En prêt » et « Suivi des remises » : même présentation que l'onglet Suivi des remises du classeur
+    const COLS=[['ETAT',4],['A FACTURER A PARTIR',9],['SOCIETE / SALON',22],['PRENOM',12],['NOM',16],['CONTACT',14],['OUT',5],['IN',5],['N° CLEF',14],['DESIGNATION',30],
+      ['REMIS PAR',10],['DATE PRÉPA',9],['REMIS A',14],['RETIRÉ LE',9],['RENDU LE',9],['RECUPERE PAR',10],['RENDU PAR',14],['FIN DEMONTAGE',9],['COMMENTAIRE',28]];
+    const DATES=[12,14,15,18],GRAS=[2,3,7,9,10];
+    const suivi=(name,titre,L)=>{const ws=wb.addWorksheet(name,{views:[{state:'frozen',ySplit:6,showGridLines:false}],
+        pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'6:6',margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}}});
+      ws.columns=COLS.map(([,w])=>({width:w}));
+      [['S','Clef sortie',ROUGE],['R','Clef rendue',VERT],['P','Perdue / facturée',ORANGE]].forEach(([k,l,c],i)=>{const a=ws.getCell(1+i,1);a.value=k;a.fill=fill(c);a.border=bord;a.font={name:F,size:7};a.alignment={horizontal:'center',vertical:'middle'};
+        const b=ws.getCell(1+i,2);b.value=l;b.font={name:F,size:7}});
+      ws.mergeCells('D1:J2');const ti=ws.getCell('D1');ti.value=titre;ti.font={name:F,size:16,bold:true,color:{argb:'FF0070C0'}};ti.alignment={vertical:'middle'};
+      const dh=L.reduce((s,p)=>s+clDehors(p),0);
+      [['Export du',dt(t)],['Clefs dehors',dh]].forEach(([l,v],i)=>{const c=17+i,a=ws.getCell(1,c),b=ws.getCell(2,c);a.value=l;b.value=v;[a,b].forEach(x=>{x.font={name:F,size:6.5,bold:x===b};x.border=bord;x.alignment={horizontal:'center',vertical:'middle'}});if(i===0)b.numFmt='dd/mm/yy'});
+      const h=ws.getRow(6);h.height=48.75;COLS.forEach(([l],i)=>{const c=h.getCell(i+1);c.value=l;c.fill=fill('000000');c.font={name:F,size:7.5,bold:true,color:{argb:'FFFFFFFF'}};c.border=bord;c.alignment={horizontal:'center',vertical:'middle',wrapText:true}});
+      L.forEach((p,j)=>{const ouv=clOuvert(p),fact=clFactLe(p),rendu=+p.rendu||0;
+        const v=[ouv?'S':p.statut?'P':'R',fact?dt(fact):(p.finDemontage==='RAS'?'NC':''),p.societe,p.prenom,p.nom,p.contact,+p.qte||0,rendu||null,p.numero,p.designation,
+          p.remisPar,dt(p.datePrepa),p.remisA||p.nom,dt(p.retireLe||p.datePrepa),dt(p.renduLe),p.recuperePar||(rendu?p.remisPar:''),p.renduPar||(rendu?(p.remisA||p.nom):''),dt(p.finDemontage),
+          [p.statut,p.commentaire].filter(Boolean).join(' · ')];
+        const r=ws.getRow(7+j);r.height=15;
+        v.forEach((x,i)=>{const c=r.getCell(i+1);c.value=x===''||x==null?null:x;c.border=bord;c.alignment={horizontal:i===18?'left':'center',vertical:'middle'};
+          c.font={name:F,size:i===8||i===9?7:7.5,bold:GRAS.includes(i+1)};
+          if(i===1&&x instanceof Date){c.numFmt='dd mmm';if(clRetard(p))c.font={name:F,size:7,bold:true,color:{argb:'FFC00000'}}}
+          if(DATES.includes(i+1))c.numFmt='dd/mm/yy';
+          if(!ouv)c.fill=fill(p.statut?ORANGE:VERT)});
+        if(ouv)r.getCell(1).fill=fill(ROUGE)});
+      ws.autoFilter={from:{row:6,column:1},to:{row:6+Math.max(1,L.length),column:COLS.length}}};
     const byD=(a,b)=>String(a.datePrepa).localeCompare(String(b.datePrepa));
-    add(D.ClefsPrets.filter(clOuvert).sort(byD).map(ligne),'En prêt');
-    add(D.ClefsPrets.slice().sort(byD).map(ligne),'Suivi des remises');
-    add(D.Clefs.slice().sort((a,b)=>String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')).map(c=>({'Espace':c.espace,'Accès':c.acces,'N° clef':c.numero,'Désignation':clDes(c),
-      'Au tableau':+c.stock||0,'En prêt':E[c.id]||0,'Dispo':(+c.stock||0)-(E[c.id]||0),'Archivées':+c.reserve||0,'Commentaire':c.commentaire})),'Références');
-    XLSX.writeFile(wb,`CLEFS - suivi ${today()}.xlsx`)}catch(e){toast(e.message,1)}
+    suivi('En prêt','CLEFS EN PRÊT',D.ClefsPrets.filter(clOuvert).sort(byD));
+    suivi('Suivi des remises','SUIVI DE REMISE DES CLEFS',D.ClefsPrets.slice().sort(byD));
+    // Onglet « Références » : inventaire du tableau à clefs, en-têtes bleus comme dans le classeur
+    const ws=wb.addWorksheet('Références',{views:[{state:'frozen',ySplit:1,showGridLines:false}],pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:1'}});
+    const RC=[['ESPACE',21,'0070C0'],['ACCES',30,'0070C0'],['N° CLEF',18,'0070C0'],['DESIGNATION',44,'0070C0'],['AU TABLEAU',8,'808080'],['EN PRÊT',8,'FF0000'],['DISPO',8,'000000'],['ARCHIVÉ',8,'FF8021'],['COMMENTAIRE',32,'0070C0']];
+    ws.columns=RC.map(([,w])=>({width:w}));
+    const h=ws.getRow(1);h.height=57.6;RC.forEach(([l,,c],i)=>{const x=h.getCell(i+1);x.value=l;x.fill=fill(c);x.font={name:F,size:9,bold:true,color:{argb:'FFFFFFFF'}};x.alignment={horizontal:[0,1,3,8].includes(i)?'left':'center',vertical:'middle',wrapText:true}});
+    const C=D.Clefs.slice().sort((a,b)=>String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr'));
+    C.forEach((c,j)=>{const st=+c.stock||0,ep=E[c.id]||0,dp=st-ep,r=ws.getRow(2+j);r.height=20.25;
+      [c.espace,c.acces,c.numero,clDes(c),st,ep||null,dp,+c.reserve||null,c.commentaire].forEach((v,i)=>{const x=r.getCell(i+1);x.value=v===''||v==null?null:v;
+        x.alignment={horizontal:[0,1,3,8].includes(i)?'left':'center',vertical:'middle'};x.font={name:F,size:9,bold:[2,4,5,6,7].includes(i),color:i===2||i===5?{argb:'FFFF0000'}:undefined};
+        x.border={bottom:{style:'hair',color:{argb:'FFBFBFBF'}}};
+        if(i===6&&dp<0){x.fill=fill('FFC7CE');x.font={name:F,size:9,bold:true,color:{argb:'FF9C0006'}}}})});
+    ws.autoFilter={from:{row:1,column:1},to:{row:1+Math.max(1,C.length),column:RC.length}};
+    const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download=`CLEFS - suivi ${t}.xlsx`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}catch(e){toast(e.message,1)}
 }
 
 /* ================== RÉGIE ÉVÈNEMENTIELLE ================== */
