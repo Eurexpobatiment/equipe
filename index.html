@@ -483,6 +483,7 @@ const ST_COL = {'Prévu':'#3a6ea5','Planifié':'#3a6ea5','Fait':'#2a9d5c','Fait 
 
 const PV_ST={'Prévu':'#3a6ea5','Posé':'#e09a2b','Déposé':'#2a9d5c','Annulé':'#9aa3b2'};
 
+const EDL_CONF=['En attente de confirmation','Confirmé'];
 const FORMS = {
   Taches: [
     {k:'titre',l:'Titre',req:1,full:1},
@@ -552,6 +553,9 @@ const FORMS = {
     {k:'heure',l:'Heure',t:'time'},
     {k:'halls',l:'Halls / zones',t:'hall'},
     {k:'responsable',l:'Fait par',t:'person'},
+    {k:'coordinateur',l:'Coordinateur',t:'dl',dl:'dl-edlcoord'},
+    {k:'confirmation',l:'État de l\'état des lieux',t:'select',o:EDL_CONF,def:'En attente de confirmation'},
+    {k:'presenceClient',l:'Présence client',t:'select',o:['Oui','Non'],def:'Non'},
     {k:'statut',l:'Statut',t:'select',o:['Planifié','Fait','Fait avec réserves','Annulé'],def:'Planifié'},
     {k:'note',l:'Note',t:'textarea'}],
   BudgetLignes: [
@@ -633,7 +637,7 @@ const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur 
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '10'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '11'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[]};
@@ -1170,7 +1174,7 @@ const AG={
     sub:x=>[agPeriode(x),x.salon&&'🎪 '+x.salon,x.responsable&&'👤 '+x.responsable,x.note&&'📝 '+x.note]},
   EDL:{titre:'États des lieux salons',nouveau:'+ Nouvel état des lieux',form:'État des lieux',next:{'Planifié':'Fait'},
     line:x=>`<b>${esc(x.salon||'')}</b> · ${esc(x.type||'')}`,
-    sub:x=>[x.halls&&'📍 '+x.halls,x.responsable&&'👤 '+x.responsable,x.note&&'📝 '+x.note]}
+    sub:x=>[x.confirmation&&(x.confirmation==='Confirmé'?'✅ Confirmé':'⏳ En attente de confirmation'),x.halls&&'📍 '+x.halls,x.responsable&&'👤 '+x.responsable,x.coordinateur&&'🎯 Coordinateur : '+x.coordinateur,x.presenceClient&&'🤝 Client présent : '+x.presenceClient.toLowerCase(),x.note&&'📝 '+x.note]}
 };
 const agFin=x=>x.dateFin&&x.dateFin>x.date?x.dateFin:x.date;
 const agH=h=>h?(+h.slice(0,2))+'h'+(h.slice(3,5)==='00'?'':h.slice(3,5)):'';
@@ -1220,12 +1224,13 @@ function agList(sheet){
       <button class="st" style="background:${ST_COL[x.statut]||'#64748b'}" title="${A.next[x.statut]?'Passer à « '+A.next[x.statut]+' »':''}" onclick="event.stopPropagation();agNext('${sheet}','${x.id}',this)">${esc(x.statut||'')}</button></div>`).join('')}</div>`).join('')
     ||`<p class="empty">${st.q?'Aucun résultat.':st.m==='avenir'?'Rien de prévu.':'Rien à afficher.'}</p>`;
 }
+const edlCoordDl=sheet=>sheet!=='EDL'?'':`<datalist id="dl-edlcoord">${[...new Set(D.EDL.map(x=>(x.coordinateur||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr')).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
 const agForm=(sheet,objet)=>sheet==='Cloisons'&&objet==='Tribune'?{fields:FORMS.Tribune,title:'Mouvement de la tribune',validate:o=>agValidate(o)||(!DEMO&&SRV&&!SRV.has('Pavoisements')?"Le script du Google Sheet n'est pas à jour : la tribune serait enregistrée comme une cloison (Déployer › Gérer les déploiements › Nouvelle version)":'')}
   :{fields:FORMS[sheet],title:AG[sheet].form,validate:agValidate};
 function newAg(sheet,d,objet){d=d||today();const F=agForm(sheet,objet);
-  openForm(sheet,{date:d,responsable:'',...(sheet==='Cloisons'?{dateFin:d,objet:objet||'Cloison'}:{})},F.title,{fields:F.fields,validate:F.validate,after:agAfter})}
+  openForm(sheet,{date:d,responsable:'',...(sheet==='Cloisons'?{dateFin:d,objet:objet||'Cloison'}:{})},F.title,{fields:F.fields,validate:F.validate,after:agAfter,extra:edlCoordDl(sheet)})}
 function editAg(sheet,id){const x=D[sheet].find(i=>i.id===id);if(!x)return;const F=agForm(sheet,x.objet);
-  openForm(sheet,sheet==='Cloisons'&&!x.dateFin?{...x,dateFin:x.date}:x,F.title,{fields:F.fields,validate:F.validate,after:agAfter,extra:x.majPar?`<div class="made">Dernière modification par ${esc(x.majPar)}</div>`:''})}
+  openForm(sheet,sheet==='Cloisons'&&!x.dateFin?{...x,dateFin:x.date}:x,F.title,{fields:F.fields,validate:F.validate,after:agAfter,extra:edlCoordDl(sheet)+(x.majPar?`<div class="made">Dernière modification par ${esc(x.majPar)}</div>`:'')})}
 async function agNext(sheet,id,btn){
   const x=D[sheet].find(i=>i.id===id), n=x&&AG[sheet].next[x.statut]; if(!n){editAg(sheet,id);return}
   btn.disabled=true; btn.textContent='…';
@@ -2416,7 +2421,7 @@ function pgEvents(){
   D.Pavoisements.filter(p=>p.statut!=='Annulé'&&p.dateDebut).forEach(p=>{const M=pvManques(p);add('Pavoisements',{d0:p.dateDebut,d1:p.dateFin||p.dateDebut,titre:'Pavoisement · '+p.titre,
     lieu:p.lieu||'',qui:[p.responsable].filter(Boolean),sub:[pvNb(p)+' drapeaux',p.statut,M.length&&'⚠️ manque '+M.length].filter(Boolean).join(' · '),click:`pvEdit('${p.id}')`})});
   D.EDL.filter(x=>x.statut!=='Annulé'&&x.date).forEach(x=>add('EDL',{d0:x.date,d1:x.date,h:x.heure||'',titre:[x.type||'État des lieux',x.salon].filter(Boolean).join(' · '),
-    lieu:x.halls||'',qui:[x.responsable].filter(Boolean),sub:x.statut||'',click:`editAg('EDL','${x.id}')`}));
+    lieu:x.halls||'',qui:[x.responsable].filter(Boolean),sub:[x.statut,x.confirmation==='Confirmé'?'confirmé':x.confirmation?'en attente de confirmation':''].filter(Boolean).join(' · '),click:`editAg('EDL','${x.id}')`}));
   D.Nacelle.filter(b=>b.debut&&b.fin).forEach(b=>{let d1=b.fin.slice(0,10);const d0=b.debut.slice(0,10);if(b.fin.slice(11,16)==='00:00'&&d1>d0)d1=addDays(d1,-1);
     add('Nacelle',{d0,d1,h:b.debut.slice(11,16),titre:'Nacelle · '+b.nom,lieu:b.lieu||'',qui:[b.nom],sub:[b.debut.slice(11,16)+' → '+(b.fin.slice(0,10)===d0?b.fin.slice(11,16):fDT(b.fin)),b.motif].filter(Boolean).join(' · '),click:`editNac('${b.id}')`})});
   D.Regisseurs.filter(r=>r.statut!=='Présent'&&r.dateDebut).forEach(r=>add('Regisseurs',{d0:r.dateDebut,d1:r.dateFin||r.dateDebut,titre:r.regisseur+' · '+(r.statut||''),col:ST_REG[r.statut]||S.Regisseurs.c,
