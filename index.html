@@ -2424,7 +2424,7 @@ function pgEvents(){
     lieu:x.halls||'',qui:[x.responsable].filter(Boolean),sub:[x.statut,x.confirmation==='Confirmé'?'confirmé':x.confirmation?'en attente de confirmation':''].filter(Boolean).join(' · '),click:`editAg('EDL','${x.id}')`}));
   D.Nacelle.filter(b=>b.debut&&b.fin).forEach(b=>{let d1=b.fin.slice(0,10);const d0=b.debut.slice(0,10);if(b.fin.slice(11,16)==='00:00'&&d1>d0)d1=addDays(d1,-1);
     add('Nacelle',{d0,d1,h:b.debut.slice(11,16),titre:'Nacelle · '+b.nom,lieu:b.lieu||'',qui:[b.nom],sub:[b.debut.slice(11,16)+' → '+(b.fin.slice(0,10)===d0?b.fin.slice(11,16):fDT(b.fin)),b.motif].filter(Boolean).join(' · '),click:`editNac('${b.id}')`})});
-  D.Regisseurs.filter(r=>r.statut!=='Présent'&&r.dateDebut).forEach(r=>add('Regisseurs',{d0:r.dateDebut,d1:r.dateFin||r.dateDebut,titre:r.regisseur+' · '+(r.statut||''),col:ST_REG[r.statut]||S.Regisseurs.c,
+  D.Regisseurs.filter(r=>r.dateDebut).forEach(r=>add('Regisseurs',{d0:r.dateDebut,d1:r.dateFin||r.dateDebut,titre:r.regisseur+' · '+(r.statut||''),col:ST_REG[r.statut]||S.Regisseurs.c,
     qui:[r.regisseur],sub:[r.salon&&'🎪 '+r.salon,r.note].filter(Boolean).join(' · '),click:`editReg('${r.id}')`}));
   D.Taches.filter(x=>x.echeance&&x.statut!=='Terminé').forEach(x=>add('Taches',{d0:x.echeance.slice(0,10),d1:x.echeance.slice(0,10),titre:(perso(x)?'🔒 ':'')+x.titre,lieu:x.lieu||'',qui:asg(x),
     sub:[x.priorite,x.statut,x.echeance.slice(0,10)<t&&'en retard'].filter(Boolean).join(' · '),click:`editTache('${x.id}')`}));
