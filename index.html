@@ -382,6 +382,11 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .cltbl tr.clko td{background:#fde4e5}
 .clin{border:1px solid #d5d9e2;border-radius:6px;padding:5px 7px;font-size:14px;max-width:100%}
 .clres{max-height:260px;overflow:auto;margin-top:6px}
+.cldrop{border:2px dashed #c3cad8;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin:0 0 12px}
+.cldrop .link{font-size:13px}
+.mod.cldrag .cldrop,#clview.cldrag{outline:2px dashed var(--navy);outline-offset:4px;background:#eef3ff}
+.cltbl tr.clwarn td{background:#fff3d6}
+.clximp{font-size:13px;margin:-4px 0 12px}.clximp .btn{margin:4px 6px 0 0}
 /* Documents techniques */
 .docgrp{font-size:13px;color:#475569;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
 .docgrp .n{font-weight:400;color:var(--muted)}
@@ -1892,6 +1897,10 @@ function vClefs(el){
     <div class="seg-ctl bsub">${CL_SUB.map(([k,l])=>`<button class="${st.sub===k?'on':''}" onclick="UI.cl.sub='${k}';lsSet('equipe.cl','${k}');render()">${l}${k==='Pret'&&nR?` <span class="badge">${nR}</span>`:''}</button>`).join('')}</div>
     <div id="clview"></div>`;
   if(!D.Clefs.length&&!D.ClefsPrets.length) return clVide($('#clview'));
+  const cv=$('#clview'); // déposer un formulaire Excel sur la page ouvre une nouvelle remise pré-remplie
+  cv.ondragover=e=>{if([...(e.dataTransfer.types||[])].includes('Files')){e.preventDefault();cv.classList.add('cldrag')}};
+  cv.ondragleave=e=>{if(!cv.contains(e.relatedTarget))cv.classList.remove('cldrag')};
+  cv.ondrop=e=>{const f=e.dataTransfer.files[0];if(!f)return;e.preventDefault();cv.classList.remove('cldrag');clNew();clXFile(f)};
   ({Pret:clVuePret,Inv:clVueInv,Hist:clVueHist})[st.sub]($('#clview'));
 }
 function clVide(el){
@@ -2030,6 +2039,9 @@ function clLotForm(lot,L,h){
   CL={lot:lot||('l'+Math.random().toString(16).slice(2,12)),lines:L.map(p=>({...p})),conf:'',isNew:!lot};
   const fin=h.finDemontage||'';
   modal(`<h2>${lot?'Remise · '+esc(h.societe):'Nouvelle remise de clefs'}</h2>
+    <div class="cldrop">📥 Glisse ici le <b>formulaire Excel</b> de demande de clefs, <button class="link" type="button" onclick="$('#clxf').value='';$('#clxf').click()">ou choisis le fichier</button>, ou colle (Ctrl+V) des lignes copiées depuis Excel
+      <input type="file" id="clxf" accept=".xlsx,.xlsm,.xls,.csv" hidden onchange="this.files[0]&&clXFile(this.files[0])"></div>
+    <div class="clximp" id="clximp"></div>
     <div class="form">
       <label class="fl full"><span>Société / salon *</span><input id="cl_soc" list="dl-clsoc" value="${esc(h.societe||'')}" autocomplete="off"></label>
       <label class="fl"><span>Prénom</span><input id="cl_pre" value="${esc(h.prenom||'')}" autocomplete="off"></label>
@@ -2051,7 +2063,86 @@ function clLotForm(lot,L,h){
   $('#cl_soc').addEventListener('change',()=>{const s=$('#cl_soc').value.trim().toLowerCase(),p=D.ClefsPrets.filter(x=>String(x.societe).toLowerCase()===s&&x.finDemontage).sort((a,b)=>String(b.datePrepa).localeCompare(a.datePrepa))[0];
     if(p&&!$('#cl_fin').value&&!$('#cl_ras').checked&&(p.finDemontage==='RAS'||p.finDemontage>=today())){if(p.finDemontage==='RAS'){$('#cl_ras').checked=true;$('#cl_fin').disabled=true}else $('#cl_fin').value=p.finDemontage}});
   $('#clgo').onclick=clLotSave;
+  const md=$('.ov .mod');
+  md.addEventListener('dragover',e=>{if([...(e.dataTransfer.types||[])].includes('Files')){e.preventDefault();md.classList.add('cldrag')}});
+  md.addEventListener('dragleave',e=>{if(!md.contains(e.relatedTarget))md.classList.remove('cldrag')});
+  md.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(!f)return;e.preventDefault();md.classList.remove('cldrag');clXFile(f)});
+  md.addEventListener('paste',e=>{const t=(e.clipboardData||window.clipboardData).getData('text')||'';
+    if(!/\t|\n.*\S/.test(t.trim()))return; // une simple valeur : collage normal dans le champ
+    e.preventDefault();clXApply(clXRows(t.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.split('\t'))),'le collage')});
   clLines();
+}
+/* ----- import d'un formulaire Excel de demande de clefs (glisser-déposer, fichier ou copier-coller) ----- */
+const clXN=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+const clXV=v=>v==null?'':typeof v==='number'?String(Math.round(v*1000)/1000):String(v).replace(/\s+/g,' ').trim();
+function clXDate(v){
+  if(v instanceof Date)return v.getFullYear()>=2000?ymd(new Date(v.getTime()+12*3600e3)):'';
+  const m=String(v??'').trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);if(m){const y=+m[3]<100?2000+(+m[3]):+m[3];return y>=2000?y+'-'+pad(+m[2])+'-'+pad(+m[1]):''}
+  return /^\d{4}-\d{2}-\d{2}/.test(String(v||''))?String(v).slice(0,10):''}
+// lignes (tableau de tableaux) → remises regroupées par société + personne
+function clXRows(rows){
+  const COLS=[['prenom',/PRENOM/],['qte',/NOMBRE|QTE|QUANTITE|^NB\b/],['nom',/(^|\s)NOM\b/],['numero',/^N°|^NO\b|^N\s?CLE|NUMERO/],
+    ['designation',/DESIGNATION|LOCAL|ESPACE/],['fin',/FIN.*(SALON|DEMONT|EVEN)/],['societe',/SOCIETE|SALON|ENTREPRISE/]];
+  let hi=-1,map={};const top={};
+  for(let i=0;i<Math.min(rows.length,40);i++){const r=rows[i]||[],m={};
+    r.forEach((c,j)=>{const t=clXN(c);if(!t)return;const k=(COLS.find(([k,re])=>re.test(t)&&!(k in m))||[])[0];if(k)m[k]=j});
+    if('numero' in m&&('designation' in m||'qte' in m)){hi=i;map=m;break}
+    // en-tête du formulaire : « SALON / EVENEMENT », « COORDINATEUR » suivis de leur valeur
+    r.forEach((c,j)=>{const t=clXN(c),val=r.slice(j+1).find(x=>clXV(x));if(!val)return;
+      if(/^(SALON|SOCIETE)/.test(t)&&!top.societe)top.societe=clXV(val);else if(/COORDINATEUR|DEMANDEUR|CONTACT/.test(t)&&!top.personne)top.personne=clXV(val)})}
+  const idx=clNumIdx(),byD={};D.Clefs.forEach(c=>{const d=clXN(clDes(c));(byD[d]=byD[d]||[]).push(c)});
+  const lines=[];
+  rows.slice(hi+1).forEach(r=>{r=r||[];let numero,des,qte,soc,pre,nom,fin;
+    if(hi>=0){const g=k=>k in map?r[map[k]]:null;numero=clXV(g('numero'));des=clXV(g('designation'));qte=parseInt(g('qte'),10);soc=clXV(g('societe'));pre=clXV(g('prenom'));nom=clXV(g('nom'));fin=clXDate(g('fin'))}
+    else{ // lignes collées sans en-tête : on reconnaît le n° (inventaire), la désignation et la quantité
+      const cells=r.map(clXV),sh=c=>/^\d{1,2}$/.test(c);
+      let jn=cells.findIndex((c,j)=>(idx[c.toUpperCase()]||[]).some(k=>cells.some((x,i)=>i!==j&&clXN(x)===clXN(clDes(k)))));
+      let jd=cells.findIndex(c=>byD[clXN(c)]);if(jd<0)jd=cells.findIndex((c,j)=>j!==jn&&/ - /.test(c));
+      if(jn<0)jn=cells.findIndex((c,j)=>j!==jd&&c&&c.length<=20&&!sh(c)&&!clXDate(c));if(jn<0)jn=cells.findIndex((c,j)=>j!==jd&&idx[c.toUpperCase()]);
+      const jq=cells.findIndex((c,j)=>j!==jn&&sh(c));
+      if(jd<0)jd=cells.reduce((b,c,j)=>j!==jn&&j!==jq&&!clXDate(c)&&c.length>(cells[b]||'').length?j:b,-1);
+      numero=jn>=0?cells[jn]:'';des=jd>=0?cells[jd]:'';qte=jq>=0?parseInt(cells[jq],10):1;fin=cells.map(clXDate).find(Boolean)||''}
+    if(numero==='0')numero='';if(des==='0')des='';if(!numero&&!des)return;
+    if(hi>=0&&'qte' in map&&!(qte>0)&&!des)return; // bas du formulaire (signatures, dates)
+    const N=numero.toUpperCase(),Dd=clXN(des),byN=idx[N]||[];
+    const c=byN.find(k=>clXN(clDes(k))===Dd)||(byN.length===1?byN[0]:null)||(byD[Dd]||[]).find(k=>!numero||clXN(k.numero)===clXN(numero))||((byD[Dd]||[]).length===1?byD[Dd][0]:null);
+    lines.push({societe:soc||top.societe||'',prenom:pre,nom,fin,l:c?{clefId:c.id,numero:c.numero,designation:clDes(c),qte:String(qte>0?qte:1),rendu:'0'}
+      :{clefId:'',numero,designation:des,qte:String(qte>0?qte:1),rendu:'0',libre:1,xko:1}})});
+  if(top.personne&&!lines.some(x=>x.prenom||x.nom)){const w=top.personne.split(' '),k=w.findIndex(x=>x.length>1&&x===x.toUpperCase()&&/[A-Z]/.test(x));
+    lines.forEach(x=>{x.prenom=k>0?w.slice(0,k).join(' '):k<0?top.personne:'';x.nom=k>=0?w.slice(k).join(' '):''})}
+  const G=new Map();lines.forEach(x=>{const k=clXN(x.societe)+'|'+clXN(x.prenom)+'|'+clXN(x.nom);if(!G.has(k))G.set(k,{societe:x.societe,prenom:x.prenom,nom:x.nom,fin:x.fin,lines:[]});const g=G.get(k);if(!g.fin)g.fin=x.fin;g.lines.push(x.l)});
+  return {groups:[...G.values()],qteCol:hi>=0&&'qte' in map};
+}
+// « ORGA EPOQU'AUTO » → « EPOQU'AUTO » si cette société existe déjà dans les remises
+function clXSoc(s){const L=clSocietes(),f=x=>L.find(y=>clXN(y)===clXN(x));
+  return f(s)||f(String(s).replace(/^(ORGA(NISATEUR|NISATION)?|SALON)\b\s*[-:]?\s*/i,''))||s}
+async function clXFile(f){
+  try{let res;
+    if(/\.csv$/i.test(f.name)){const t=await f.text(),sep=(t.split('\n')[0].match(/;/g)||[]).length>=(t.split('\n')[0].match(/,/g)||[]).length?';':',';
+      res=clXRows(t.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.split(sep).map(c=>c.replace(/^"|"$/g,''))))}
+    else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});
+      // onglet retenu : celui avec une colonne quantité et le plus de clefs (« DOC BATIMENT » du formulaire, pas le listing des clefs)
+      const R=wb.SheetNames.map((n,i)=>({n,i,r:clXRows(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}))}))
+        .filter(x=>x.r.groups.length).sort((a,b)=>(b.r.qteCol-a.r.qteCol)||(b.r.groups.some(g=>g.prenom||g.nom)-a.r.groups.some(g=>g.prenom||g.nom))||(a.i-b.i));
+      res=R.length?R[0].r:{groups:[]}}
+    clXApply(res,'« '+f.name+' »')}
+  catch(e){toast(e.message,1)}
+}
+function clXApply(res,src){
+  const G=res.groups||[];if(!G.length)return toast('Aucune clef trouvée dans '+src,1);
+  if(G.length===1)return clXFill(G[0],src);
+  window._clxG=G;
+  $('#clximp').innerHTML=`<b>${G.length} demandes dans ${esc(src)}</b> — laquelle saisir dans cette remise ?<br>${G.map((g,i)=>`<button class="btn sm" type="button" onclick="clXFill(_clxG[${i}],${esc(JSON.stringify(src))})">${esc(clXSoc(g.societe)||'—')}${g.prenom||g.nom?' — '+esc([g.prenom,g.nom].filter(Boolean).join(' ')):''} · ${g.lines.reduce((a,l)=>a+(+l.qte||0),0)} clefs</button>`).join('')}`;
+}
+function clXFill(g,src){
+  const set=(id,v)=>{const e=$('#'+id);if(e&&v&&(!e.value.trim()||CL.isNew))e.value=v};
+  set('cl_soc',clXSoc(g.societe));set('cl_pre',g.prenom.toLowerCase().replace(/(^|[\s-])\S/g,x=>x.toUpperCase()));set('cl_nom',g.nom.toUpperCase());
+  if(g.fin){$('#cl_ras').checked=false;$('#cl_fin').disabled=false;$('#cl_fin').value=g.fin}
+  else $('#cl_soc').dispatchEvent(new Event('change'));
+  let n=0;g.lines.forEach(l=>{const ex=l.clefId&&CL.lines.find(x=>x.clefId===l.clefId&&!x.id&&!(+x.rendu));if(ex)ex.qte=String((+ex.qte||0)+(+l.qte||0));else CL.lines.push({...l});n+=+l.qte||0});
+  CL.conf='';clLines();
+  const ko=g.lines.filter(l=>l.xko).length;
+  $('#clximp').innerHTML=`✅ ${n} clef${n>1?'s':''} reprise${n>1?'s':''} de ${esc(src)}${ko?` · <span class="negt">${ko} ligne${ko>1?'s':''} non trouvée${ko>1?'s':''} dans l'inventaire (en orange) : vérifie le n° et la désignation</span>`:''}. Vérifie puis enregistre.`;
 }
 function clSearch(){
   const box=$('#clres'),q=($('#clq').value||'').trim().toLowerCase();if(!q){box.innerHTML='';return}
@@ -2074,7 +2165,7 @@ function clLines(){
     const mine=l.id?clDehors(D.ClefsPrets.find(p=>p.id===l.id)||{}):0;
     const autres=CL.lines.filter((x,j)=>j!==i&&c&&x.clefId===c.id).reduce((a,x)=>a+Math.max(0,(+x.qte||0)-(+x.rendu||0)),0)-CL.lines.filter((x,j)=>j!==i&&c&&x.clefId===c.id&&x.id).reduce((a,x)=>a+clDehors(D.ClefsPrets.find(p=>p.id===x.id)||{}),0);
     const dis=c?(+c.stock||0)-(E[c.id]||0)+mine-autres:null, ko=dis!==null&&(+l.qte||0)-(+l.rendu||0)>dis;
-    return `<tr class="${ko?'clko':''}"><td class="clnum">${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="N°" value="${esc(l.numero||'')}" oninput="CL.lines[${i}].numero=this.value">`:esc(l.numero||'—')}</td>
+    return `<tr class="${ko?'clko':l.xko?'clwarn':''}"><td class="clnum">${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="N°" value="${esc(l.numero||'')}" oninput="CL.lines[${i}].numero=this.value">`:esc(l.numero||'—')}</td>
       <td>${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="Désignation (espace - local)" value="${esc(l.designation||'')}" oninput="CL.lines[${i}].designation=this.value" style="width:100%">`:esc(l.designation||'')}
         ${+l.rendu?`<small class="hint" style="display:block;margin:0">${l.rendu} déjà rendue${+l.rendu>1?'s':''}</small>`:''}</td>
       <td class="c" style="white-space:nowrap"><input class="pvn" type="number" min="1" inputmode="numeric" value="${esc(l.qte)}" oninput="CL.lines[${i}].qte=this.value;CL.conf='';clTot()">${dis!==null?`<small class="${ko?'negt':''}">/${Math.max(0,dis)}</small>`:''}</td>
@@ -2099,7 +2190,7 @@ async function clLotSave(){
   const sig=manque.join('|');
   if(manque.length&&CL.conf!==sig){CL.conf=sig;return err('⚠️ Plus de clefs que disponibles au tableau : '+manque.join(', ')+'. Clique encore sur Enregistrer pour enregistrer quand même.')}
   const old=D.ClefsPrets.filter(p=>(p.lot||p.id)===CL.lot), keep=new Set(lines.filter(l=>l.id).map(l=>l.id));
-  const items=lines.map(l=>{const o={...l,...h};delete o.libre;o.commentaire=(!l.id||lines.length===1)?com:(com||l.commentaire||'');return o});
+  const items=lines.map(l=>{const o={...l,...h};delete o.libre;delete o.xko;o.commentaire=(!l.id||lines.length===1)?com:(com||l.commentaire||'');return o});
   const b=$('#clgo');b.disabled=true;b.textContent='Enregistrement…';
   try{await clSaveLot(items);for(const p of old)if(!keep.has(p.id))await delItem('ClefsPrets',p.id);
     closeModal(true);toast('Remise enregistrée ✓ · 🖨️ bon de remise sur la carte')}
