@@ -2136,8 +2136,10 @@ async function clXFile(f){
 function clXApply(res,src){
   const G=res.groups||[];if(!G.length)return toast('Aucune clef trouvée dans '+src,1);
   if(G.length===1)return clXFill(G[0],src);
-  window._clxG=G;
-  $('#clximp').innerHTML=`<b>${G.length} demandes dans ${esc(src)}</b> — laquelle saisir dans cette remise ?<br>${G.map((g,i)=>`<button class="btn sm" type="button" onclick="clXFill(_clxG[${i}],${esc(JSON.stringify(src))})">${esc(clXSoc(g.societe)||'—')}${g.prenom||g.nom?' — '+esc([g.prenom,g.nom].filter(Boolean).join(' ')):''} · ${g.lines.reduce((a,l)=>a+(+l.qte||0),0)} clefs</button>`).join('')}`;
+  // plusieurs sociétés / personnes dans le fichier : on reprend d'office toutes les lignes dans la remise
+  const cnt={};G.forEach(g=>{const s=clXV(g.societe);if(s)cnt[s]=(cnt[s]||0)+g.lines.length});
+  const soc=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]||'',p=G.find(g=>g.prenom||g.nom)||G[0];
+  clXFill({societe:soc,prenom:p.prenom||'',nom:p.nom||'',fin:(G.find(g=>g.fin)||{}).fin||'',lines:G.flatMap(g=>g.lines)},src);
 }
 function clXFill(g,src){
   const set=(id,v)=>{const e=$('#'+id);if(e&&v&&(!e.value.trim()||CL.isNew))e.value=v};
