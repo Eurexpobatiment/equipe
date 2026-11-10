@@ -73,7 +73,7 @@ async function lecture(res) {
     .map(c => ({ zone: [c.espace, c.zone].filter(Boolean).join(' · '), type: c.type || '', debut: d10(c.dateDebut), fin: d10(c.dateFin) || d10(c.dateDebut) }))
     .filter(c => c.debut && c.fin >= from && c.debut <= to).sort((a, b) => a.debut.localeCompare(b.debut));
   const enCours = D.Memos.filter(m => m.type === TYPE && m.statut !== 'Archivé' && !(m.jusquau && m.jusquau < jour))
-    .map(m => ({ titre: m.titre || '', niveau: m.niveau || '', salon: m.salon || '', date: m.dateBulletin || '', jusquau: m.jusquau || '' }));
+    .map(m => ({ titre: m.titre || '', niveau: m.niveau || '', salon: m.salon || '', date: m.dateBulletin || '', debut: m.dateDebut || m.dateBulletin || '', jusquau: m.jusquau || '' }));
   res.json({ ok: true, source: 'Équipe Bâtiment Eurexpo – veille sûreté', genereLe: new Date().toISOString(), aujourdhui: jour,
     fenetre: { du: from, au: to }, note: "Dates internes de montage / démontage (EDL d'entrée et de sortie). Ouverture au public : agenda GL events Lyon.",
     salons: salons(D, jour), travaux, bulletinsEnCours: enCours });
@@ -94,13 +94,15 @@ async function depot(req, res) {
     const salon = txt(b.salon, 300), k = cle(titre) + '|' + cle(salon);
     if (deja.has(k)) { ignores.push({ titre, raison: 'déjà en cours' }); continue; }
     deja.add(k);
+    let debut = txt(b.debut, 10);
+    if (!RE_DATE.test(debut) || debut < jour) debut = jour;
     let jusquau = txt(b.jusquau, 10);
-    if (!RE_DATE.test(jusquau) || jusquau < jour) jusquau = addDays(jour, 7);
+    if (!RE_DATE.test(jusquau) || jusquau < debut) jusquau = max(addDays(jour, 7), debut);
     if (jusquau > addDays(jour, 90)) jusquau = addDays(jour, 90);
     const id = crypto.randomBytes(5).toString('hex');
     const o = { id, type: TYPE, titre, niveau: NIVEAUX.includes(b.niveau) ? b.niveau : 'Info', texte: txt(b.texte, 8000), decisions: '',
       lieu: txt(b.lieu, 200), jusquau, epingle: '', statut: 'Actif', dateReunion: '', participants: '', salon, source: txt(b.source, 300),
-      dateBulletin: jour, luPar: '', creePar: AUTEUR, creeLe: maintenant, majLe: maintenant, majPar: AUTEUR };
+      dateBulletin: jour, dateDebut: debut === jour ? '' : debut, luPar: '', creePar: AUTEUR, creeLe: maintenant, majLe: maintenant, majPar: AUTEUR };
     batch.set(db.collection('Memos').doc(id), o);
     batch.set(db.collection('Journal').doc(), { date: maintenant, auteur: AUTEUR, action: 'save', feuille: 'Memos', id, detail: (TYPE + ' · ' + titre + ' · ' + o.niveau).slice(0, 200) });
     crees.push({ id, titre, niveau: o.niveau, salon });

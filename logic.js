@@ -19,7 +19,7 @@ export const SCHEMA = {
   Drapeaux:     ['id', 'nom', 'groupe', 'format', 'neufs', 'occasions', 'uses', 'note', 'ordre', 'majPar'],
   Pavoisements: ['id', 'titre', 'lieu', 'dateDebut', 'dateFin', 'statut', 'responsable', 'liste', 'note', 'creeLe', 'majLe', 'majPar'],
   Memos:        ['id', 'type', 'titre', 'niveau', 'texte', 'decisions', 'lieu', 'jusquau', 'epingle', 'statut', 'dateReunion', 'participants',
-                 'salon', 'source', 'dateBulletin', 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar'],
+                 'salon', 'source', 'dateBulletin', 'dateDebut', 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar'],
   Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
                  'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar'],
@@ -177,6 +177,8 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (['Vigilance', 'Compte rendu', 'Veille sûreté'].indexOf(o.type) < 0) throw new Error('Type de mémo inconnu');
       if (!o.titre) throw new Error(o.type === 'Compte rendu' ? 'Objet de la réunion obligatoire' : 'Titre obligatoire');
       if (o.dateBulletin && !RE_DATE.test(o.dateBulletin)) throw new Error('Date du bulletin invalide');
+      if (o.dateDebut && !RE_DATE.test(o.dateDebut)) throw new Error('Date de début du risque invalide');
+      if (o.dateDebut && o.jusquau && o.jusquau < o.dateDebut) throw new Error("La fin de validité est avant le début du risque");
       if (o.type === 'Compte rendu' && !RE_DATE.test(o.dateReunion || '')) throw new Error('Date de réunion obligatoire');
       if (o.jusquau && !RE_DATE.test(o.jusquau)) throw new Error("Date « valable jusqu'au » invalide");
       if (!o.statut) o.statut = 'Actif';

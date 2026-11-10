@@ -6,7 +6,7 @@ Remplace l'export public `veille.json` : les dates internes des salons ne sont p
 - Région : europe-west9 (Paris) · URL : https://europe-west9-equipe-batiment.cloudfunctions.net/veille-surete
 - **GET** : salons J-7 → J+60 (nom, halls, début de montage, fin de démontage, états des lieux), zones de travaux
   (sans entreprise ni montant) et titres des bulletins déjà en cours.
-- **POST** `{"bulletins":[{titre, niveau, salon, lieu, source, texte, jusquau}]}` : 10 bulletins au plus par appel,
+- **POST** `{"bulletins":[{titre, niveau, salon, lieu, source, texte, debut, jusquau}]}` : 10 bulletins au plus par appel,
   déposés dans l'onglet 🛡️ Veille sûreté (collection Memos, type « Veille sûreté »), signés « Veille automatique ».
   Un bulletin déjà en cours (même titre, même salon) est ignoré. Validité : 7 jours par défaut, 90 au plus.
 - Ne renvoie jamais : noms de personnes, e-mails, notes, tâches, budget, clefs, documents.

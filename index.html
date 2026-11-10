@@ -626,11 +626,12 @@ const FORMS_MEMO = {
     {k:'titre',l:'Menace / évènement',req:1,full:1},
     {k:'niveau',l:'Niveau',t:'select',o:Object.keys(MNIV),def:'Important'},
     {k:'dateBulletin',l:'Date du bulletin',t:'date',req:1},
+    {k:'dateDebut',l:'Risque à partir du (vide = date du bulletin)',t:'date'},
     {k:'salon',l:'Salon(s) concerné(s) (vide = tout le parc)',t:'dl',dl:'dl-svsalons',full:1},
     {k:'lieu',l:'Hall / zone (facultatif)',t:'hall'},
     {k:'source',l:'Source (lien ou origine)',full:1},
     {k:'texte',l:'Analyse et consignes',t:'textarea',rows:7},
-    {k:'jusquau',l:"Valable jusqu'au (vide = jusqu'à archivage)",t:'date'},
+    {k:'jusquau',l:"Risque jusqu'au (vide = jusqu'à archivage)",t:'date'},
     {k:'statut',l:'Statut',t:'select',o:['Actif','Archivé'],def:'Actif'}]
 };
 
@@ -654,7 +655,7 @@ const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur 
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '14'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '15'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[]};
@@ -792,6 +793,9 @@ function svSalons(){
     .sort((a,b)=>a.debut.localeCompare(b.debut)||a.nom.localeCompare(b.nom,'fr'));
 }
 const svBulletins=()=>D.Memos.filter(m=>m.type===SV_TYPE);
+const svDebut=m=>m.dateDebut||m.dateBulletin||(m.creeLe||'').slice(0,10);
+// « du jour » : bulletin Important ou Critique en cours dont la période de risque comprend aujourd'hui (repris dans le Mémo vigilance)
+const svDuJour=()=>{const t=today();return svBulletins().filter(m=>memoActif(m)&&m.niveau!=='Info'&&svDebut(m)<=t)};
 // bulletins rattachés à un salon (champ salon, plusieurs possibles séparés par des virgules) ou à tout le parc
 const svPour=(B,s)=>B.filter(m=>espList(m.salon).some(n=>{const k=svCle(n);return k&&(k===s.k||k.includes(s.k)||s.k.includes(k))}));
 const svNiv=L=>L.reduce((a,m)=>Object.keys(MNIV).indexOf(m.niveau||'Info')>Object.keys(MNIV).indexOf(a)?m.niveau:a,'Info');
@@ -825,7 +829,7 @@ function svCard(m){
   return `<div class="card mv-${esc(m.niveau||'Info')} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" onclick="svOpen('${m.id}')">
     <div class="ct"><span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>${esc(m.titre)}</div>
     ${t?`<div class="cd memo">${esc(t.length>220?t.slice(0,220)+'…':t)}</div>`:''}
-    <div class="meta">${m.dateBulletin?`<span>📅 ${fD(m.dateBulletin)}</span>`:''}<span>🎪 ${esc(m.salon||'Tout le parc')}</span>
+    <div class="meta">${m.dateBulletin?`<span>📅 ${fD(m.dateBulletin)}</span>`:''}${m.dateDebut&&m.dateDebut!==m.dateBulletin?`<span>⚠️ à partir du ${fD(m.dateDebut)}</span>`:''}<span>🎪 ${esc(m.salon||'Tout le parc')}</span>
       ${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}${m.jusquau?`<span>⏳ jusqu'au ${fD(m.jusquau)}</span>`:''}${memoLuHtml(m)}</div>
     ${act&&!memoLu(m)?`<button class="adv ok" style="margin-left:0" onclick="event.stopPropagation();memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`:''}
   </div>`;
@@ -854,7 +858,7 @@ function svOpen(id){
   modal(`<h2><span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>${esc(m.titre)}</h2>
     <div class="meta">${m.dateBulletin?`<span>📅 ${fD(m.dateBulletin,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>`:''}
       <span>🎪 ${esc(m.salon||'Tout le parc')}</span>${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}
-      ${m.jusquau?`<span>⏳ valable jusqu'au ${fD(m.jusquau)}</span>`:''}${m.statut==='Archivé'?'<span>🗄️ archivé</span>':''}</div>
+      ${m.dateDebut&&m.dateDebut!==m.dateBulletin?`<span>⚠️ risque à partir du ${fD(m.dateDebut)}</span>`:''}${m.jusquau?`<span>⏳ valable jusqu'au ${fD(m.jusquau)}</span>`:''}${m.statut==='Archivé'?'<span>🗄️ archivé</span>':''}</div>
     ${src?`<p class="hint">Source : ${isUrl?`<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">${esc(src)}</a>`:esc(src)}</p>`:''}
     <div class="mbody">${m.texte?`<div class="memo">${esc(m.texte)}</div>`:'<p class="empty">Pas de détail.</p>'}</div>
     <div class="meta"><span class="lu">👁 Lu par : ${lus.length?esc(lus.join(', ')):'personne'}</span>${nl.length?`<span>Pas encore lu : ${esc(nl.join(', '))}</span>`:''}</div>
@@ -1165,12 +1169,14 @@ function vMemo(el){
   const ni=m=>Object.keys(MNIV).indexOf(m.niveau||'Info');
   const sort=a=>isV?a.sort((x,y)=>(y.epingle==='oui')-(x.epingle==='oui')||ni(y)-ni(x)||(y.creeLe||'').localeCompare(x.creeLe||''))
                    :a.sort((x,y)=>(y.dateReunion||'').localeCompare(x.dateReunion||'')||(y.creeLe||'').localeCompare(x.creeLe||''));
-  const nbV=D.Memos.filter(m=>m.type==='Vigilance'&&memoActif(m)&&!memoLu(m)).length, nbC=D.Memos.filter(m=>m.type==='Compte rendu'&&memoActif(m)&&!memoLu(m)).length;
+  const SJ=isV?svDuJour().filter(m=>!q||[m.titre,m.texte,m.lieu,m.salon].join(' ').toLowerCase().includes(q)).sort((x,y)=>ni(y)-ni(x)):[];
+  const nbV=D.Memos.filter(m=>m.type==='Vigilance'&&memoActif(m)&&!memoLu(m)).length+svDuJour().filter(m=>!memoLu(m)).length, nbC=D.Memos.filter(m=>m.type==='Compte rendu'&&memoActif(m)&&!memoLu(m)).length;
   const seg=[['Vigilance','⚠️ Points de vigilance',nbV],['Compte rendu','📝 Comptes rendus',nbC]].map(([k,l,n])=>`<button class="${S.v===k?'on':''}" onclick="UI.m.v='${k}';UI.m.arch=false;render()">${l}${n?` <span class="badge">${n}</span>`:''}</button>`).join('');
   el.innerHTML=`<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
     <input class="search" placeholder="Rechercher…" value="${esc(S.q)}" oninput="UI.m.q=this.value;memoRefresh()">
     <button class="btn pri" onclick="memoNew('${S.v}')">+ ${isV?'Point de vigilance':'Compte rendu'}</button></div>
     ${isV?'<p class="hint">Les points importants à connaître par toute l\'équipe. Touche « ✓ J\'ai lu » pour confirmer que tu en as pris connaissance.</p>':'<p class="hint">Les comptes rendus de réunions. Depuis un compte rendu, tu peux créer une tâche pour chaque action à mener.</p>'}
+    ${SJ.length?`<h3 style="margin:4px 0 8px">🛡️ Veille sûreté du jour <a href="#" class="hint" onclick="goTab('Surete');return false">tout voir ›</a></h3><div class="mgrid" style="margin-bottom:16px">${SJ.map(svCard).join('')}</div>`:''}
     <div class="mgrid">${sort(act).map(memoCard).join('')||`<p class="empty">${q?'Aucun résultat.':isV?'Aucun point de vigilance en cours.':'Aucun compte rendu pour l\'instant.'}</p>`}</div>
     ${arch.length?`<div style="margin-top:18px"><button class="link" onclick="UI.m.arch=!UI.m.arch;render()">${S.arch?'▾':'▸'} Archivés / expirés (${arch.length})</button>
       ${S.arch?`<div class="mgrid" style="margin-top:10px">${sort(arch).map(memoCard).join('')}</div>`:''}</div>`:''}`;
@@ -1404,7 +1410,7 @@ function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
   navRender(mine)}
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
-  if(id==='Memo'&&me){const n=memoNonLus().filter(m=>m.type!==SV_TYPE).length;if(n)return `<span class="badge">${n}</span>`}
+  if(id==='Memo'&&me){const j=new Set(svDuJour().map(m=>m.id)),n=memoNonLus().filter(m=>m.type!==SV_TYPE||j.has(m.id)).length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Surete'&&me){const n=memoNonLus().filter(m=>m.type===SV_TYPE).length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Regie'){const n=pvAVenir().filter(p=>pvManques(p).length).length;if(n)return `<span class="badge">${n}</span>`;if(trEtat().late.length)return `<span class="badge">!</span>`}
   if(id==='Clefs'){const n=clLotsRetard().length;if(n)return `<span class="badge">${n}</span>`}
@@ -2607,7 +2613,7 @@ function pgEvents(){
     add('Demandes',{d0:j,d1:j,titre:(d.numero?d.numero+' · ':'')+(d.intitule||'Demande de travaux'),lieu:d.lieu||'',qui:[d.chargeDe].filter(Boolean),col:DT.col[d.statut]||S.Demandes.c,
       sub:[d.statut,d.datePrevue?'intervention prévue':'⏰ date impérative',d.demandeur].filter(Boolean).join(' · '),click:`dtOpen('${d.id}')`})});
   // Bulletins de veille sûreté en cours : du bulletin à sa date de fin (la synthèse, seulement le jour où elle est faite)
-  D.Memos.filter(m=>m.type===SV_TYPE&&memoActif(m)).forEach(m=>{const d0=m.dateBulletin||(m.creeLe||'').slice(0,10)||t,synth=/^synth[eè]se veille/i.test(m.titre||'');
+  D.Memos.filter(m=>m.type===SV_TYPE&&memoActif(m)).forEach(m=>{const d0=svDebut(m)||t,synth=/^synth[eè]se veille/i.test(m.titre||'');
     add('Surete',{d0,d1:synth?d0:(m.jusquau||d0),titre:m.titre,col:MNIV[m.niveau]||S.Surete.c,lieu:m.lieu||'',
       sub:[m.niveau,m.salon&&'🎪 '+m.salon,!memoLu(m)&&'pas encore lu'].filter(Boolean).join(' · '),click:`svOpen('${m.id}')`})});
   const st=UI.pg, off=pgOff(), q=(st.q||'').toLowerCase(), esp=(st.esp||'').toLowerCase();
