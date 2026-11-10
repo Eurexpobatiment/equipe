@@ -10,7 +10,13 @@ const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firesto
    Sans réseau ou si le module ne se charge pas, l'appli continue normalement. */
 const AC_SITE = '6Le3lBguAAAAAGb774RgCJp5Gd_jfG38Tks9out3';
 const AC = await Promise.race([import(`https://www.gstatic.com/firebasejs/${V}/firebase-app-check.js`), new Promise(r => setTimeout(() => r(null), 4000))]).catch(() => null);
-function appCheck(app) { if (!AC) return; try { AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(AC_SITE), isTokenAutoRefreshEnabled: true }); } catch (e) { console.warn('App Check :', e); } }
+let acInst = null;
+function appCheck(app) { if (!AC) return; try { acInst = AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(AC_SITE), isTokenAutoRefreshEnabled: true }); } catch (e) { console.warn('App Check :', e); } }
+// Jeton App Check transmis au script Google (e-mails) : il le renvoie à Firestore quand il relit les données
+async function acJeton() {
+  if (!acInst) return '';
+  try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
+}
 import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=9';
 
 let app, auth, db, CFG;
@@ -150,7 +156,7 @@ async function notifier(o, nouveaux) {
   if (!nouveaux.length || !CFG.apiUrl) return;
   try {
     const idToken = await auth.currentUser.getIdToken();
-    await fetch(CFG.apiUrl, { method: 'POST', body: JSON.stringify({ action: 'notify', idToken, id: o.id, nouveaux, appUrl: location.href.split('#')[0] }) });
+    await fetch(CFG.apiUrl, { method: 'POST', body: JSON.stringify({ action: 'notify', idToken, appCheck: await acJeton(), id: o.id, nouveaux, appUrl: location.href.split('#')[0] }) });
   } catch (e) { /* le mail n'est pas indispensable */ }
 }
 

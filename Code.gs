@@ -59,7 +59,18 @@ function doPost(e) {
   } catch (err) {
     return out_({ ok: false, error: 'Requête illisible' });
   }
+  AC_TOKEN = String(p.appCheck || '').slice(0, 4000);
   return handle_(p);
+}
+
+// Jeton App Check envoyé par l'appli : transmis à Firestore pour que les lectures du script passent
+// aussi quand le blocage App Check sera activé (depuis le 10 nov. 2026).
+let AC_TOKEN = '';
+function fsHeaders_(tok) {
+  const h = {};
+  if (tok) h.Authorization = 'Bearer ' + tok;
+  if (AC_TOKEN) h['X-Firebase-AppCheck'] = AC_TOKEN;
+  return h;
 }
 
 // Depuis le 6 nov. 2026 l'appli utilise Firebase : ce Google Sheet n'est plus qu'une archive (lecture seule).
@@ -677,7 +688,7 @@ function notifyFirebase_(p) {
   if (!tok) throw new Error('Connexion nécessaire');
   const base = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/';
   const get = function (path) {
-    const r = UrlFetchApp.fetch(base + path, { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true });
+    const r = UrlFetchApp.fetch(base + path, { headers: fsHeaders_(tok), muteHttpExceptions: true });
     if (r.getResponseCode() !== 200) throw new Error('Accès refusé');
     return JSON.parse(r.getContentText());
   };
