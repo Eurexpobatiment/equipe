@@ -64,9 +64,10 @@ export const whoami = () => ({ nom: me, email: meEmail, role: meAcc ? meAcc.role
 /* cb({etat, email, nom, role})
  * etat : 'deconnecte' | 'non-verifie' | 'sans-acces' | 'ok' */
 export function onAuth(cb) {
-  let accUnsub = null;
+  let accUnsub = null, finPrec = null;
   A.onAuthStateChanged(auth, async u => {
     if (accUnsub) { accUnsub(); accUnsub = null; }
+    if (finPrec) { finPrec(); finPrec = null; }
     if (!u || u.isAnonymous) { meEmail = ''; me = ''; meAcc = null; return cb({ etat: 'deconnecte' }); } // anonyme = session des applis de saisie (compteurs, températures…)
     meEmail = String(u.email || '').toLowerCase();
     if (!u.emailVerified) {
@@ -75,19 +76,36 @@ export function onAuth(cb) {
     }
     // le jeton de connexion doit porter « e-mail vérifié » (il peut dater d'avant la vérification)
     try { const r = await u.getIdTokenResult(); if (r.claims.email_verified !== true) await u.getIdToken(true); } catch (e) {}
-    let essai = 0;
+    let essai = 0, timer = 0, dejaOk = false;
+    const relance = () => { clearTimeout(timer); timer = 0; if (auth.currentUser === u && !accUnsub) ecoute(); };
+    // Retour sur l'onglet : on relance tout de suite l'écoute si elle était tombée
+    const surVisible = () => { if (!document.hidden && auth.currentUser === u && !accUnsub) { essai = 0; relance(); } };
+    document.addEventListener('visibilitychange', surVisible);
+    const finVisible = () => { clearTimeout(timer); document.removeEventListener('visibilitychange', surVisible); };
+    finPrec = finVisible;
     const ecoute = () => {
-      accUnsub = F.onSnapshot(F.doc(db, 'Acces', meEmail), s => {
+      accUnsub = F.onSnapshot(F.doc(db, 'Acces', meEmail), { includeMetadataChanges: true }, s => {
         const a = s.exists() ? s.data() : null;
+        // Fiche absente du cache local : on attend la réponse du serveur avant de conclure
+        if (!a && s.metadata.fromCache) return;
+        essai = 0;
         const ok = a && a.actif !== 'non';
         const chg = !!ok !== !!(meAcc && meAcc.actif !== 'non') || (a && a.nom) !== me;
         meAcc = a; me = ok ? a.nom : '';
-        if (ok) { if (chg) cb({ etat: 'ok', email: meEmail, nom: me, role: a.role }); }
-        else cb({ etat: 'sans-acces', email: meEmail });
+        if (ok) { if (chg || !dejaOk) { dejaOk = true; cb({ etat: 'ok', email: meEmail, nom: me, role: a.role }); } }
+        else { dejaOk = false; cb({ etat: 'sans-acces', email: meEmail }); }
       }, async e => {
-        // refus : le jeton peut être ancien (avant la vérification de l'adresse) → on en demande un neuf, une fois
-        if (e.code === 'permission-denied' && !essai++) { await u.getIdToken(true).catch(() => {}); return ecoute(); }
-        cb({ etat: 'sans-acces', email: meEmail, err: errMsg(e) });
+        accUnsub = null;
+        if (auth.currentUser !== u) return finVisible();
+        // Refus passager (jeton de connexion ou App Check expiré pendant que l'onglet était en arrière-plan, réseau…) :
+        // on renouvelle les jetons et on réessaie, sans sortir l'utilisateur de l'appli
+        essai++;
+        if (e.code === 'permission-denied' || e.code === 'unauthenticated') {
+          await u.getIdToken(true).catch(() => {});
+          if (acInst) await AC.getToken(acInst, true).catch(() => {});
+        }
+        if (!dejaOk && essai > 5) { cb({ etat: 'sans-acces', email: meEmail, err: errMsg(e) }); }
+        timer = setTimeout(relance, Math.min(30000, 800 * 2 ** Math.min(essai, 6)));
       });
     };
     ecoute();
@@ -96,7 +114,8 @@ export function onAuth(cb) {
 
 /* ---------- Données en direct ---------- */
 
-export function stop() { while (unsub.length) { try { unsub.pop()(); } catch (e) {} } }
+let gen = 0; // change à chaque arrêt : les nouveaux essais en attente sont alors abandonnés
+export function stop() { gen++; while (unsub.length) { try { unsub.pop()(); } catch (e) {} } }
 
 // D : objet des listes de l'appli · onChange(premierChargementTerminé) · onErr(message)
 export function start(D, onChange, onErr) {
@@ -111,7 +130,9 @@ export function start(D, onChange, onErr) {
   const sub = (name, q) => {
     const key = name + '|' + (pending++);
     let first = true, essais = 0;
+    const g = gen;
     const go = () => unsub.push(F.onSnapshot(q, { includeMetadataChanges: false }, s => {
+      essais = 0;
       parts[key] = s.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
       if (name === 'Documents') globalThis.DOCS_ERR = '';
       merge(name);
@@ -119,7 +140,11 @@ export function start(D, onChange, onErr) {
       if (!done && pending === 0) done = true;
       if (done) onChange(true, s.metadata.fromCache);
     }, e => {
-      if (essais++ < 2) return setTimeout(go, 1500 * essais); // refus passager (accès en cours d'ouverture, jeton à renouveler)
+      // refus passager (accès en cours d'ouverture, jeton expiré pendant que l'onglet était en arrière-plan) : on réessaie sans fin, de plus en plus espacé
+      essais++;
+      if (e.code === 'permission-denied' || e.code === 'unauthenticated') { const u = auth.currentUser; if (u) u.getIdToken(true).catch(() => {}); if (acInst) AC.getToken(acInst, true).catch(() => {}); }
+      if (auth.currentUser && !auth.currentUser.isAnonymous) setTimeout(() => { if (g === gen && auth.currentUser) go(); }, Math.min(30000, 1500 * essais));
+      if (essais < 3 || !first) return; // l'erreur n'est signalée qu'au premier chargement, après 3 essais
       // Documents : nouvelle collection, les règles Firebase peuvent ne pas être encore publiées → on le signale dans l'onglet seulement
       if (name === 'Documents') { globalThis.DOCS_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (first) { first = false; pending--; } onErr(errMsg(e)); if (!done && pending === 0) { done = true; onChange(true, true); }
