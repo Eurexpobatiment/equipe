@@ -2510,7 +2510,8 @@ const PG_SRC={
   Nacelle:{l:'Nacelle',e:'🏗️',c:'#e09a2b'},
   Regisseurs:{l:'Régisseurs',e:'🎧',c:'#8e5bd1'},
   Taches:{l:'Tâches',e:'✅',c:'#e63946'},
-  Demandes:{l:'Demandes',e:'📨',c:'#5b5fc7'}};
+  Demandes:{l:'Demandes',e:'📨',c:'#5b5fc7'},
+  Surete:{l:'Veille sûreté',e:'🛡️',c:'#b91c1c'}};
 // Agenda public des évènements à Eurexpo (gl-lyonevents.com/fr/agenda, lieu « Eurexpo Lyon » seulement, pas le Centre de Congrès).
 // Liste de départ relevée le 05/11/2026 ; le script du Google Sheet la relit ensuite sur le site (action « agenda », toutes les 6 h).
 const AGENDA_BASE=[
@@ -2605,6 +2606,10 @@ function pgEvents(){
   (DT.list||[]).filter(d=>!['Terminée','Refusée'].includes(d.statut)&&(d.datePrevue||d.dateImperative)).forEach(d=>{const j=d.datePrevue||d.dateImperative;
     add('Demandes',{d0:j,d1:j,titre:(d.numero?d.numero+' · ':'')+(d.intitule||'Demande de travaux'),lieu:d.lieu||'',qui:[d.chargeDe].filter(Boolean),col:DT.col[d.statut]||S.Demandes.c,
       sub:[d.statut,d.datePrevue?'intervention prévue':'⏰ date impérative',d.demandeur].filter(Boolean).join(' · '),click:`dtOpen('${d.id}')`})});
+  // Bulletins de veille sûreté en cours : du bulletin à sa date de fin (la synthèse, seulement le jour où elle est faite)
+  D.Memos.filter(m=>m.type===SV_TYPE&&memoActif(m)).forEach(m=>{const d0=m.dateBulletin||(m.creeLe||'').slice(0,10)||t,synth=/^synth[eè]se veille/i.test(m.titre||'');
+    add('Surete',{d0,d1:synth?d0:(m.jusquau||d0),titre:m.titre,col:MNIV[m.niveau]||S.Surete.c,lieu:m.lieu||'',
+      sub:[m.niveau,m.salon&&'🎪 '+m.salon,!memoLu(m)&&'pas encore lu'].filter(Boolean).join(' · '),click:`svOpen('${m.id}')`})});
   const st=UI.pg, off=pgOff(), q=(st.q||'').toLowerCase(), esp=(st.esp||'').toLowerCase();
   return E.filter(e=>e.d0&&!off.includes(e.src)&&(!st.moi||e.qui.includes(me))&&(!esp||e.lieu.toLowerCase().includes(esp))
     &&(!q||[e.titre,e.lieu,e.sub,e.qui.join(' ')].join(' ').toLowerCase().includes(q)))
