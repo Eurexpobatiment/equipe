@@ -126,6 +126,12 @@ input.search{min-width:0;flex:1 1 160px;max-width:280px}
 .mlev{display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:5px;padding:1px 6px;margin-right:4px;vertical-align:1px}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
 .mgrid .card{margin-bottom:0}
+.svsal{border-left-width:5px;cursor:default}
+.svph{display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:5px;padding:1px 7px;margin-right:6px;vertical-align:1px}
+.svdates{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px;margin:6px 0}
+.svdates b{font-weight:600;color:#555}
+.svwarn{font-size:13px;background:#fff6e5;border-radius:7px;padding:5px 8px;margin-top:6px}
+.svbul{font-size:13px;background:#fdecee;border-radius:7px;padding:5px 8px;margin-top:6px}
 .mnew{outline:2px solid var(--warn);outline-offset:-2px}
 .lu{color:#1f7a47}.nonlu{color:var(--accent);font-weight:600}
 .mbody{background:#f8f9fb;border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0;max-height:55vh;overflow:auto}
@@ -615,6 +621,16 @@ const FORMS_MEMO = {
     {k:'participants',l:'Participants',t:'people',full:1},
     {k:'texte',l:'Compte rendu',t:'textarea',rows:12,req:1},
     {k:'decisions',l:'Décisions / actions à mener',t:'textarea',rows:5},
+    {k:'statut',l:'Statut',t:'select',o:['Actif','Archivé'],def:'Actif'}],
+  'Veille sûreté': [
+    {k:'titre',l:'Menace / évènement',req:1,full:1},
+    {k:'niveau',l:'Niveau',t:'select',o:Object.keys(MNIV),def:'Important'},
+    {k:'dateBulletin',l:'Date du bulletin',t:'date',req:1},
+    {k:'salon',l:'Salon(s) concerné(s) (vide = tout le parc)',t:'dl',dl:'dl-svsalons',full:1},
+    {k:'lieu',l:'Hall / zone (facultatif)',t:'hall'},
+    {k:'source',l:'Source (lien ou origine)',full:1},
+    {k:'texte',l:'Analyse et consignes',t:'textarea',rows:7},
+    {k:'jusquau',l:"Valable jusqu'au (vide = jusqu'à archivage)",t:'date'},
     {k:'statut',l:'Statut',t:'select',o:['Actif','Archivé'],def:'Actif'}]
 };
 
@@ -624,6 +640,7 @@ const TABS = [
   {id:'Taches',l:'✅ Tâches',g:'Au quotidien'},
   {id:'Nacelle',l:'🏗️ Nacelle',g:'Au quotidien'},
   {id:'Regie',l:'🎪 Régie évènementielle',g:'Site & évènements'},
+  {id:'Surete',l:'🛡️ Veille sûreté',g:'Site & évènements'},
   {id:'Clefs',l:'🔑 Clefs',g:'Site & évènements'},
   {id:'Docs',l:'📚 Documents',g:'Site & évènements'},
   {id:'Demandes',l:'📨 Demandes',g:'Travaux & devis'},
@@ -637,7 +654,7 @@ const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur 
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '13'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '14'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[]};
@@ -734,6 +751,125 @@ function nacConflict(o){
   return c?`Nacelle déjà réservée par ${c.nom} du ${fDT(c.debut)} au ${fDT(c.fin)}`:'';
 }
 
+/* ---------- 🛡️ Veille sûreté : salons sur le parc (J-7 → J+60) et bulletins de veille ----------
+   Mêmes règles que l'export veille (scripts/export-veille/build.mjs) : EDL d'entrée = début de montage,
+   EDL de sortie = fin de démontage ; à défaut, présence des régisseurs et mouvements de cloisons.
+   Les bulletins sont des mémos de type « Veille sûreté » (même collection, mêmes droits, même « J'ai lu »). */
+const SV_TYPE='Veille sûreté';
+const svCle=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const svHalls=v=>String(v||'').split(/[,;/+]|\set\s/).map(h=>h.trim()).filter(Boolean);
+const svMin=(a,b)=>!a?b:!b?a:a<b?a:b, svMax=(a,b)=>!a?b:!b?a:a>b?a:b;
+const svD10=v=>/^\d{4}-\d{2}-\d{2}/.test(String(v||''))?String(v).slice(0,10):'';
+const SV_PH={'À venir':'#3a6ea5','Montage':'#e09a2b','Ouvert au public':'#e63946','Sur site':'#e09a2b','Démontage':'#8e6bbf','Terminé':'#9aa3b2'};
+if(!UI.sv) UI.sv={avant:7,apres:60,arch:false,fini:false};
+
+function svSalons(){
+  const t=today(), from=addDays(t,-UI.sv.avant), to=addDays(t,UI.sv.apres), S=new Map();
+  const get=nom=>{const k=svCle(nom);if(!k)return null;
+    if(!S.has(k))S.set(k,{k,nom:String(nom).trim(),halls:new Set(),dm:'',fd:'',pd:'',pf:'',edl:[]});return S.get(k)};
+  D.EDL.forEach(x=>{if(x.statut==='Annulé')return;const s=get(x.salon),dt=svD10(x.date);if(!s||!dt)return;
+    svHalls(x.halls).forEach(h=>s.halls.add(h));
+    const type=['Entrée','Sortie','Intermédiaire'].includes(x.type)?x.type:'Intermédiaire';
+    s.edl.push({type,date:dt,heure:x.heure||'',ok:x.confirmation==='Confirmé'});
+    if(type==='Entrée')s.dm=svMin(s.dm,dt); if(type==='Sortie')s.fd=svMax(s.fd,dt)});
+  D.Regisseurs.forEach(x=>{if(x.statut==='Annulé')return;const s=get(x.salon),a=svD10(x.dateDebut),b=svD10(x.dateFin)||a;if(!s||!a)return;
+    s.pd=svMin(s.pd,a);s.pf=svMax(s.pf,b)});
+  D.Cloisons.forEach(x=>{if(x.statut==='Annulé')return;const s=get(x.salon),a=svD10(x.date),b=svD10(x.dateFin)||a;if(!s||!a)return;
+    svHalls(x.hall).forEach(h=>s.halls.add(h));s.pd=svMin(s.pd,a);s.pf=svMax(s.pf,b)});
+  const ag=evtList();
+  return [...S.values()].map(s=>{
+    const debut=s.dm||s.pd, fin=s.fd||s.pf||debut;
+    // ouverture au public : agenda GL events, même nom (ou l'un contenu dans l'autre) et dates dans la période sur site
+    const pub=ag.find(e=>{const k=svCle(e.nom);return k&&(k===s.k||k.includes(s.k)||s.k.includes(k))&&e.d1>=debut&&e.d0<=fin});
+    const halls=[...s.halls].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true}));
+    let ph='Terminé';
+    if(t<debut)ph='À venir'; else if(t<=fin)ph=!pub?'Sur site':t<pub.d0?'Montage':t<=pub.d1?'Ouvert au public':'Démontage';
+    const hk=halls.map(svCle);
+    const trav=D.Chantiers.filter(c=>!['Annulé','Terminé'].includes(c.statut)&&c.dateDebut&&(c.dateFin||c.dateDebut)>=debut&&c.dateDebut<=fin)
+      .filter(c=>!hk.length||espList(c.espace).some(e=>hk.includes(svCle(e))));
+    return {...s,debut,fin,halls,pub,ph,trav,est:!(s.dm&&s.fd),edl:s.edl.sort((a,b)=>a.date.localeCompare(b.date))};
+  }).filter(s=>s.debut&&s.fin>=from&&s.debut<=to)
+    .sort((a,b)=>a.debut.localeCompare(b.debut)||a.nom.localeCompare(b.nom,'fr'));
+}
+const svBulletins=()=>D.Memos.filter(m=>m.type===SV_TYPE);
+// bulletins rattachés à un salon (champ salon, plusieurs possibles séparés par des virgules) ou à tout le parc
+const svPour=(B,s)=>B.filter(m=>espList(m.salon).some(n=>{const k=svCle(n);return k&&(k===s.k||k.includes(s.k)||s.k.includes(k))}));
+const svNiv=L=>L.reduce((a,m)=>Object.keys(MNIV).indexOf(m.niveau||'Info')>Object.keys(MNIV).indexOf(a)?m.niveau:a,'Info');
+
+function vSurete(el){
+  agLoad();
+  const st=UI.sv, t=today(), Sal=svSalons(), B=svBulletins();
+  const act=B.filter(memoActif).sort((x,y)=>Object.keys(MNIV).indexOf(y.niveau||'Info')-Object.keys(MNIV).indexOf(x.niveau||'Info')||(y.dateBulletin||'').localeCompare(x.dateBulletin||''));
+  const arch=B.filter(m=>!memoActif(m)).sort((x,y)=>(y.dateBulletin||'').localeCompare(x.dateBulletin||''));
+  const vis=Sal.filter(s=>st.fini||s.ph!=='Terminé');
+  const now=Sal.filter(s=>s.debut<=t&&t<=s.fin);
+  $('#dl-svsalons')||document.body.insertAdjacentHTML('beforeend','<datalist id="dl-svsalons"></datalist>');
+  $('#dl-svsalons').innerHTML=Sal.map(s=>`<option value="${esc(s.nom)}">`).join('');
+  el.innerHTML=`<div class="bar"><h2>Veille sûreté</h2><span class="sp"></span>
+      <button class="btn" onclick="window.print()">🖨️ Imprimer</button>
+      <button class="btn pri" onclick="svNew()">+ Bulletin de veille</button></div>
+    <div class="mine"><b>Aujourd'hui :</b> ${now.length?now.map(s=>`<span class="svph" style="background:${SV_PH[s.ph]}">${esc(s.ph)}</span>${esc(s.nom)}${s.halls.length?' ('+esc(s.halls.join(', '))+')':''}`).join(' · '):'aucun salon sur le parc'}
+      ${act.length?`<br><b>${act.length} bulletin${act.length>1?'s':''} en cours</b>${act.some(m=>m.niveau==='Critique')?' dont <b style="color:'+MNIV.Critique+'">critique</b>':''}`:''}</div>
+    <h3>📰 Bulletins de veille</h3>
+    <p class="hint">Menaces, alertes et consignes à connaître (Vigipirate, manifestations, alertes préfecture, retours du PC sécurité…), rattachées si besoin à un salon. Touche « ✓ J'ai lu » pour confirmer.</p>
+    <div class="mgrid">${act.map(svCard).join('')||'<p class="empty">Aucun bulletin en cours.</p>'}</div>
+    ${arch.length?`<div style="margin-top:10px"><button class="link" onclick="UI.sv.arch=!UI.sv.arch;render()">${st.arch?'▾':'▸'} Archivés / expirés (${arch.length})</button>
+      ${st.arch?`<div class="mgrid" style="margin-top:10px">${arch.map(svCard).join('')}</div>`:''}</div>`:''}
+    <div class="bar" style="margin-top:22px"><h3 style="margin:0">🎪 Salons sur le parc</h3><span class="hint">du ${fD(addDays(t,-st.avant),{day:'numeric',month:'short'})} au ${fD(addDays(t,st.apres),{day:'numeric',month:'short',year:'numeric'})}</span>
+      <span class="sp"></span><label class="chk"><input type="checkbox" ${st.fini?'checked':''} onchange="UI.sv.fini=this.checked;render()"> Afficher les terminés</label></div>
+    <p class="hint">Dates internes tirées de la Régie : état des lieux d'entrée (début de montage) et de sortie (fin de démontage), sinon présence des régisseurs et mouvements de cloisons. Ouverture au public d'après l'agenda GL events Lyon.</p>
+    <div class="mgrid">${vis.map(s=>svSalonCard(s,B)).join('')||'<p class="empty">Aucun salon dans la période (vérifie les états des lieux dans 🎪 Régie évènementielle).</p>'}</div>`;
+}
+function svCard(m){
+  const act=memoActif(m), t=m.texte||'';
+  return `<div class="card mv-${esc(m.niveau||'Info')} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" onclick="svOpen('${m.id}')">
+    <div class="ct"><span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>${esc(m.titre)}</div>
+    ${t?`<div class="cd memo">${esc(t.length>220?t.slice(0,220)+'…':t)}</div>`:''}
+    <div class="meta">${m.dateBulletin?`<span>📅 ${fD(m.dateBulletin)}</span>`:''}<span>🎪 ${esc(m.salon||'Tout le parc')}</span>
+      ${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}${m.jusquau?`<span>⏳ jusqu'au ${fD(m.jusquau)}</span>`:''}${memoLuHtml(m)}</div>
+    ${act&&!memoLu(m)?`<button class="adv ok" style="margin-left:0" onclick="event.stopPropagation();memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`:''}
+  </div>`;
+}
+function svSalonCard(s,B){
+  const bl=svPour(B.filter(memoActif),s), d=(a,o)=>fD(a,o||{weekday:'short',day:'numeric',month:'short'});
+  const col=bl.length?MNIV[svNiv(bl)]:SV_PH[s.ph];
+  return `<div class="card svsal" style="border-left-color:${col}">
+    <div class="ct"><span class="svph" style="background:${SV_PH[s.ph]}">${esc(s.ph)}</span>${esc(s.nom)}</div>
+    ${s.halls.length?`<div class="meta"><span>📍 ${esc(s.halls.join(', '))}</span></div>`:''}
+    <div class="svdates"><b>Montage</b><span>${d(s.debut)}${s.est?' <span class="hint">(estimé)</span>':''}</span>
+      ${s.pub?`<b>Public</b><span>${s.pub.d0===s.pub.d1?d(s.pub.d0):d(s.pub.d0)+' → '+d(s.pub.d1)}</span>`:''}
+      <b>Fin démontage</b><span>${d(s.fin)}${s.est?' <span class="hint">(estimé)</span>':''}</span>
+      ${s.edl.length?`<b>EDL</b><span>${s.edl.map(e=>`${esc(e.type)} ${d(e.date,{day:'numeric',month:'short'})}${e.heure?' '+esc(e.heure):''}${e.ok?' ✓':' <span class="hint">(à confirmer)</span>'}`).join(' · ')}</span>`:''}</div>
+    ${s.trav.length?`<div class="svwarn">🚧 <b>${s.halls.length?'Coactivité travaux':'Travaux sur le parc pendant le salon'} :</b> ${s.trav.map(c=>`${esc(c.titre)} (${esc(espList(c.espace).join(', '))}${c.entreprise?' · '+esc(c.entreprise):''}, ${d(c.dateDebut,{day:'numeric',month:'short'})} → ${d(c.dateFin||c.dateDebut,{day:'numeric',month:'short'})})`).join(' · ')}</div>`:''}
+    ${bl.length?`<div class="svbul">📰 ${bl.map(m=>`<a href="#" onclick="svOpen('${m.id}');return false"><b style="color:${MNIV[m.niveau]||MNIV.Info}">${esc(m.niveau||'Info')}</b> · ${esc(m.titre)}</a>`).join('<br>📰 ')}</div>`:''}
+    <div class="acts" style="margin-top:8px"><button class="btn sm" onclick="svNew(${esc(JSON.stringify(s.nom))},${esc(JSON.stringify(s.halls.join(', ')))})">+ Bulletin pour ce salon</button></div>
+  </div>`;
+}
+function svNew(salon,lieu){
+  openForm('Memos',{type:SV_TYPE,dateBulletin:today(),salon:salon||'',lieu:lieu||''},'Nouveau bulletin de veille sûreté',{fields:FORMS_MEMO[SV_TYPE]});
+}
+function svOpen(id){
+  const m=D.Memos.find(x=>x.id===id); if(!m) return;
+  const lus=espList(m.luPar), nl=people().filter(n=>!lus.includes(n)), src=m.source||'', isUrl=/^https?:\/\//i.test(src);
+  modal(`<h2><span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>${esc(m.titre)}</h2>
+    <div class="meta">${m.dateBulletin?`<span>📅 ${fD(m.dateBulletin,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>`:''}
+      <span>🎪 ${esc(m.salon||'Tout le parc')}</span>${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}
+      ${m.jusquau?`<span>⏳ valable jusqu'au ${fD(m.jusquau)}</span>`:''}${m.statut==='Archivé'?'<span>🗄️ archivé</span>':''}</div>
+    ${src?`<p class="hint">Source : ${isUrl?`<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">${esc(src)}</a>`:esc(src)}</p>`:''}
+    <div class="mbody">${m.texte?`<div class="memo">${esc(m.texte)}</div>`:'<p class="empty">Pas de détail.</p>'}</div>
+    <div class="meta"><span class="lu">👁 Lu par : ${lus.length?esc(lus.join(', ')):'personne'}</span>${nl.length?`<span>Pas encore lu : ${esc(nl.join(', '))}</span>`:''}</div>
+    <div class="made">Rédigé par ${esc(m.creePar||'?')} le ${fDT(m.creeLe)}${m.majPar&&m.majLe!==m.creeLe?` · modifié par ${esc(m.majPar)} le ${fDT(m.majLe)}`:''}</div>
+    <div class="acts">${memoLu(m)?`<button class="btn" onclick="memoSetLu('${m.id}',false,this)">Marquer comme non lu</button>`:`<button class="btn pri" onclick="memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`}
+      <button class="btn" onclick="svVersMemo('${m.id}')" title="En faire un point du Mémo vigilance">⚠️ Point de vigilance</button>
+      <span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn pri" onclick="memoEdit('${m.id}')">✏️ Modifier</button></div>`);
+}
+// Un bulletin qui demande une action de toute l'équipe devient un point du Mémo vigilance
+function svVersMemo(id){
+  const m=D.Memos.find(x=>x.id===id); if(!m) return;
+  openForm('Memos',{type:'Vigilance',titre:m.titre,niveau:m.niveau||'Important',lieu:m.lieu||'',jusquau:m.jusquau||'',
+    texte:[m.salon&&'Salon : '+m.salon,m.texte,m.source&&'Source : '+m.source].filter(Boolean).join('\n\n')},'Nouveau point de vigilance',{fields:FORMS_MEMO.Vigilance});
+}
+
 /* ---------- Applis intégrées (Devis EDL, Relevés compteurs) : même compte Firebase, gardées chargées d'un onglet à l'autre ---------- */
 const APPS={
   Devis:{l:'🧾 Devis EDL',h:'Application devis BatiScript (réserves des salons)',u:'https://eurexpobatiment.github.io/devis/v2/'},
@@ -762,7 +898,7 @@ function render(){
   const el=$('#view');
   if(APPS[tab])return vApp(tab,el);
   el.hidden=false;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);document.body.style.overflow='';
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Surete:vSurete,Equipe:vEquipe,Budget:vBudget,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
   hallsDatalist(); budgetDatalists();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -1057,7 +1193,7 @@ function memoCard(m){
   </div>`;
 }
 function memoOpen(id){
-  const m=D.Memos.find(x=>x.id===id); if(!m) return; const isV=m.type==='Vigilance';
+  const m=D.Memos.find(x=>x.id===id); if(!m) return; if(m.type===SV_TYPE) return svOpen(id); const isV=m.type==='Vigilance';
   const lus=espList(m.luPar), nl=people().filter(n=>!lus.includes(n));
   modal(`<h2>${isV&&m.epingle==='oui'?'📌 ':''}${isV?`<span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>`:'📝 '}${esc(m.titre)}</h2>
     <div class="meta">${!isV&&m.dateReunion?`<span>📅 ${fD(m.dateReunion,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>`:''}
@@ -1073,7 +1209,7 @@ function memoOpen(id){
 }
 function memoNew(type){openForm('Memos',{type,...(type==='Compte rendu'?{dateReunion:today(),participants:me}:{})},type==='Vigilance'?'Nouveau point de vigilance':'Nouveau compte rendu',{fields:FORMS_MEMO[type]})}
 function memoEdit(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;
-  openForm('Memos',m,m.type==='Vigilance'?'Point de vigilance':'Compte rendu',{fields:FORMS_MEMO[m.type],extra:'<p class="hint">Si tu modifies le contenu, chacun devra le relire (les « lu » sont remis à zéro, sauf le tien).</p>'})}
+  openForm('Memos',m,m.type==='Vigilance'?'Point de vigilance':m.type===SV_TYPE?'Bulletin de veille sûreté':'Compte rendu',{fields:FORMS_MEMO[m.type],extra:'<p class="hint">Si tu modifies le contenu, chacun devra le relire (les « lu » sont remis à zéro, sauf le tien).</p>'})}
 async function memoSetLu(id,lu,btn){
   const done=setBusy(btn,'…');
   try{
@@ -1268,7 +1404,8 @@ function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
   navRender(mine)}
 function tabBadge(id,mine){
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
-  if(id==='Memo'&&me){const n=memoNonLus().length;if(n)return `<span class="badge">${n}</span>`}
+  if(id==='Memo'&&me){const n=memoNonLus().filter(m=>m.type!==SV_TYPE).length;if(n)return `<span class="badge">${n}</span>`}
+  if(id==='Surete'&&me){const n=memoNonLus().filter(m=>m.type===SV_TYPE).length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Regie'){const n=pvAVenir().filter(p=>pvManques(p).length).length;if(n)return `<span class="badge">${n}</span>`;if(trEtat().late.length)return `<span class="badge">!</span>`}
   if(id==='Clefs'){const n=clLotsRetard().length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Demandes'&&DT.list){const n=DT.list.filter(d=>d.statut==='Nouvelle').length;if(n)return `<span class="badge">${n}</span>`}
@@ -2758,7 +2895,8 @@ function demoSeed(){
     Pavoisements:[{id:id(),titre:'Salon démo',lieu:'Accueil Parvis',dateDebut:addDays(t,1),dateFin:addDays(t,5),statut:'Prévu',responsable:'Karim',
       liste:JSON.stringify(['France','Europe','Allemagne','Italie','Espagne','Eurexpo','GL events'].map(d=>({d,f:'200 x 300',q:d==='Eurexpo'||d==='GL events'?2:1})))},
       {id:id(),titre:'Congrès démo',lieu:'Accueil Confluence',dateDebut:addDays(t,3),dateFin:addDays(t,4),statut:'Prévu',liste:JSON.stringify([{d:'France',f:'100 x 150',q:2},{d:'Europe',f:'100 x 150',q:4}])}],
-    Memos:[{id:id(),type:'Vigilance',titre:'Coupure électrique TGBT hall 5 jeudi',niveau:'Critique',texte:'Consignation par Dalkia de 7h à 10h.\nAucune intervention sur les coffrets du hall 5 pendant ce créneau.',lieu:'Hall 5.1',jusquau:addDays(t,3),epingle:'oui',statut:'Actif',luPar:'Julien',creePar:'Responsable équipe',creeLe:addDays(t,-1)+'T08:30'},
+    Memos:[{id:id(),type:'Veille sûreté',titre:'Appel à manifester devant le parc',niveau:'Important',dateBulletin:t,salon:'Salon démo',lieu:'Accueil Parvis',source:'Préfecture du Rhône',texte:'Rassemblement annoncé le jour de l\'ouverture.\nRenforcer le filtrage à l\'entrée Parvis, portes de quai fermées hors livraisons.',jusquau:addDays(t,5),statut:'Actif',luPar:'',creePar:'Responsable équipe',creeLe:t+'T07:30'},
+      {id:id(),type:'Vigilance',titre:'Coupure électrique TGBT hall 5 jeudi',niveau:'Critique',texte:'Consignation par Dalkia de 7h à 10h.\nAucune intervention sur les coffrets du hall 5 pendant ce créneau.',lieu:'Hall 5.1',jusquau:addDays(t,3),epingle:'oui',statut:'Actif',luPar:'Julien',creePar:'Responsable équipe',creeLe:addDays(t,-1)+'T08:30'},
       {id:id(),type:'Vigilance',titre:'Clés local TGBT : toujours remettre au PC sécurité',niveau:'Important',texte:'Signer le registre à la prise et au retour.',statut:'Actif',luPar:'',creePar:'Responsable équipe',creeLe:addDays(t,-6)+'T09:00'},
       {id:id(),type:'Compte rendu',titre:'Réunion d\'équipe hebdo',dateReunion:addDays(t,-2),participants:'Responsable équipe, Julien, Karim',texte:'1. Point sécurité : port du harnais obligatoire en nacelle.\n2. Salon démo : montage à partir de jeudi.\n3. Budget : BDC éclairage à relancer.',decisions:'- Julien : relancer le devis éclairage\n- Karim : vérifier les portes sectionnelles hall 5',statut:'Actif',luPar:'Responsable équipe',creePar:'Responsable équipe',creeLe:addDays(t,-2)+'T11:00'}],
     Chantiers:[{id:id(),titre:'Remplacement éclairage LED',espace:'Hall 4.2',zone:'Côté quai',type:'Éclairage',entreprise:'DALKIA',responsable:'Julien',dateDebut:addDays(m,1),dateFin:addDays(m,9),statut:'En cours',avancement:'40',montant:'12500',nacelle:'oui',horaires:'7h-12h'},
@@ -2766,6 +2904,7 @@ function demoSeed(){
       {id:id(),titre:'Étanchéité toiture',espace:'Toitures',zone:'Hall 6',type:'Couverture / Étanchéité',entreprise:'SMAC',dateDebut:addDays(m,14),dateFin:addDays(m,30),statut:'Prévu',montant:'21800'},
       {id:id(),titre:'Contrôle cloison 6.2',espace:'Hall 6',type:'Cloisons mobiles',entreprise:'ALGAFLEX',responsable:'Karim',dateDebut:addDays(m,-3),dateFin:addDays(m,-1),statut:'Terminé',avancement:'100'}],
     EDL:[{id:id(),date:addDays(t,1),heure:'09:00',salon:'Salon démo',type:'Entrée',halls:'Hall 2.1, Hall 2.2',responsable:'Sophie',statut:'Planifié'},
+         {id:id(),date:addDays(t,9),heure:'08:00',salon:'Salon démo',type:'Sortie',halls:'Hall 2.1, Hall 2.2',responsable:'Sophie',statut:'Planifié',confirmation:'Confirmé'},
          {id:id(),date:addDays(t,-4),heure:'14:00',salon:'Salon précédent',type:'Sortie',halls:'Hall 6',responsable:'Marc',statut:'Fait avec réserves',note:'3 réserves sols'}]};
 }
 function demoParts(o,cur,part){const a=asg(o);let f=a.length>1?String(o.faitPar||'').split(',').map(x=>x.trim()).filter(n=>a.includes(n)):[];

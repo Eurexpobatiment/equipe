@@ -1,6 +1,6 @@
 /* Service worker : garde l'écran de l'appli sur l'appareil (et la bibliothèque Firebase) pour l'ouvrir même sans réseau.
    Les données hors connexion sont gardées par Firebase lui-même. */
-const CACHE = "equipe-v32";
+const CACHE = "equipe-v33";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/icon.svg", "logo.png"];
 
 self.addEventListener("install", e => {
