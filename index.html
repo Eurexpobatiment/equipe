@@ -648,6 +648,7 @@ const TABS = [
   {id:'Travaux',l:'🚧 Travaux',g:'Travaux & devis'},
   {id:'Devis',l:'🧾 Devis EDL',g:'Travaux & devis'},
   {id:'Compteurs',l:'💧 Relevés compteurs',g:'Suivi technique'},
+  {id:'Conso',l:'⚡ Consommations halls',g:'Suivi technique'},
   {id:'Budget',l:'💶 Budget',g:'Gestion'},
   {id:'Equipe',l:'👥 Équipe',g:'Gestion'}];
 const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur téléphone
@@ -878,10 +879,11 @@ function svVersMemo(id){
     texte:[m.salon&&'Salon : '+m.salon,m.texte,m.source&&'Source : '+m.source].filter(Boolean).join('\n\n')},'Nouveau point de vigilance',{fields:FORMS_MEMO.Vigilance});
 }
 
-/* ---------- Applis intégrées (Devis EDL, Relevés compteurs) : même compte Firebase, gardées chargées d'un onglet à l'autre ---------- */
+/* ---------- Applis intégrées (Devis EDL, Relevés compteurs, Consommations halls) : même compte Firebase, gardées chargées d'un onglet à l'autre ---------- */
 const APPS={
   Devis:{l:'🧾 Devis EDL',h:'Application devis BatiScript (réserves des salons)',u:'https://eurexpobatiment.github.io/devis/v2/'},
-  Compteurs:{l:'💧 Relevés compteurs',h:'Relevés mensuels eau, électricité, gaz, fioul (Dalkia)',u:'https://eurexpobatiment.github.io/compteurs/'}};
+  Compteurs:{l:'💧 Relevés compteurs',h:'Relevés mensuels eau, électricité, gaz, fioul (Dalkia)',u:'https://eurexpobatiment.github.io/compteurs/'},
+  Conso:{l:'⚡ Consommations halls',h:'Consommations énergétiques des halls par salon (DJU, météo, PV)',u:'https://eurexpobatiment.github.io/conso/'}};
 function appTop(){const h=$('header');if(!h)return;const b=Math.round(h.getBoundingClientRect().bottom);document.documentElement.style.setProperty('--hdrh',b+'px');document.documentElement.style.setProperty('--toph',b+'px')}
 addEventListener('resize',appTop);addEventListener('load',appTop);setTimeout(appTop,0);
 function appWrap(id){let w=$('#app_'+id);if(w)return w;const a=APPS[id];
