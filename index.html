@@ -794,8 +794,12 @@ function svSalons(){
 }
 const svBulletins=()=>D.Memos.filter(m=>m.type===SV_TYPE);
 const svDebut=m=>m.dateDebut||m.dateBulletin||(m.creeLe||'').slice(0,10);
-// « du jour » : bulletin Important ou Critique en cours dont la période de risque comprend aujourd'hui (repris dans le Mémo vigilance)
-const svDuJour=()=>{const t=today();return svBulletins().filter(m=>memoActif(m)&&m.niveau!=='Info'&&svDebut(m)<=t)};
+// « du jour » : bulletins en cours (tous niveaux) dont la période de risque comprend aujourd'hui, repris dans le Mémo vigilance.
+// Synthèses : seulement la plus récente.
+const svSynth=m=>/^synth[eè]se veille/i.test(m.titre||'');
+const svDuJour=()=>{const t=today(),L=svBulletins().filter(m=>memoActif(m)&&svDebut(m)<=t);
+  const der=L.filter(svSynth).sort((x,y)=>(y.creeLe||'').localeCompare(x.creeLe||''))[0];
+  return L.filter(m=>!svSynth(m)||m===der)};
 // bulletins rattachés à un salon (champ salon, plusieurs possibles séparés par des virgules) ou à tout le parc
 const svPour=(B,s)=>B.filter(m=>espList(m.salon).some(n=>{const k=svCle(n);return k&&(k===s.k||k.includes(s.k)||s.k.includes(k))}));
 const svNiv=L=>L.reduce((a,m)=>Object.keys(MNIV).indexOf(m.niveau||'Info')>Object.keys(MNIV).indexOf(a)?m.niveau:a,'Info');
@@ -1169,7 +1173,7 @@ function vMemo(el){
   const ni=m=>Object.keys(MNIV).indexOf(m.niveau||'Info');
   const sort=a=>isV?a.sort((x,y)=>(y.epingle==='oui')-(x.epingle==='oui')||ni(y)-ni(x)||(y.creeLe||'').localeCompare(x.creeLe||''))
                    :a.sort((x,y)=>(y.dateReunion||'').localeCompare(x.dateReunion||'')||(y.creeLe||'').localeCompare(x.creeLe||''));
-  const SJ=isV?svDuJour().filter(m=>!q||[m.titre,m.texte,m.lieu,m.salon].join(' ').toLowerCase().includes(q)).sort((x,y)=>ni(y)-ni(x)):[];
+  const SJ=isV?svDuJour().filter(m=>!q||[m.titre,m.texte,m.lieu,m.salon].join(' ').toLowerCase().includes(q)).sort((x,y)=>svSynth(y)-svSynth(x)||ni(y)-ni(x)):[];
   const nbV=D.Memos.filter(m=>m.type==='Vigilance'&&memoActif(m)&&!memoLu(m)).length+svDuJour().filter(m=>!memoLu(m)).length, nbC=D.Memos.filter(m=>m.type==='Compte rendu'&&memoActif(m)&&!memoLu(m)).length;
   const seg=[['Vigilance','⚠️ Points de vigilance',nbV],['Compte rendu','📝 Comptes rendus',nbC]].map(([k,l,n])=>`<button class="${S.v===k?'on':''}" onclick="UI.m.v='${k}';UI.m.arch=false;render()">${l}${n?` <span class="badge">${n}</span>`:''}</button>`).join('');
   el.innerHTML=`<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
