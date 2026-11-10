@@ -1,0 +1,11 @@
+{
+  "name": "veille-surete",
+  "version": "1.0.0",
+  "description": "Veille sûreté de l'appli Équipe – Eurexpo : liste des salons pour la tâche planifiée et dépôt des bulletins",
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.0",
+    "firebase-admin": "^12.6.0"
+  }
+}
