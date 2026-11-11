@@ -284,6 +284,7 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .n-BDC{background:#e6eefa;color:#2b5c99}.n-Facture{background:#e4f5ea;color:#1e7a45}.n-Avoir{background:#fff1dc;color:#9a5a00}.n-Devis{background:#efeaf8;color:#5b3f99}
 .pjrow{cursor:pointer}.pjrow td small{display:block;color:var(--muted,#6b7280);font-size:.78em}.pjst{font-size:.8em;white-space:nowrap}
 .mvadd .wide2{flex:1 1 160px}
+.pjmv{cursor:pointer}.pjmv:hover td{background:rgba(0,0,0,.03)}.pjmv.ed td{background:#fff6dc}
 .mvt .x{border:0;background:none;color:var(--muted);cursor:pointer}.mvt .x.arm{color:#fff;background:var(--red);border-radius:6px;font-size:11px}
 .mvadd{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .mvadd input,.mvadd select{border:1px solid #d5d9e2;border-radius:8px;padding:8px 9px;font-size:14px;width:100%;background:#fff}
@@ -1906,27 +1907,45 @@ function pjOpen(id){
   const extra=`<div class="coms"><h3>Devis, BDC, factures et avoirs</h3><div id="pmsum"></div><div id="pmlist"></div>
     <div class="mvadd"><input type="date" id="pm_date" value="${today()}"><select id="pm_nat">${NAT_PJ.map(n=>`<option ${n==='BDC'?'selected':''}>${n}</option>`).join('')}</select>
       <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" class="wide2" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
-      <input id="pm_lig" class="wide2" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn pri" id="pm_add">Ajouter</button></div></div>`;
+      <input id="pm_lig" class="wide2" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>`;
+  UI.pjEd='';
   openForm('Projets',p,'📊 '+p.titre,{validate:pjVal,extra,after:()=>{pjMvRender(id);$('#pm_add').onclick=()=>pjMvAdd(id);
-    const lg=()=>{const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''};$('#pm_nat').onchange=lg;lg()}});
+    $('#pm_nat').onchange=pjLg;pjLg()}});
 }
 function pjMvRender(id){
   const p=D.Projets.find(x=>x.id===id); if(!p||!$('#pmlist')) return;
   const c=pjCalc(p), ms=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   $('#pmsum').innerHTML=`<div class="mvk"><span>Budget <b>${p.budget===''?'—':eur(c.bud,1)}</b></span><span>Devis <b>${eur(c.dev,1)}</b></span><span>Engagé <b>${eur(c.bdc,1)}</b></span><span>Facturé <b>${eur(c.fac,1)}</b></span>
     <span class="${c.resteEng<-0.005?'negt':''}">Reste à engager <b>${p.budget===''?'—':eur(c.resteEng,1)}</b></span><span class="${c.resteFac<-0.005?'negt':''}">Reste à payer <b>${eur(c.resteFac,1)}</b></span></div>`;
-  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc(m.numero)}${m.fournisseur?' · '+esc(m.fournisseur):''}<small>${esc([m.ligne&&('Ligne '+m.ligne),m.libelle].filter(Boolean).join(' · '))}</small></td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
+  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc(m.numero)}${m.fournisseur?' · '+esc(m.fournisseur):''}<small>${esc([m.ligne&&('Ligne '+m.ligne),m.libelle].filter(Boolean).join(' · '))}</small></td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
+}
+function pjLg(){const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''}
+// Clic sur une ligne : ses valeurs passent dans la saisie, « Ajouter » devient « Enregistrer la modification »
+function pjMvEdit(mid){
+  const m=D.ProjetMvts.find(x=>x.id===mid); if(!m||!$('#pm_add')) return;
+  UI.pjEd=mid;
+  $('#pm_date').value=m.date||today(); $('#pm_nat').value=m.nature; $('#pm_num').value=m.numero||''; $('#pm_fou').value=m.fournisseur||'';
+  $('#pm_lig').value=m.ligne||''; $('#pm_mt').value=String(m.montant||'').replace('.',','); $('#pm_lib').value=m.libelle||''; pjLg();
+  $('#pm_add').textContent='Enregistrer la modification'; $('#pm_cancel').hidden=false;
+  pjMvRender(m.projetId); $('#pm_mt').scrollIntoView({block:'center',behavior:'smooth'}); $('#pm_mt').focus();
+}
+function pjMvReset(){
+  const mid=UI.pjEd, m=D.ProjetMvts.find(x=>x.id===mid); UI.pjEd='';
+  ['pm_num','pm_mt','pm_lib','pm_lig'].forEach(k=>$('#'+k).value=''); $('#pm_date').value=today();
+  const p=m&&D.Projets.find(x=>x.id===m.projetId); if(p)$('#pm_fou').value=p.entreprise||'';
+  $('#pm_add').textContent='Ajouter'; $('#pm_cancel').hidden=true; if(m)pjMvRender(m.projetId);
 }
 async function pjMvAdd(id){
   const mt=$('#pm_mt').value.trim(); if(!isPureNum(mt)) return toast('Montant : saisis un nombre (ex. 1 234,56)',1);
   const b=$('#pm_add'), done=setBusy(b,'…');
-  try{await saveItem('ProjetMvts',{projetId:id,date:$('#pm_date').value||today(),nature:$('#pm_nat').value,numero:$('#pm_num').value.trim(),fournisseur:$('#pm_fou').value.trim(),ligne:$('#pm_lig').value.trim(),montant:mt,libelle:$('#pm_lib').value.trim()});
-    ['pm_num','pm_mt','pm_lib','pm_lig'].forEach(k=>$('#'+k).value='');toast('Ajouté ✓')}catch(e){toast(e.message,1)}
-  done(); pjMvRender(id);
+  const ed=UI.pjEd;
+  try{await saveItem('ProjetMvts',{...(ed?{id:ed}:{}),projetId:id,date:$('#pm_date').value||today(),nature:$('#pm_nat').value,numero:$('#pm_num').value.trim(),fournisseur:$('#pm_fou').value.trim(),ligne:$('#pm_lig').value.trim(),montant:mt,libelle:$('#pm_lib').value.trim()});
+    done(); if(ed){pjMvReset();toast('Modifié ✓')}else{['pm_num','pm_mt','pm_lib','pm_lig'].forEach(k=>$('#'+k).value='');toast('Ajouté ✓')}}catch(e){done();toast(e.message,1)}
+  pjMvRender(id);
 }
 async function pjMvDel(mid,id,btn){
   if(!btn.classList.contains('arm')){btn.classList.add('arm');btn.textContent='Confirmer';return}
-  btn.disabled=true; try{await delItem('ProjetMvts',mid)}catch(e){toast(e.message,1)} pjMvRender(id);
+  btn.disabled=true; try{await delItem('ProjetMvts',mid);if(UI.pjEd===mid)pjMvReset()}catch(e){toast(e.message,1)} pjMvRender(id);
 }
 async function pjExport(){
   try{
