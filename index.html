@@ -631,8 +631,7 @@ const FORMS = {
   Projets: [
     {k:'titre',l:'Projet',req:1,full:1},
     {k:'entreprise',l:'Entreprise(s)',t:'dl',dl:'dl-presta'},
-    {k:'ligne',l:'Ligne budgétaire (pour info)',t:'dl',dl:'dl-codes'},
-    {k:'budget',l:'Budget (€ HT)',t:'money'},
+    {k:'budget',l:'Budget du projet (€ HT)',t:'money'},
     {k:'statut',l:'Statut',t:'select',o:['À l\'étude','En cours','Terminé','Clôturé','Annulé'],def:'En cours'},
     {k:'dateDebut',l:'Début',t:'date'},
     {k:'dateFin',l:'Fin prévue',t:'date'},
@@ -731,7 +730,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '17'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '18'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[]};
@@ -1867,6 +1866,7 @@ async function bExport(){
 const NAT_PJ=['Devis','BDC','Facture','Avoir'];
 const PJ_ST={'À l\'étude':'#3a6ea5','En cours':'#e09a2b','Terminé':'#2a9d5c','Clôturé':'#64748b','Annulé':'#9aa3b2'};
 const pjMine=()=>D.Projets.filter(p=>p.proprio===me);
+const pjLignes=id=>[...new Set(D.ProjetMvts.filter(m=>m.projetId===id&&m.nature==='BDC'&&m.ligne).map(m=>m.ligne))]; // lignes budgétaires des BDC du projet
 function pjCalc(p){
   let dev=0,bdc=0,fac=0;
   D.ProjetMvts.forEach(m=>{if(m.projetId!==p.id)return;const v=num(m.montant);
@@ -1878,13 +1878,13 @@ function vProjets(el){
   const st=UI.pj||(UI.pj={f:'actifs',q:''}), q=st.q.trim().toLowerCase();
   const all=pjMine(), act=p=>!['Clôturé','Annulé'].includes(p.statut);
   let L=all.filter(p=>st.f==='tous'||(st.f==='actifs'?act(p):!act(p)));
-  if(q) L=L.filter(p=>[p.titre,p.entreprise,p.ligne,p.note].join(' ').toLowerCase().includes(q)||D.ProjetMvts.some(m=>m.projetId===p.id&&[m.numero,m.fournisseur,m.libelle].join(' ').toLowerCase().includes(q)));
+  if(q) L=L.filter(p=>[p.titre,p.entreprise,p.note].join(' ').toLowerCase().includes(q)||D.ProjetMvts.some(m=>m.projetId===p.id&&[m.numero,m.fournisseur,m.ligne,m.libelle].join(' ').toLowerCase().includes(q)));
   L.sort((a,b)=>Object.keys(PJ_ST).indexOf(a.statut)-Object.keys(PJ_ST).indexOf(b.statut)||(a.dateFin||'9999').localeCompare(b.dateFin||'9999')||a.titre.localeCompare(b.titre,'fr'));
   const s={bud:0,dev:0,bdc:0,fac:0}; L.filter(p=>p.statut!=='Annulé').forEach(p=>{const c=pjCalc(p);s.bud+=c.bud;s.dev+=c.dev;s.bdc+=c.bdc;s.fac+=c.fac});
   const rE=s.bud-s.bdc, rF=s.bdc-s.fac, pc=s.bud?s.bdc/s.bud:0;
   const filt=[['actifs','En cours'],['clos','Clôturés'],['tous','Tous']].map(([k,l])=>`<button class="${st.f===k?'on':''}" onclick="UI.pj.f='${k}';render()">${l}</button>`).join('');
   const row=p=>{const c=pjCalc(p);return `<tr class="pjrow" onclick="pjOpen('${p.id}')">
-    <td><b>${esc(p.titre)}</b><small>${esc([p.entreprise,p.ligne,p.dateFin&&('fin '+fD(p.dateFin,{day:'2-digit',month:'2-digit',year:'2-digit'}))].filter(Boolean).join(' · '))}</small></td>
+    <td><b>${esc(p.titre)}</b><small>${esc([p.entreprise,pjLignes(p.id).join(', '),p.dateFin&&('fin '+fD(p.dateFin,{day:'2-digit',month:'2-digit',year:'2-digit'}))].filter(Boolean).join(' · '))}</small></td>
     <td><span class="etat pjst" style="background:${PJ_ST[p.statut]||'#64748b'};color:#fff">${esc(p.statut||'')}</span>${c.hors?' <span class="etat ko">Hors budget</span>':''}${c.surFac?' <span class="etat ko" title="Plus facturé que commandé">Factures &gt; BDC</span>':''}</td>
     <td class="r">${p.budget===''?'—':eur(c.bud)}</td><td class="r">${c.dev?eur(c.dev):'—'}</td><td class="r">${eur(c.bdc)}</td><td class="r">${eur(c.fac)}</td>
     <td class="r ${c.resteEng<-0.005?'negt':''}">${p.budget===''?'—':eur(c.resteEng)}</td><td class="r ${c.resteFac<-0.005?'negt':''}">${eur(c.resteFac)}</td>
@@ -1906,21 +1906,22 @@ function pjOpen(id){
   const extra=`<div class="coms"><h3>Devis, BDC, factures et avoirs</h3><div id="pmsum"></div><div id="pmlist"></div>
     <div class="mvadd"><input type="date" id="pm_date" value="${today()}"><select id="pm_nat">${NAT_PJ.map(n=>`<option ${n==='BDC'?'selected':''}>${n}</option>`).join('')}</select>
       <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" class="wide2" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
-      <input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn pri" id="pm_add">Ajouter</button></div></div>`;
-  openForm('Projets',p,'📊 '+p.titre,{validate:pjVal,extra,after:()=>{pjMvRender(id);$('#pm_add').onclick=()=>pjMvAdd(id)}});
+      <input id="pm_lig" class="wide2" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn pri" id="pm_add">Ajouter</button></div></div>`;
+  openForm('Projets',p,'📊 '+p.titre,{validate:pjVal,extra,after:()=>{pjMvRender(id);$('#pm_add').onclick=()=>pjMvAdd(id);
+    const lg=()=>{const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''};$('#pm_nat').onchange=lg;lg()}});
 }
 function pjMvRender(id){
   const p=D.Projets.find(x=>x.id===id); if(!p||!$('#pmlist')) return;
   const c=pjCalc(p), ms=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   $('#pmsum').innerHTML=`<div class="mvk"><span>Budget <b>${p.budget===''?'—':eur(c.bud,1)}</b></span><span>Devis <b>${eur(c.dev,1)}</b></span><span>Engagé <b>${eur(c.bdc,1)}</b></span><span>Facturé <b>${eur(c.fac,1)}</b></span>
     <span class="${c.resteEng<-0.005?'negt':''}">Reste à engager <b>${p.budget===''?'—':eur(c.resteEng,1)}</b></span><span class="${c.resteFac<-0.005?'negt':''}">Reste à payer <b>${eur(c.resteFac,1)}</b></span></div>`;
-  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc(m.numero)}${m.fournisseur?' · '+esc(m.fournisseur):''}<small>${esc(m.libelle)}</small></td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
+  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc(m.numero)}${m.fournisseur?' · '+esc(m.fournisseur):''}<small>${esc([m.ligne&&('Ligne '+m.ligne),m.libelle].filter(Boolean).join(' · '))}</small></td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
 }
 async function pjMvAdd(id){
   const mt=$('#pm_mt').value.trim(); if(!isPureNum(mt)) return toast('Montant : saisis un nombre (ex. 1 234,56)',1);
   const b=$('#pm_add'), done=setBusy(b,'…');
-  try{await saveItem('ProjetMvts',{projetId:id,date:$('#pm_date').value||today(),nature:$('#pm_nat').value,numero:$('#pm_num').value.trim(),fournisseur:$('#pm_fou').value.trim(),montant:mt,libelle:$('#pm_lib').value.trim()});
-    ['pm_num','pm_mt','pm_lib'].forEach(k=>$('#'+k).value='');toast('Ajouté ✓')}catch(e){toast(e.message,1)}
+  try{await saveItem('ProjetMvts',{projetId:id,date:$('#pm_date').value||today(),nature:$('#pm_nat').value,numero:$('#pm_num').value.trim(),fournisseur:$('#pm_fou').value.trim(),ligne:$('#pm_lig').value.trim(),montant:mt,libelle:$('#pm_lib').value.trim()});
+    ['pm_num','pm_mt','pm_lib','pm_lig'].forEach(k=>$('#'+k).value='');toast('Ajouté ✓')}catch(e){toast(e.message,1)}
   done(); pjMvRender(id);
 }
 async function pjMvDel(mid,id,btn){
@@ -1931,9 +1932,9 @@ async function pjExport(){
   try{
     if(!window.XLSX){toast('Préparation du fichier…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
     const r2=n=>Math.round(n*100)/100, P=pjMine(), byId=Object.fromEntries(P.map(p=>[p.id,p]));
-    const pr=P.map(p=>{const c=pjCalc(p);return {'Projet':p.titre,'Statut':p.statut,'Entreprise(s)':p.entreprise,'Ligne budgétaire':p.ligne,'Début':p.dateDebut,'Fin prévue':p.dateFin,
+    const pr=P.map(p=>{const c=pjCalc(p);return {'Projet':p.titre,'Statut':p.statut,'Entreprise(s)':p.entreprise,'Lignes budgétaires (BDC)':pjLignes(p.id).join(', '),'Début':p.dateDebut,'Fin prévue':p.dateFin,
       'Budget HT':p.budget===''?'':r2(c.bud),'Devis HT':r2(c.dev),'Engagé (BDC) HT':r2(c.bdc),'Facturé HT':r2(c.fac),'Reste à engager':p.budget===''?'':r2(c.resteEng),'Reste à payer':r2(c.resteFac),'% engagé':c.bud?r2(c.pct*100):'','Note':p.note}});
-    const mv=D.ProjetMvts.filter(m=>byId[m.projetId]).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(m=>({'Date':m.date,'Projet':byId[m.projetId].titre,'Nature':m.nature,'N°':m.numero,'Entreprise':m.fournisseur,'Libellé':m.libelle,'Montant HT':r2(num(m.montant)*(m.nature==='Avoir'?-1:1))}));
+    const mv=D.ProjetMvts.filter(m=>byId[m.projetId]).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(m=>({'Date':m.date,'Projet':byId[m.projetId].titre,'Nature':m.nature,'N°':m.numero,'Entreprise':m.fournisseur,'Ligne budgétaire':m.ligne,'Libellé':m.libelle,'Montant HT':r2(num(m.montant)*(m.nature==='Avoir'?-1:1))}));
     const wb=XLSX.utils.book_new(), add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(48,Math.max(10,k.length+2,...rows.map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
     add(pr,'Projets'); add(mv,'Devis BDC factures');
     XLSX.writeFile(wb,`Suivi projets - ${today()}.xlsx`);

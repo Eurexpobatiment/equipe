@@ -26,7 +26,7 @@ export const SCHEMA = {
   Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar'],
   // Suivi financier de projets perso : visibles par leur propriétaire seulement (champ proprio)
   Projets:      ['id', 'titre', 'entreprise', 'ligne', 'budget', 'statut', 'dateDebut', 'dateFin', 'note', 'proprio', 'creeLe', 'majLe', 'majPar'],
-  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'montant', 'libelle', 'proprio', 'creeLe', 'majPar']
+  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'montant', 'libelle', 'proprio', 'creeLe', 'majPar']
 };
 export const NAT_PROJET = ['Devis', 'BDC', 'Facture', 'Avoir'];
 // Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
@@ -283,6 +283,7 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       o.proprio = user;
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       if (NAT_PROJET.indexOf(o.nature) < 0) throw new Error('Nature inconnue : ' + o.nature);
+      if (o.nature !== 'BDC') o.ligne = ''; // la ligne budgétaire se porte sur les BDC
       o.montant = money_(o.montant, 'Montant');
       if (Number(o.montant) < 0) throw new Error('Montant positif (pour une déduction, choisis « Avoir »)');
       if (!cur) o.creeLe = now;
