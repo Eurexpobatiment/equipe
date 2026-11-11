@@ -55,6 +55,21 @@ service cloud.firestore {
       allow delete: if member() && (resource.data.prive == 'non' || resource.data.proprio == myNom());
     }
 
+    // Suivi financier de projets perso : visibles et modifiables par leur propriétaire seulement
+    match /Projets/{id} {
+      allow read, delete: if member() && resource.data.proprio == myNom();
+      allow create: if member() && small() && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom();
+      allow update: if member() && small() && resource.data.proprio == myNom()
+                    && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom();
+    }
+    match /ProjetMvts/{id} {
+      allow read, delete: if member() && resource.data.proprio == myNom();
+      allow create: if member() && small() && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom()
+                    && get(/databases/$(db)/documents/Projets/$(request.resource.data.projetId)).data.proprio == myNom();
+      allow update: if member() && small() && resource.data.proprio == myNom()
+                    && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom();
+    }
+
     // Équipe et droits d'accès : modifiables par les responsables seulement
     match /Equipe/{id} {
       allow read: if member();

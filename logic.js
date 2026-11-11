@@ -23,14 +23,18 @@ export const SCHEMA = {
   Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
                  'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar'],
-  Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar']
+  Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar'],
+  // Suivi financier de projets perso : visibles par leur propriétaire seulement (champ proprio)
+  Projets:      ['id', 'titre', 'entreprise', 'ligne', 'budget', 'statut', 'dateDebut', 'dateFin', 'note', 'proprio', 'creeLe', 'majLe', 'majPar'],
+  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'montant', 'libelle', 'proprio', 'creeLe', 'majPar']
 };
+export const NAT_PROJET = ['Devis', 'BDC', 'Facture', 'Avoir'];
 // Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
-export const HORS_SHEET = ['Clefs', 'ClefsPrets', 'Documents'];
+export const HORS_SHEET = ['Clefs', 'ClefsPrets', 'Documents', 'Projets', 'ProjetMvts'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const LONG_FIELDS = ['description', 'texte', 'note', 'designation', 'commentaire', 'libelle', 'intitule', 'contraintes', 'decisions', 'liste'];
+const LONG_FIELDS = ['description', 'libelle', 'texte', 'note', 'designation', 'commentaire', 'intitule', 'contraintes', 'decisions', 'liste'];
 
 const pad = n => String(n).padStart(2, '0');
 export function now_() {
@@ -260,6 +264,31 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (!cur) { o.creePar = user; o.creeLe = now; }
       o.majLe = now; o.majPar = user;
       break;
+    case 'Projets':
+      if (!o.titre) throw new Error('Nom du projet obligatoire');
+      if (cur && cur.proprio !== user) throw new Error('Projet introuvable (supprimé ?)');
+      o.proprio = cur ? cur.proprio : user;
+      if (o.budget !== '' && o.budget !== undefined) o.budget = money_(o.budget, 'Budget');
+      ['dateDebut', 'dateFin'].forEach(k => { if (o[k] && !RE_DATE.test(o[k])) throw new Error('Date invalide : ' + o[k]); });
+      if (o.dateDebut && o.dateFin && o.dateFin < o.dateDebut) throw new Error('La date de fin est avant la date de début');
+      if (!o.statut) o.statut = 'En cours';
+      if (!cur) o.creeLe = now;
+      o.majLe = now; o.majPar = user;
+      break;
+    case 'ProjetMvts': {
+      if (!o.projetId) throw new Error('Projet inconnu');
+      const pj = (opts.projets || []).filter(x => x.id === String(o.projetId))[0];
+      if (!pj || pj.proprio !== user) throw new Error('Projet introuvable (supprimé ?)');
+      if (cur && cur.proprio !== user) throw new Error('Ligne introuvable (supprimée ?)');
+      o.proprio = user;
+      if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
+      if (NAT_PROJET.indexOf(o.nature) < 0) throw new Error('Nature inconnue : ' + o.nature);
+      o.montant = money_(o.montant, 'Montant');
+      if (Number(o.montant) < 0) throw new Error('Montant positif (pour une déduction, choisis « Avoir »)');
+      if (!cur) o.creeLe = now;
+      o.majPar = user;
+      break;
+    }
     default: // EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       o.majPar = user;
@@ -298,6 +327,8 @@ export function summary_(name, o) {
     case 'Clefs': return (o.numero ? 'n° ' + o.numero + ' ' : '') + o.espace + ' - ' + o.acces + ' · stock ' + o.stock;
     case 'ClefsPrets': return o.societe + ' · ' + [o.prenom, o.nom].filter(Boolean).join(' ') + ' · ' + (o.numero || o.designation) + ' · ' + o.rendu + '/' + o.qte + ' rendue(s)' + (o.statut ? ' · ' + o.statut : '');
     case 'Documents': return o.titre + ' · ' + o.categorie + (o.espaces ? ' · ' + o.espaces : '') + ' · ' + o.source;
+    case 'Projets': return 'Projet perso de ' + o.proprio;
+    case 'ProjetMvts': return 'Ligne de projet perso de ' + o.proprio;
     case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';

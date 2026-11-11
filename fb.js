@@ -17,7 +17,7 @@ async function acJeton() {
   if (!acInst) return '';
   try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
 }
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=11';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=12';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -135,6 +135,7 @@ export function start(D, onChange, onErr) {
       essais = 0;
       parts[key] = s.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
       if (name === 'Documents') globalThis.DOCS_ERR = '';
+      if (name === 'Projets') globalThis.PROJ_ERR = '';
       merge(name);
       if (first) { first = false; pending--; }
       if (!done && pending === 0) done = true;
@@ -146,6 +147,7 @@ export function start(D, onChange, onErr) {
       if (auth.currentUser && !auth.currentUser.isAnonymous) setTimeout(() => { if (g === gen && auth.currentUser) go(); }, Math.min(30000, 1500 * essais));
       if (essais < 3 || !first) return; // l'erreur n'est signalée qu'au premier chargement, après 3 essais
       // Documents : nouvelle collection, les règles Firebase peuvent ne pas être encore publiées → on le signale dans l'onglet seulement
+      if (name === 'Projets' || name === 'ProjetMvts') { globalThis.PROJ_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (name === 'Documents') { globalThis.DOCS_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (first) { first = false; pending--; } onErr(errMsg(e)); if (!done && pending === 0) { done = true; onChange(true, true); }
     }));
@@ -159,6 +161,8 @@ export function start(D, onChange, onErr) {
     } else if (name === 'Commentaires') {
       sub(name, F.query(c, F.where('prive', '==', 'non')));
       sub(name, F.query(c, F.where('prive', '==', 'oui'), F.where('proprio', '==', me)));
+    } else if (name === 'Projets' || name === 'ProjetMvts') {
+      sub(name, F.query(c, F.where('proprio', '==', me))); // projets perso : seulement les miens
     } else sub(name, c);
   });
 }
@@ -188,7 +192,7 @@ async function notifier(o, nouveaux) {
 async function save(name, item, opts = {}) {
   const L = (D_ && D_[name]) || [];
   const cur = item.id ? L.find(x => x.id === String(item.id)) || null : null;
-  const o = prepare(name, item, me, cur, L, Object.assign({ taches: D_ && D_.Taches }, opts));
+  const o = prepare(name, item, me, cur, L, Object.assign({ taches: D_ && D_.Taches, projets: D_ && D_.Projets }, opts));
 
   if (name === 'Nacelle') { await saveNacelle(o); journal(cur ? 'modification' : 'ajout', name, o.id, summary_(name, o)); return o; }
 
@@ -229,7 +233,7 @@ async function remove(name, id) {
   if (name === 'Equipe') throw new Error('Pour retirer quelqu\'un, utilise « Retirer »');
   const b = F.writeBatch(db);
   b.delete(ref(name, cur.id));
-  const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'] }[name];
+  const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'], Projets: ['ProjetMvts', 'projetId'] }[name];
   if (child) (D_[child[0]] || []).filter(c => c[child[1]] === cur.id).forEach(c => b.delete(ref(child[0], c.id)));
   bg(b.commit());
   journal('suppression', name, cur.id, summary_(name, cur));
