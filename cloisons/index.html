@@ -153,7 +153,6 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
         <li>Chaque <b>cloison</b> est une seule pièce mobile. Elle peut être <b>rangée</b> (ouverte) ou mise en place à l'une de ses <b>positions</b>.</li>
         <li>Une cloison ne peut être qu'<b>à un seul endroit à la fois</b> : la placer à une position libère les autres.</li>
         <li>Hall 6.2 : la position entre <b>6.2B et 6.2A</b> est partagée par les cloisons 6.2 et 6.3 – une seule des deux peut l'occuper.</li>
-        <li>Hall 2.1 : les cloisons <b>2.1 et 2.1 Ext</b> ne peuvent pas être en place en même temps.</li>
         <li>Les positions occupées découpent les halls ; les espaces de même couleur forment un seul plateau.</li>
         <li><b>Position actuelle</b> : reprend le plan annoté (traits rouges = positions occupées).</li>
       </ol>
@@ -207,9 +206,11 @@ const C = [
   {id:"c3132",name:"Cloison 3.1 / 3.2", pos:[{id:"a",label:"3.1 | 3.2",pts:[[550,840],[705,685]],links:["3.1","3.2"]}]},
   {id:"c31",  name:"Cloison 3.1", pos:[{id:"a",label:"3.1 | 2.1A",pts:[[660,950],[735,1025]],links:["3.1","2.1A"]}]},
   {id:"c22",  name:"Cloison 2.2", pos:[{id:"a",label:"2.2 | 2.1A",pts:[[445,1093],[515,1020]],links:["2.2","2.1A"]}]},
-  {id:"c21r", name:"Cloison 2.1 (retour 2.2)", check:true, pos:[{id:"a",label:"2.2 | 2.1B",pts:[[360,1178],[445,1093]],links:["2.2","2.1B"]}]},
-  {id:"c21",  name:"Cloison 2.1", intra:true, pos:[{id:"a",label:"2.1A | 2.1B",pts:[[445,1093],[695,1345]],links:["2.1A","2.1B"]}]},
-  {id:"c21E", name:"Cloison 2.1 Ext", intra:true, pos:[{id:"a",label:"2.1B | 2.1C",pts:[[360,1180],[610,1430]],links:["2.1B","2.1C"]}]},
+  {id:"c21",  name:"Cloison 2.1", intra:true, pos:[
+      {id:"p1",label:"① retour 2.2 (2.2 | 2.1B)",pts:[[360,1178],[445,1093]],links:["2.2","2.1B"]},
+      {id:"p2",label:"② 2.1A | 2.1B",pts:[[445,1093],[695,1345]],links:["2.1A","2.1B"]},
+      {id:"p3",label:"③ 2.1 Ext (2.1B | 2.1C)",pts:[[360,1180],[610,1430]],links:["2.1B","2.1C"]}],
+   note:"Une seule cloison qui prend l'une des 3 positions : retour 2.2, 2.1 ou 2.1 Ext."},
   {id:"cH1",  name:"Cloison Hall 1", pos:[{id:"a",label:"Hall 1 | 2.1",pts:[[610,1430],[695,1345],[775,1270]],links:["1","2.1A","2.1B"]}]},
   {id:"c51",  name:"Cloison 5.1", pos:[{id:"a",label:"5.1 | 6.2B",pts:[[1375,1030],[1465,945]],links:["5.1","6.2B"]}]},
   {id:"c61",  name:"Cloison 6.1", pos:[{id:"a",label:"6.1 | 6.2A",pts:[[1320,1260],[1495,1430]],links:["6.1","6.2A"]}]},
@@ -224,7 +225,7 @@ const C = [
       {id:"p3",label:"③ 6.2B | 6.2A",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
    note:"La position ③ (entre 6.2B et 6.2A) est partagée avec la cloison 6.2 : une seule des deux peut s'y trouver. Positions ① et ② : la bande étroite entre les deux traits passe d'un côté ou de l'autre. Les surfaces 6.3B / 6.3C affichées sont celles du plan officiel."}
 ];
-const COLORS={c42A:"#ff4d4f",c42C:"#ff9f1a",c41A:"#ffe066",c41B:"#a9e34b",c3132:"#3bc9db",c31:"#f06595",c22:"#ffffff",c21r:"#ffa8a8",c21:"#4dabf7",c21E:"#ff922b",cH1:"#d0bfff",c51:"#63e6be",c61:"#ffd8a8",c62:"#ff6bcb",c63:"#74c0fc"};
+const COLORS={c42A:"#ff4d4f",c42C:"#ff9f1a",c41A:"#ffe066",c41B:"#a9e34b",c3132:"#3bc9db",c31:"#f06595",c22:"#ffffff",c21:"#4dabf7",cH1:"#d0bfff",c51:"#63e6be",c61:"#ffd8a8",c62:"#ff6bcb",c63:"#74c0fc"};
 C.forEach(c=>c.color=COLORS[c.id]);
 const CL={}; C.forEach(c=>CL[c.id]=c);
 const lk=(c,p)=>p.line||(c.id+"-"+p.id);
@@ -252,7 +253,7 @@ const gParts=document.getElementById("parts"), gZones=document.getElementById("z
 const tip=document.getElementById("tip"), card=document.getElementById("mapcard"), svg=document.getElementById("map");
 function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const a in attrs)e.setAttribute(a,attrs[a]);parent&&parent.appendChild(e);return e;}
 
-const EXCL=[["c21","c21E"]]; // cloisons qui ne peuvent pas être en place en même temps
+const EXCL=[]; // cloisons qui ne peuvent pas être en place en même temps
 function setPos(cid,pid){ state[cid]=pid; if(!pid) return;
   EXCL.forEach(g=>{ if(g.includes(cid)) g.forEach(o=>{ if(o!==cid) state[o]=null; }); });
   const key=lk(CL[cid],CL[cid].pos.find(p=>p.id===pid));
@@ -379,7 +380,7 @@ function renderList(){
     grid.appendChild(d);
   });
   bindSeg(grid);
-  const n=C.filter(c=>!["c21","c21E","c62","c63"].includes(c.id)).reduce((s,c)=>s*(c.pos.length+1),1)*3*15;
+  const n=C.filter(c=>!["c62","c63"].includes(c.id)).reduce((s,c)=>s*(c.pos.length+1),1)*15;
   document.getElementById("nCombos").textContent=`${C.length} cloisons · ${n.toLocaleString("fr-FR")} combinaisons théoriques sur le parc`;
 }
 
@@ -403,7 +404,7 @@ function renderCombos(){
 }
 
 // ---------- Préréglages ----------
-const ACTUEL={c42A:"a",c41B:"a",c3132:"a",c21E:"a",c62:"p2"};
+const ACTUEL={c42A:"a",c41B:"a",c3132:"a",c21:"p3",c62:"p2"};
 function preset(name){
   C.forEach(c=>{
     if(name==="open") state[c.id]=null;
