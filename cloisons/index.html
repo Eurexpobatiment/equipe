@@ -272,8 +272,10 @@ function setPos(cid,pid){ state[cid]=pid; if(!pid) return;
   EXCL.forEach(g=>{ if(g.includes(cid)) g.forEach(o=>{ if(o!==cid) state[o]=null; }); });
   const key=lk(CL[cid],CL[cid].pos.find(p=>p.id===pid));
   C.forEach(c=>{ if(c.id!==cid){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) state[c.id]=null; } }); }
-function pickPos(cid,pid,silent){ C.forEach(c=>state[c.id]=null); if(cid&&pid) state[cid]=pid; selected=cid||null; render();
-  if(!silent) try{ parent.postMessage({cloisonsPick:{c:cid,p:pid}},"*"); }catch(e){} }
+// Mode choix (formulaire) : plusieurs cloisons possibles, une position par cloison
+function pickSend(){ try{ parent.postMessage({cloisonsPick:C.filter(c=>state[c.id]).map(c=>({c:c.id,p:state[c.id]}))},"*"); }catch(e){} }
+function pickPos(cid,pid){ if(state[cid]===pid) state[cid]=null; else setPos(cid,pid); selected=cid; render(); pickSend(); }
+function pickSet(list){ C.forEach(c=>state[c.id]=null); (list||[]).forEach(o=>{ if(CL[o.c]) state[o.c]=o.p; }); render(); }
 function place(cid,pid){ if(PICK){ pickPos(cid,pid); return; } setPos(cid, state[cid]===pid ? null : pid); selected=cid; clearPreset(); render(); }
 function occupant(key){ for(const c of C){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) return c.id; } return null; }
 
@@ -287,7 +289,8 @@ Object.entries(LINES).forEach(([k,L])=>{
   if(L.owners.length>1) el("path",{d,class:"vis2",fill:"none",stroke:CL[L.owners[1][0]].color,"stroke-dashoffset":16},g);
   el("path",{d,class:"hit",fill:"none"},g);
   g.addEventListener("click",()=>{
-    if(PICK){ const i=L.owners.findIndex(o=>o[0]===selected&&state[o[0]]===o[1]); pickPos(...L.owners[(i+1)%L.owners.length]); return; }
+    if(PICK){ const occ=occupant(k), i=L.owners.findIndex(o=>o[0]===occ); if(occ) state[occ]=null;
+      const nx=L.owners[i+1]; if(nx) setPos(nx[0],nx[1]); selected=nx?nx[0]:occ; render(); pickSend(); return; }
     if(L.owners.length===1){ place(...L.owners[0]); return; }
     // position partagée : libre -> 1re cloison -> 2e cloison -> libre
     const occ=occupant(k), i=L.owners.findIndex(o=>o[0]===occ);
@@ -421,7 +424,7 @@ function renderCombos(){
 }
 
 // ---------- Préréglages ----------
-const ACTUEL={c42A:"a",c41B:"a",c3132:"a",c21:"p3",c62:"p2"};
+const ACTUEL={c42A:"a",c41B:"a",c3132:"a",c21:"p3"};
 function preset(name){
   if(name==="appli"){ if(EXT) applyExt(); return; }
   C.forEach(c=>{
@@ -461,9 +464,9 @@ function applyExt(){
 }
 window.addEventListener("message",e=>{ const m=e.data; if(!m) return;
   if(m.cloisonsState){ EXT=m; applyExt(); }
-  if(m.cloisonsSelect&&PICK) pickPos(m.cloisonsSelect.c,m.cloisonsSelect.p,true); });
+  if(m.cloisonsSelect&&PICK) pickSet(m.cloisonsSelect); });
 preset("actuel");
-if(PICK) pickPos(null,null,true);
+if(PICK) pickSet([]);
 if(document.body.classList.contains("embed")) try{ parent.postMessage({cloisonsReady:1},"*"); }catch(e){}
 </script>
 </body>
