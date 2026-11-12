@@ -191,6 +191,8 @@ table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;
 @media (max-width:820px){.mcal .mc{min-height:64px;padding:2px}.mcal .ev{font-size:9.5px;line-height:15px;padding:0 2px}.mcal .mh{font-size:11px}}
 
 /* Agenda (cloisons, EDL) */
+.clbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.clbar input{padding:6px 8px;border:1px solid #d0d5dd;border-radius:8px;font:inherit}
 .ag-day{margin-bottom:14px}
 .ag-day h3{font-size:13px;text-transform:capitalize;color:#475569;margin:0 0 6px 2px}
 .ag-day.today h3{color:var(--accent)}
@@ -535,6 +537,10 @@ const ST_COL = {'Prévu':'#3a6ea5','Planifié':'#3a6ea5','Fait':'#2a9d5c','Fait 
 const PV_ST={'Prévu':'#3a6ea5','Posé':'#e09a2b','Déposé':'#2a9d5c','Annulé':'#9aa3b2'};
 
 const EDL_CONF=['En attente de confirmation','Confirmé'];
+/* Cloisons mobiles du plan interactif (cloisons/index.html) : cloison (c) et position (p) — à garder en phase avec le plan */
+const CL_POS = [{"v":"Cloison 4.2A (4.2A | 4.2B)","c":"c42A","p":"a"},{"v":"Cloison 4.2C (4.2B | 4.2C)","c":"c42C","p":"a"},{"v":"Cloison 4.1A (4.1 | 4.2 (moitié ouest))","c":"c41A","p":"a"},{"v":"Cloison 4.1B (4.1 | 4.2 (moitié est))","c":"c41B","p":"a"},{"v":"Cloison 3.1 / 3.2 (3.1 | 3.2)","c":"c3132","p":"a"},{"v":"Cloison 3.1 (3.1 | 2.1A)","c":"c31","p":"a"},{"v":"Cloison 2.1A/2.2 (2.1A | 2.2)","c":"c22","p":"a"},{"v":"Cloison 2.1 · ① 2.1B/2.2","c":"c21","p":"p1"},{"v":"Cloison 2.1 · ② 2.1 (2.1A | 2.1B)","c":"c21","p":"p2"},{"v":"Cloison 2.1 · ③ 2.1B/C","c":"c21","p":"p3"},{"v":"Cloison Hall 1 (Hall 1 | 2.1)","c":"cH1","p":"a"},{"v":"Cloison 5.1 (5.1 | 6.2B)","c":"c51","p":"a"},{"v":"Cloison 6.1 (6.1 | 6.2A)","c":"c61","p":"a"},{"v":"Cloison 6.2 · ① 6.3A | 6.3B","c":"c62","p":"p1"},{"v":"Cloison 6.2 · ② 6.2 | 6.3","c":"c62","p":"p2"},{"v":"Cloison 6.2 · ③ 6.2B | 6.2A","c":"c62","p":"p3","l":"L62BA"},{"v":"Cloison 6.3 · ① 6.3B | 6.3C (côté 6.3C)","c":"c63","p":"p1"},{"v":"Cloison 6.3 · ② 6.3B | 6.3C (côté 6.3B)","c":"c63","p":"p2"},{"v":"Cloison 6.3 · ③ 6.2B | 6.2A","c":"c63","p":"p3","l":"L62BA"}];
+const CL_BY = Object.fromEntries(CL_POS.map(p=>[p.v,p]));
+const CL_ACTUEL = {"c42A":"a","c41B":"a","c3132":"a","c21":"p3","c62":"p2"}; // état de départ = « Position actuelle » du plan
 const FORMS = {
   Taches: [
     {k:'titre',l:'Titre',req:1,full:1},
@@ -564,7 +570,8 @@ const FORMS = {
     {k:'heureFin',l:'Heure de fin',t:'time'},
     {k:'hall',l:'Hall',t:'hall',req:1},
     {k:'mouvement',l:'Mouvement',t:'select',o:['À sortir','À ranger','Déplacement','Autre'],def:'À sortir'},
-    {k:'cloison',l:'Cloison / repère',t:'text'},
+    {k:'position',l:'Cloison sur le plan',t:'select',o:['',...CL_POS.map(p=>p.v)],full:1},
+    {k:'cloison',l:'Repère / précision',t:'text'},
     {k:'salon',l:'Salon',t:'text'},
     {k:'responsable',l:'Responsable',t:'person'},
     {k:'statut',l:'Statut',t:'select',o:['Prévu','Fait','Annulé'],def:'Prévu'},
@@ -731,7 +738,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '18'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '19'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[]};
@@ -1394,7 +1401,7 @@ function editReg(id){const e=D.Regisseurs.find(x=>x.id===id);if(e)openForm('Regi
 /* ================== CLOISONS & ÉTATS DES LIEUX ================== */
 const AG={
   Cloisons:{titre:'Cloisons & tribune',nouveau:'+ Cloison',form:'Mouvement de cloison',next:{'Prévu':'Fait'},
-    line:x=>`${objOf(x)==='Tribune'?'🏟️ <b>Tribune</b> · ':''}<b>${esc(x.mouvement||'')}</b>${x.cloison?' · '+esc(x.cloison):''}${x.hall?' — '+esc(x.hall):''}`,
+    line:x=>`${objOf(x)==='Tribune'?'🏟️ <b>Tribune</b> · ':''}<b>${esc(x.mouvement||'')}</b>${x.position&&objOf(x)!=='Tribune'?' · '+esc(x.position):''}${x.cloison?' · '+esc(x.cloison):''}${x.hall?' — '+esc(x.hall):''}`,
     sub:x=>[agPeriode(x),x.salon&&'🎪 '+x.salon,x.responsable&&'👤 '+x.responsable,x.note&&'📝 '+x.note]},
   EDL:{titre:'États des lieux salons',nouveau:'+ Nouvel état des lieux',form:'État des lieux',next:{'Planifié':'Fait'},
     line:x=>`<b>${esc(x.salon||'')}</b> · ${esc(x.type||'')}`,
@@ -1417,13 +1424,41 @@ function vAgenda(el,sheet){
     ${sheet==='Cloisons'?trCarte()+`<div class="seg-ctl" style="margin-bottom:10px">${[['','Tout'],['Cloison','🧱 Cloisons'],['Tribune','🏟️ Tribune'],['Plan','🗺️ Plan des cloisons']].map(([k,l])=>`<button class="${st.o===k?'on':''}" onclick="UI.ag.Cloisons.o='${k}';render()">${l}</button>`).join('')}</div>`:''}
     <div id="aglist"></div>`;
   if(sheet==='Cloisons'&&st.o==='Plan'){ // plan interactif des cloisons mobiles (dossier cloisons/)
-    $('#aglist').innerHTML=`<iframe id="cloisonsFrame" src="cloisons/?embed=1" title="Plan des cloisons mobiles" style="width:100%;height:1400px;border:0;border-radius:12px;background:#fff;display:block"></iframe>
-      <p class="hint"><a href="cloisons/" target="_blank" rel="noopener">Ouvrir le plan en plein écran</a></p>`;
+    if(!UI.clD){UI.clD=today();UI.clH=new Date().toTimeString().slice(0,5)}
+    $('#aglist').innerHTML=`<div class="clbar"><b>📅 État des cloisons au</b>
+        <input type="date" id="clD" value="${UI.clD}" onchange="UI.clD=this.value;clSend()">
+        <input type="time" id="clH" value="${UI.clH}" onchange="UI.clH=this.value;clSend()">
+        <button class="btn sm" onclick="UI.clD=today();UI.clH=new Date().toTimeString().slice(0,5);$('#clD').value=UI.clD;$('#clH').value=UI.clH;clSend()">Maintenant</button>
+        <span id="clInfo" class="hint" style="margin:0"></span></div>
+      <iframe id="cloisonsFrame" src="cloisons/?embed=1" title="Plan des cloisons mobiles" style="width:100%;height:1400px;border:0;border-radius:12px;background:#fff;display:block"></iframe>
+      <p class="hint">Point de départ : la « Position actuelle » du plan, puis chaque mouvement de cloison du planning (non annulé, avec « Cloison sur le plan » renseignée) terminé à la date choisie. « À sortir » ou « Déplacement » met la cloison à sa position, « À ranger » la range. <a href="cloisons/" target="_blank" rel="noopener">Ouvrir le plan en plein écran</a></p>`;
+    clSend();
     return;
   }
   agList(sheet);
 }
-window.addEventListener('message',e=>{const f=document.getElementById('cloisonsFrame');if(f&&e.source===f.contentWindow&&e.data&&e.data.cloisonsH)f.style.height=(e.data.cloisonsH+4)+'px'});
+window.addEventListener('message',e=>{const f=document.getElementById('cloisonsFrame');if(!f||e.source!==f.contentWindow||!e.data)return;
+  if(e.data.cloisonsH)f.style.height=(e.data.cloisonsH+4)+'px';
+  if(e.data.cloisonsReady)clSend()});
+/* État des cloisons à une date, d'après les mouvements du planning */
+function clEtat(t){ // t = 'AAAA-MM-JJTHH:MM'
+  const st={...CL_ACTUEL};
+  const M=D.Cloisons.filter(x=>objOf(x)==='Cloison'&&x.statut!=='Annulé'&&CL_BY[x.position]&&['À sortir','À ranger','Déplacement'].includes(x.mouvement))
+    .map(x=>({x,k:agFin(x)+'T'+(x.heureFin||x.heure||'00:00')})).filter(o=>o.k<=t).sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:0);
+  M.forEach(({x})=>{const p=CL_BY[x.position];
+    if(x.mouvement==='À ranger'){st[p.c]=null;return}
+    st[p.c]=p.p; // une cloison n'occupe qu'une position ; une position partagée libère l'autre cloison
+    if(p.l)CL_POS.forEach(q=>{if(q.l===p.l&&q.c!==p.c&&st[q.c]===q.p)st[q.c]=null})});
+  return {st,n:M.length};
+}
+function clSend(){
+  const f=document.getElementById('cloisonsFrame'); if(!f||!f.contentWindow)return;
+  const d=UI.clD||today(), h=UI.clH||'00:00', r=clEtat(d+'T'+h);
+  const nb=D.Cloisons.filter(x=>objOf(x)==='Cloison'&&x.statut!=='Annulé'&&!CL_BY[x.position]).length;
+  const titre=`📅 État au ${fD(d)} à ${h} : position actuelle du plan + ${r.n} mouvement${r.n>1?'s':''} du planning`+(nb?` · ${nb} mouvement${nb>1?'s':''} sans « Cloison sur le plan », non pris en compte`:'');
+  const i=$('#clInfo'); if(i) i.textContent=r.n+' mouvement'+(r.n>1?'s':'')+' pris en compte';
+  try{f.contentWindow.postMessage({cloisonsState:r.st,titre},'*')}catch(e){}
+}
 function agList(sheet){
   const st=UI.ag[sheet], A=AG[sheet], t=today();
   let L=D[sheet].slice();
