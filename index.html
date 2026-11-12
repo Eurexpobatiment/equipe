@@ -1407,7 +1407,7 @@ function editReg(id){const e=D.Regisseurs.find(x=>x.id===id);if(e)openForm('Regi
 /* ================== CLOISONS & ÉTATS DES LIEUX ================== */
 const AG={
   Cloisons:{titre:'Cloisons & tribune',nouveau:'+ Cloison',form:'Mouvement de cloison',next:{'Prévu':'Fait'},
-    line:x=>`${objOf(x)==='Tribune'?'🏟️ <b>Tribune</b> · ':''}<b>${esc(x.mouvement||'')}</b>${x.position&&objOf(x)!=='Tribune'?' · '+esc(x.position.split(' ; ').map(v=>(CL_BY[v.trim()]||{v}).v).join(' + ')):''}${x.cloison?' · '+esc(x.cloison):''}${x.hall?' — '+esc(x.hall):''}`,
+    line:x=>objOf(x)==='Tribune'?`🏟️ <b>Tribune</b> · <b>${esc(x.mouvement||'')}</b>${x.cloison?' · '+esc(x.cloison):''}${x.hall?' — '+esc(x.hall):''}`:clLine(x),
     sub:x=>[agPeriode(x),x.salon&&'🎪 '+x.salon,x.responsable&&'👤 '+x.responsable,x.note&&'📝 '+x.note]},
   EDL:{titre:'États des lieux salons',nouveau:'+ Nouvel état des lieux',form:'État des lieux',next:{'Planifié':'Fait'},
     line:x=>`<b>${esc(x.salon||'')}</b> · ${esc(x.type||'')}`,
@@ -1421,6 +1421,16 @@ const agPeriode=x=>{const f=agFin(x);
 const agValidate=o=>{if(o.dateFin&&o.dateFin<o.date)return 'La date de fin est avant la date de début';
   if((!o.dateFin||o.dateFin===o.date)&&o.heure&&o.heureFin&&o.heureFin<o.heure)return "L'heure de fin est avant l'heure de début";return ''};
 const agAfter=()=>{const a=$('#f_date'),b=$('#f_dateFin');if(a&&b)a.addEventListener('change',()=>{if(!b.value||b.value<a.value)b.value=a.value});clPickInit()};
+/* Ligne d'un mouvement : position (n° + nom), repère seulement s'il ajoute quelque chose, hall une seule fois */
+const clSansHall=v=>v.replace(/ · Halls? [^(]*/,' ').replace(/\s+/g,' ').trim();
+const clHalls=P=>{const s=[...new Set(P.flatMap(p=>((p.v.match(/ · Halls? ([^(]*)/)||[])[1]||'').trim().split(' / ')).filter(Boolean))];return s.length?(s.length>1?'Halls ':'Hall ')+s.join(' / '):''};
+function clLine(x){
+  const P=(x.position||'').split(' ; ').map(v=>CL_BY[v.trim()]).filter(Boolean);
+  const n=clNorm(x.cloison), al=CL_ALIAS[n]||[];
+  const dup=x.cloison&&P.length&&P.some(p=>{const k=clNorm(clSansHall(p.v).replace(/^[①②③]\s*/,'').replace(/ \(.*$/,'').replace(/côté.*$/,''));return k===n||k.replace(/[a-z]/g,'')===n.replace(/[a-z]/g,'')||al.includes(p.c+':'+p.p)});
+  const hall=x.hall||clHalls(P);
+  return `<b>${esc(x.mouvement||'')}</b>${P.length?' · '+esc(P.map(p=>clSansHall(p.v)).join(' + ')):''}${x.cloison&&!dup?' · '+esc(x.cloison):''}${hall?' — '+esc(hall):''}`;
+}
 /* Formulaire de mouvement : choix de la cloison et de sa position directement sur le plan */
 function clPickInit(){
   const sel=$('#f_position'); if(!sel) return;
