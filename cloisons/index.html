@@ -391,7 +391,7 @@ function renderDetail(){
   const c=CL[selected], cur=c.pos.find(p=>p.id===state[c.id]);
   const gs=groupsFor(state);
   let txt;
-  if(cur){ const a=linksOf(c,cur).filter(k=>Z[k].m2>0).map(zn); txt=`En place en position <b>${cur.label}</b> (${cur.hall}) : elle sépare <b>${a.join("</b> et <b>")}</b>.`; }
+  if(cur){ const a=linksOf(c,cur).filter(k=>Z[k].m2>0).map(zn); txt=`En place en position <b>${cur.label}</b> (${cur.hall}) : elle sépare <b>${a.slice(0,-1).join("</b>, <b>")}</b> et <b>${a[a.length-1]}</b>.`; }
   else txt=`Rangée : elle ne sépare rien, les espaces de part et d'autre de ses positions sont réunis.`;
   det.innerHTML=`<h2>Cloison sélectionnée</h2>
     <h3><span class="sw2" style="background:${c.color};width:16px;height:16px"></span>${c.name}</h3>
