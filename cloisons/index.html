@@ -224,8 +224,9 @@ const C = [
   {id:"c21",  name:"Cloison 2.1", intra:true, pos:[
       {id:"p1",label:"① 2.1B/2.2",hall:"Halls 2.1 / 2.2",pts:[[360,1178],[445,1093]],links:["2.2","2.1B"]},
       {id:"p2",label:"② 2.1A/2.1B",hall:"Hall 2.1",pts:[[445,1093],[695,1345]],links:["2.1A","2.1B"]},
-      {id:"p3",label:"③ 2.1B/2.1C",hall:"Hall 2.1",pts:[[360,1180],[610,1430]],links:["2.1B","2.1C"]}],
-   note:"Une seule cloison qui prend l'une des 3 positions : 2.1B/2.2, 2.1 ou 2.1B/C."},
+      {id:"p3",label:"③ 2.1B/2.1C",hall:"Hall 2.1",pts:[[360,1180],[610,1430]],links:["2.1B","2.1C"]},
+      {id:"p4",label:"④ 2.1A/2.1B + 2.1B/2.2",hall:"Halls 2.1 / 2.2",parts:["p1","p2"]}],
+   note:"Cloison en 2 pièces : elle prend l'une des 3 positions (2.1B/2.2, 2.1A/2.1B ou 2.1B/2.1C), ou les positions ① et ② en même temps (④). Sur le plan, cliquer ① puis ② (ou l'inverse) donne la position ④."},
   {id:"cH1",  name:"Cloison 1/2.1", pos:[{id:"a",label:"① 1/2.1",hall:"Halls 1 / 2.1",pts:[[610,1430],[695,1345],[775,1270]],links:["1","2.1A","2.1B"]}]},
   {id:"c51",  name:"Cloison 5.1/6.2", pos:[{id:"a",label:"① 5.1/6.2B",hall:"Halls 5.1 / 6.2",pts:[[1375,1030],[1465,945]],links:["5.1","6.2B"]}]},
   {id:"c61",  name:"Cloison 6.1/6.2", pos:[{id:"a",label:"① 6.1/6.2A",hall:"Halls 6.1 / 6.2",pts:[[1320,1260],[1495,1430]],links:["6.1","6.2A"]}]},
@@ -244,6 +245,18 @@ const COLORS={c42A:"#ff4d4f",c42C:"#ff9f1a",c41A:"#ffe066",c41B:"#a9e34b",c3132:
 C.forEach(c=>c.color=COLORS[c.id]);
 const CL={}; C.forEach(c=>CL[c.id]=c);
 const lk=(c,p)=>p.line||(c.id+"-"+p.id);
+const posOf=(c,pid)=>c.pos.find(x=>x.id===pid);
+// traits occupés par une position (une position combinée « parts » occupe plusieurs traits)
+const keysOf=(c,pid)=>{ const p=posOf(c,pid); if(!p) return []; return p.parts?p.parts.map(q=>lk(c,posOf(c,q))):[lk(c,p)]; };
+const linksOf=(c,p)=>p.parts?[...new Set(p.parts.flatMap(q=>posOf(c,q).links))]:p.links;
+// clic sur un trait d'une cloison en 2 pièces : ajoute ou retire ce trait de la position combinée
+function toggled(c,cur,pid){
+  if(cur===pid) return null;
+  const cp=posOf(c,cur);
+  if(cp&&cp.parts&&cp.parts.includes(pid)) return cp.parts.find(q=>q!==pid);
+  const combo=c.pos.find(p=>p.parts&&p.parts.includes(pid)&&p.parts.includes(cur));
+  return combo?combo.id:pid;
+}
 const PALETTE=["#1d3557","#6a1b4d","#3d2c8d","#7a4b00","#005f73","#5c3d2e","#4a4e69","#7b2cbf","#9d0208","#264653","#6c584c","#2b2d42"];
 
 let state={};   // cloison id -> id de position occupée, ou null (rangée)
@@ -253,8 +266,8 @@ let selected=null;
 function groupsFor(st){
   const parent={}; Object.keys(Z).forEach(k=>parent[k]=k);
   const f=k=>parent[k]===k?k:(parent[k]=f(parent[k]));
-  const blocked=new Set(); C.forEach(c=>{ const p=c.pos.find(x=>x.id===st[c.id]); if(p) blocked.add(lk(c,p)); });
-  C.forEach(c=>c.pos.forEach(p=>{ if(!blocked.has(lk(c,p))) for(let i=1;i<p.links.length;i++) parent[f(p.links[i])]=f(p.links[0]); }));
+  const blocked=new Set(); C.forEach(c=>keysOf(c,st[c.id]).forEach(k=>blocked.add(k)));
+  C.forEach(c=>c.pos.forEach(p=>{ if(!p.parts&&!blocked.has(lk(c,p))) for(let i=1;i<p.links.length;i++) parent[f(p.links[i])]=f(p.links[0]); }));
   const g={}; Object.keys(Z).forEach(k=>{ const r=f(k); (g[r]=g[r]||[]).push(k); });
   return Object.values(g).map(m=>m.filter(k=>Z[k].m2>0)).filter(m=>m.length)
     .map(m=>({members:m, m2:m.reduce((s,k)=>s+Z[k].m2,0)}))
@@ -271,17 +284,17 @@ function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const
 const EXCL=[]; // cloisons qui ne peuvent pas être en place en même temps
 function setPos(cid,pid){ state[cid]=pid; if(!pid) return;
   EXCL.forEach(g=>{ if(g.includes(cid)) g.forEach(o=>{ if(o!==cid) state[o]=null; }); });
-  const key=lk(CL[cid],CL[cid].pos.find(p=>p.id===pid));
-  C.forEach(c=>{ if(c.id!==cid){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) state[c.id]=null; } }); }
+  const keys=keysOf(CL[cid],pid);
+  C.forEach(c=>{ if(c.id!==cid&&keysOf(c,state[c.id]).some(k=>keys.includes(k))) state[c.id]=null; }); }
 // Mode choix (formulaire) : plusieurs cloisons possibles, une position par cloison
 function pickSend(){ try{ parent.postMessage({cloisonsPick:C.filter(c=>state[c.id]).map(c=>({c:c.id,p:state[c.id]}))},"*"); }catch(e){} }
-function pickPos(cid,pid){ if(state[cid]===pid) state[cid]=null; else setPos(cid,pid); selected=cid; render(); pickSend(); }
+function pickPos(cid,pid){ const nx=toggled(CL[cid],state[cid],pid); if(!nx) state[cid]=null; else setPos(cid,nx); selected=cid; render(); pickSend(); }
 function pickSet(list){ C.forEach(c=>state[c.id]=null); (list||[]).forEach(o=>{ if(CL[o.c]) state[o.c]=o.p; }); render(); }
-function place(cid,pid){ if(PICK){ pickPos(cid,pid); return; } setPos(cid, state[cid]===pid ? null : pid); selected=cid; clearPreset(); render(); }
-function occupant(key){ for(const c of C){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) return c.id; } return null; }
+function place(cid,pid){ if(PICK){ pickPos(cid,pid); return; } setPos(cid, toggled(CL[cid],state[cid],pid)); selected=cid; clearPreset(); render(); }
+function occupant(key){ for(const c of C){ if(keysOf(c,state[c.id]).includes(key)) return c.id; } return null; }
 
 const LINES={};
-C.forEach(c=>c.pos.forEach(p=>{ const k=lk(c,p); (LINES[k]=LINES[k]||{pts:p.pts,links:p.links,owners:[]}).owners.push([c.id,p.id]); }));
+C.forEach(c=>c.pos.forEach(p=>{ if(p.parts) return; const k=lk(c,p); (LINES[k]=LINES[k]||{pts:p.pts,links:p.links,owners:[]}).owners.push([c.id,p.id]); }));
 Object.entries(LINES).forEach(([k,L])=>{
   const g=el("g",{class:"part",id:"ln-"+k,"data-cls":L.owners.map(o=>o[0]).join(" ")},gParts);
   const d="M"+L.pts.map(q=>q.join(",")).join(" L");
@@ -378,7 +391,7 @@ function renderDetail(){
   const c=CL[selected], cur=c.pos.find(p=>p.id===state[c.id]);
   const gs=groupsFor(state);
   let txt;
-  if(cur){ const a=cur.links.filter(k=>Z[k].m2>0).map(zn); txt=`En place en position <b>${cur.label}</b> (${cur.hall}) : elle sépare <b>${a.join("</b> et <b>")}</b>.`; }
+  if(cur){ const a=linksOf(c,cur).filter(k=>Z[k].m2>0).map(zn); txt=`En place en position <b>${cur.label}</b> (${cur.hall}) : elle sépare <b>${a.join("</b> et <b>")}</b>.`; }
   else txt=`Rangée : elle ne sépare rien, les espaces de part et d'autre de ses positions sont réunis.`;
   det.innerHTML=`<h2>Cloison sélectionnée</h2>
     <h3><span class="sw2" style="background:${c.color};width:16px;height:16px"></span>${c.name}</h3>

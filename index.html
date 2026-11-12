@@ -541,7 +541,7 @@ const PV_ST={'Prévu':'#3a6ea5','Posé':'#e09a2b','Déposé':'#2a9d5c','Annulé'
 
 const EDL_CONF=['En attente de confirmation','Confirmé'];
 /* Cloisons mobiles du plan interactif (cloisons/index.html) : cloison (c) et position (p) — à garder en phase avec le plan */
-const CL_POS = [{"v":"① 4.2A/4.2B · Hall 4.2","c":"c42A","p":"a"},{"v":"① 4.2B/4.2C · Hall 4.2","c":"c42C","p":"a"},{"v":"① 4.1/4.2 ouest · Halls 4.1 / 4.2","c":"c41A","p":"a"},{"v":"① 4.1/4.2 est · Halls 4.1 / 4.2","c":"c41B","p":"a"},{"v":"① 3.1/3.2 · Halls 3.1 / 3.2","c":"c3132","p":"a"},{"v":"① 2.1A/3.1 · Halls 2.1 / 3.1","c":"c31","p":"a"},{"v":"① 2.1A/2.2 · Halls 2.1 / 2.2","c":"c22","p":"a"},{"v":"① 2.1B/2.2 · Halls 2.1 / 2.2","c":"c21","p":"p1"},{"v":"② 2.1A/2.1B · Hall 2.1","c":"c21","p":"p2"},{"v":"③ 2.1B/2.1C · Hall 2.1","c":"c21","p":"p3"},{"v":"① 1/2.1 · Halls 1 / 2.1","c":"cH1","p":"a"},{"v":"① 5.1/6.2B · Halls 5.1 / 6.2","c":"c51","p":"a"},{"v":"① 6.1/6.2A · Halls 6.1 / 6.2","c":"c61","p":"a"},{"v":"① 6.3A/6.3B · Hall 6.3","c":"c62","p":"p1"},{"v":"② 6.2A/6.3A · Halls 6.2 / 6.3","c":"c62","p":"p2"},{"v":"③ 6.2A/6.2B · Hall 6.2 (cloison 6.2A/6.3)","c":"c62","p":"p3","l":"L62BA"},{"v":"① 6.3B/6.3C côté 6.3C · Hall 6.3","c":"c63","p":"p1"},{"v":"② 6.3B/6.3C côté 6.3B · Hall 6.3","c":"c63","p":"p2"},{"v":"③ 6.2A/6.2B · Hall 6.2 (cloison 6.3B/6.3C)","c":"c63","p":"p3","l":"L62BA"}];
+const CL_POS = [{"v":"① 4.2A/4.2B · Hall 4.2","c":"c42A","p":"a"},{"v":"① 4.2B/4.2C · Hall 4.2","c":"c42C","p":"a"},{"v":"① 4.1/4.2 ouest · Halls 4.1 / 4.2","c":"c41A","p":"a"},{"v":"① 4.1/4.2 est · Halls 4.1 / 4.2","c":"c41B","p":"a"},{"v":"① 3.1/3.2 · Halls 3.1 / 3.2","c":"c3132","p":"a"},{"v":"① 2.1A/3.1 · Halls 2.1 / 3.1","c":"c31","p":"a"},{"v":"① 2.1A/2.2 · Halls 2.1 / 2.2","c":"c22","p":"a"},{"v":"① 2.1B/2.2 · Halls 2.1 / 2.2","c":"c21","p":"p1"},{"v":"② 2.1A/2.1B · Hall 2.1","c":"c21","p":"p2"},{"v":"③ 2.1B/2.1C · Hall 2.1","c":"c21","p":"p3"},{"v":"④ 2.1A/2.1B + 2.1B/2.2 · Halls 2.1 / 2.2","c":"c21","p":"p4"},{"v":"① 1/2.1 · Halls 1 / 2.1","c":"cH1","p":"a"},{"v":"① 5.1/6.2B · Halls 5.1 / 6.2","c":"c51","p":"a"},{"v":"① 6.1/6.2A · Halls 6.1 / 6.2","c":"c61","p":"a"},{"v":"① 6.3A/6.3B · Hall 6.3","c":"c62","p":"p1"},{"v":"② 6.2A/6.3A · Halls 6.2 / 6.3","c":"c62","p":"p2"},{"v":"③ 6.2A/6.2B · Hall 6.2 (cloison 6.2A/6.3)","c":"c62","p":"p3","l":"L62BA"},{"v":"① 6.3B/6.3C côté 6.3C · Hall 6.3","c":"c63","p":"p1"},{"v":"② 6.3B/6.3C côté 6.3B · Hall 6.3","c":"c63","p":"p2"},{"v":"③ 6.2A/6.2B · Hall 6.2 (cloison 6.3B/6.3C)","c":"c63","p":"p3","l":"L62BA"}];
 const CL_BY = Object.fromEntries(CL_POS.map(p=>[p.v,p]));
 const CL_OLD = {"Cloison 4.2A/4.2B (4.2A | 4.2B)":"① 4.2A/4.2B · Hall 4.2","Cloison 4.2B/4.2C (4.2B | 4.2C)":"① 4.2B/4.2C · Hall 4.2","Cloison 4.1/4.2 (4.1 | 4.2 (moitié ouest))":"① 4.1/4.2 ouest · Halls 4.1 / 4.2","Cloison 4.1/4.2 (4.1 | 4.2 (moitié est))":"① 4.1/4.2 est · Halls 4.1 / 4.2","Cloison 3.1/3.2 (3.1 | 3.2)":"① 3.1/3.2 · Halls 3.1 / 3.2","Cloison 2.1/3.1 (2.1A | 3.1)":"① 2.1A/3.1 · Halls 2.1 / 3.1","Cloison 2.1A/2.2 (2.1A | 2.2)":"① 2.1A/2.2 · Halls 2.1 / 2.2","Cloison 2.1 · ① 2.1B/2.2":"① 2.1B/2.2 · Halls 2.1 / 2.2","Cloison 2.1 · ② 2.1 (2.1A | 2.1B)":"② 2.1A/2.1B · Hall 2.1","Cloison 2.1 · ③ 2.1B/C":"③ 2.1B/2.1C · Hall 2.1","Cloison 1/2.1 (Hall 1 | 2.1)":"① 1/2.1 · Halls 1 / 2.1","Cloison 5.1/6.2 (5.1 | 6.2B)":"① 5.1/6.2B · Halls 5.1 / 6.2","Cloison 6.1/6.2 (6.1 | 6.2A)":"① 6.1/6.2A · Halls 6.1 / 6.2","Cloison 6.2A/6.3 · ① 6.3A/6.3B":"① 6.3A/6.3B · Hall 6.3","Cloison 6.2A/6.3 · ② 6.2A/6.3":"② 6.2A/6.3A · Halls 6.2 / 6.3","Cloison 6.2A/6.3 · ③ 6.2A/6.2B":"③ 6.2A/6.2B · Hall 6.2 (cloison 6.2A/6.3)","Cloison 6.3B/6.3C · ① 6.3B/6.3C (côté 6.3C)":"① 6.3B/6.3C côté 6.3C · Hall 6.3","Cloison 6.3B/6.3C · ② 6.3B/6.3C (côté 6.3B)":"② 6.3B/6.3C côté 6.3B · Hall 6.3","Cloison 6.3B/6.3C · ③ 6.2A/6.2B":"③ 6.2A/6.2B · Hall 6.2 (cloison 6.3B/6.3C)"}; // intitulés avant nov. 2026
 Object.entries(CL_OLD).forEach(([o,n])=>CL_BY[o]=CL_BY[n]);
@@ -1490,6 +1490,8 @@ function clMatch(x){
   const a=CL_ALIAS[clNorm(x.cloison)]||[];
   return {P:a.map(k=>{const [c,p]=k.split(':');return CL_POS.find(q=>q.c===c&&q.p===p)}).filter(Boolean),txt:true};
 }
+const CL_COMBO={c21:{p4:['p1','p2']}}; // cloison 2.1 en 2 pièces : ① et ② en même temps = ④
+const clCombo=(c,a,b)=>{const K=CL_COMBO[c]||{};return Object.keys(K).find(k=>K[k].includes(a)&&K[k].includes(b))};
 function clEtat(t){ // t = 'AAAA-MM-JJTHH:MM'
   const st={...CL_ACTUEL}, cours=[];
   const M=D.Cloisons.filter(x=>objOf(x)==='Cloison'&&x.statut!=='Annulé'&&['À sortir','À ranger','Déplacement'].includes(x.mouvement))
@@ -1497,8 +1499,11 @@ function clEtat(t){ // t = 'AAAA-MM-JJTHH:MM'
   M.forEach(o=>{if(o.d<=t&&t<o.k)cours.push(o)});
   const F=M.filter(o=>o.k<=t).sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:(a.x.mouvement==='À ranger'?-1:0)-(b.x.mouvement==='À ranger'?-1:0));
   F.forEach(({x,m})=>m.P.forEach(p=>{
+    const cur=st[p.c], parts=(CL_COMBO[p.c]||{})[cur];
+    if(x.mouvement==='À ranger'&&parts&&parts.includes(p.p)){ st[p.c]=parts.find(q=>q!==p.p); return }
+    if(x.mouvement==='À sortir'&&parts&&parts.includes(p.p)) return; // déjà en place
     if(x.mouvement==='À ranger'){ if(st[p.c]===p.p||CL_POS.filter(q=>q.c===p.c).length===1) st[p.c]=null; return }
-    st[p.c]=p.p; // une cloison n'occupe qu'une position ; une position partagée libère l'autre cloison
+    st[p.c]=(x.mouvement==='À sortir'&&clCombo(p.c,cur,p.p))||p.p; // une cloison n'occupe qu'une position ; une position partagée libère l'autre cloison
     if(p.l)CL_POS.forEach(q=>{if(q.l===p.l&&q.c!==p.c&&st[q.c]===q.p)st[q.c]=null})}));
   return {st,n:F.length,nTxt:F.filter(o=>o.m.txt).length,cours};
 }
