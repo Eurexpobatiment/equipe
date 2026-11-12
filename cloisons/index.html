@@ -303,6 +303,7 @@ Object.entries(LINES).forEach(([k,L])=>{
   if(L.owners.length>1) el("path",{d,class:"vis2",fill:"none",stroke:CL[L.owners[1][0]].color,"stroke-dashoffset":16},g);
   el("path",{d,class:"hit",fill:"none"},g);
   g.addEventListener("click",()=>{
+    if(PICK&&L.owners.length===1){ place(...L.owners[0]); return; } // pickPos gère la cloison en 2 pièces (① + ② = ④)
     if(PICK){ const occ=occupant(k), i=L.owners.findIndex(o=>o[0]===occ); if(occ) state[occ]=null;
       const nx=L.owners[i+1]; if(nx) setPos(nx[0],nx[1]); selected=nx?nx[0]:occ; render(); pickSend(); return; }
     if(L.owners.length===1){ place(...L.owners[0]); return; }
