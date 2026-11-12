@@ -101,7 +101,6 @@ body.pick main{grid-template-columns:1fr}
 body.pick aside,body.pick .full,body.pick .legend,body.pick [data-preset],body.pick .toolbar .sep,body.pick .toolbar .lbl:first-child,body.pick #extInfo{display:none !important}
 body.pick .card{border:0;border-radius:0}
 .extinfo{padding:8px 14px;background:#eef6f1;border-bottom:1px solid var(--line);font-size:13px;color:#0e4d33}
-.seg button small.hl2{display:block;font-size:10.5px;font-weight:500;opacity:.75}
 </style>
 </head>
 <body>
@@ -362,10 +361,12 @@ function render(){
   renderDetail(); renderList(); renderCombos();
 }
 
+// Hall(s) d'une cloison : réunion des halls de ses positions, affichée une seule fois
+function hallsOf(c){ const s=[...new Set(c.pos.flatMap(p=>p.hall.replace(/^Halls? /,"").split(" / ")))].sort((a,b)=>parseFloat(a)-parseFloat(b)); return (s.length>1?"Halls ":"Hall ")+s.join(" / "); }
 function segHTML(c){
   return `<div class="seg" style="--cc:${c.color}">`+
     `<button class="${!state[c.id]?'on':''}" data-c="${c.id}" data-p="">Rangée</button>`+
-    c.pos.map(p=>`<button class="${state[c.id]===p.id?'on':''}" data-c="${c.id}" data-p="${p.id}">${p.label}<small class="hl2">${p.hall}</small></button>`).join("")+`</div>`;
+    c.pos.map(p=>`<button class="${state[c.id]===p.id?'on':''}" data-c="${c.id}" data-p="${p.id}">${p.label}</button>`).join("")+`</div>`;
 }
 function bindSeg(root){
   root.querySelectorAll(".seg button").forEach(b=>b.onclick=e=>{ e.stopPropagation(); setPos(b.dataset.c, b.dataset.p||null); selected=b.dataset.c; clearPreset(); render(); });
@@ -382,7 +383,7 @@ function renderDetail(){
   det.innerHTML=`<h2>Cloison sélectionnée</h2>
     <h3><span class="sw2" style="background:${c.color};width:16px;height:16px"></span>${c.name}</h3>
     <div class="row"><span class="badge" style="background:${cur?'#d63031':'#0e4d33'}">${cur?'EN PLACE':'RANGÉE'}</span>
-    <span style="color:var(--muted);font-size:12.5px">${c.pos.length>1?c.pos.length+" positions possibles":"1 position possible"}</span></div>
+    <span style="color:var(--muted);font-size:12.5px">${hallsOf(c)} · ${c.pos.length>1?c.pos.length+" positions possibles":"1 position possible"}</span></div>
     <p>${txt}</p>
     ${segHTML(c)}
     ${c.note?`<div class="note" style="margin-top:10px">${c.note}</div>`:""}
@@ -395,7 +396,7 @@ function renderList(){
   const sorted=[...C].sort((a,b)=>b.pos.length-a.pos.length);
   sorted.forEach(c=>{
     const d=document.createElement("div"); d.className="clcard"+(selected===c.id?" sel":"")+(c.pos.length>1?" multi":"");
-    d.innerHTML=`<div class="clhead"><b><span class="sw2" style="background:${c.color}"></span>${c.name}</b><span>${c.pos.length>1?c.pos.length+" positions":"1 position"}</span></div>${segHTML(c)}`;
+    d.innerHTML=`<div class="clhead"><b><span class="sw2" style="background:${c.color}"></span>${c.name}</b><span>${hallsOf(c)} · ${c.pos.length>1?c.pos.length+" positions":"1 position"}</span></div>${segHTML(c)}`;
     d.onclick=()=>{ selected=c.id; render(); };
     d.onmouseenter=()=>document.querySelectorAll(`[data-cls~="${c.id}"]`).forEach(x=>x.classList.add("sib"));
     d.onmouseleave=()=>document.querySelectorAll(".sib").forEach(x=>x.classList.remove("sib"));
