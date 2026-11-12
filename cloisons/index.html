@@ -148,6 +148,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
       <ol>
         <li>Chaque <b>cloison</b> est une seule pièce mobile. Elle peut être <b>rangée</b> (ouverte) ou mise en place à l'une de ses <b>positions</b>.</li>
         <li>Une cloison ne peut être qu'<b>à un seul endroit à la fois</b> : la placer à une position libère les autres.</li>
+        <li>Hall 6.2 : la position entre <b>6.2B et 6.2A</b> est partagée par les cloisons 6.2 et 6.3 – une seule des deux peut l'occuper.</li>
         <li>Hall 2.1 : les cloisons <b>2.1 et 2.1 Ext</b> ne peuvent pas être en place en même temps.</li>
         <li>Les positions occupées découpent les halls ; les espaces de même couleur forment un seul plateau.</li>
         <li><b>Position actuelle</b> : reprend le plan annoté (traits rouges = positions occupées).</li>
@@ -161,7 +162,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
   </section>
 
   <section class="card full">
-    <div class="sechead"><h2>Halls 6.2 et 6.3 : les 12 combinaisons possibles</h2><span class="muted">Cloison 6.2 (rangée + 2 positions) × Cloison 6.3 (rangée + 3 positions), les deux pouvant être en place en même temps · clic pour l'appliquer</span></div>
+    <div class="sechead"><h2>Halls 6.2 et 6.3 : les 15 combinaisons possibles</h2><span class="muted">Cloison 6.2 (rangée + 3 positions) × Cloison 6.3 (rangée + 3 positions), sans les deux cloisons sur la position ③ partagée · clic pour l'appliquer</span></div>
     <div class="combos" id="combos"></div>
   </section>
 </main>
@@ -210,14 +211,17 @@ const C = [
   {id:"c61",  name:"Cloison 6.1", pos:[{id:"a",label:"6.1 | 6.2A",pts:[[1320,1260],[1495,1430]],links:["6.1","6.2A"]}]},
   {id:"c62",  name:"Cloison 6.2", pos:[
       {id:"p1",label:"① 6.3A | 6.3B",pts:[[1662,907],[1842,1087]],links:["6.3A","6.3B"]},
-      {id:"p2",label:"② 6.2 | 6.3",pts:[[1550,1032],[1725,1205]],links:["6.2A","6.3A"]}]},
+      {id:"p2",label:"② 6.2 | 6.3",pts:[[1550,1032],[1725,1205]],links:["6.2A","6.3A"]},
+      {id:"p3",label:"③ 6.2B | 6.2A",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
+   note:"La position ③ (entre 6.2B et 6.2A) est partagée avec la cloison 6.3 : une seule des deux peut s'y trouver."},
   {id:"c63",  name:"Cloison 6.3", pos:[
       {id:"p1",label:"① 6.3B | 6.3C (côté 6.3C)",pts:[[1748,828],[1920,1000]],links:["bande63","6.3C"]},
       {id:"p2",label:"② 6.3B | 6.3C (côté 6.3B)",pts:[[1722,850],[1900,1025]],links:["6.3B","bande63"]},
-      {id:"p3",label:"③ 6.2B | 6.2A",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
-   note:"Positions ① et ② : la bande étroite entre les deux traits passe d'un côté ou de l'autre. Les surfaces 6.3B / 6.3C affichées sont celles du plan officiel."}
+      {id:"p3",label:"③ 6.2B | 6.2A",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
+   note:"La position ③ (entre 6.2B et 6.2A) est partagée avec la cloison 6.2 : une seule des deux peut s'y trouver. Positions ① et ② : la bande étroite entre les deux traits passe d'un côté ou de l'autre. Les surfaces 6.3B / 6.3C affichées sont celles du plan officiel."}
 ];
 const CL={}; C.forEach(c=>CL[c.id]=c);
+const lk=(c,p)=>p.line||(c.id+"-"+p.id);
 const PALETTE=["#5b8def","#f59f00","#9b59b6","#16a085","#e67e22","#2c82c9","#e84393","#27ae60","#8e6c3a","#00a8b5","#c0392b","#7f8c8d"];
 
 let state={};   // cloison id -> id de position occupée, ou null (rangée)
@@ -227,8 +231,8 @@ let selected=null;
 function groupsFor(st){
   const parent={}; Object.keys(Z).forEach(k=>parent[k]=k);
   const f=k=>parent[k]===k?k:(parent[k]=f(parent[k]));
-  const blocked=new Set(); C.forEach(c=>{ if(st[c.id]) blocked.add(c.id+":"+st[c.id]); });
-  C.forEach(c=>c.pos.forEach(p=>{ if(!blocked.has(c.id+":"+p.id)) for(let i=1;i<p.links.length;i++) parent[f(p.links[i])]=f(p.links[0]); }));
+  const blocked=new Set(); C.forEach(c=>{ const p=c.pos.find(x=>x.id===st[c.id]); if(p) blocked.add(lk(c,p)); });
+  C.forEach(c=>c.pos.forEach(p=>{ if(!blocked.has(lk(c,p))) for(let i=1;i<p.links.length;i++) parent[f(p.links[i])]=f(p.links[0]); }));
   const g={}; Object.keys(Z).forEach(k=>{ const r=f(k); (g[r]=g[r]||[]).push(k); });
   return Object.values(g).map(m=>m.filter(k=>Z[k].m2>0)).filter(m=>m.length)
     .map(m=>({members:m, m2:m.reduce((s,k)=>s+Z[k].m2,0)}))
@@ -243,26 +247,44 @@ const tip=document.getElementById("tip"), card=document.getElementById("mapcard"
 function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const a in attrs)e.setAttribute(a,attrs[a]);parent&&parent.appendChild(e);return e;}
 
 const EXCL=[["c21","c21E"]]; // cloisons qui ne peuvent pas être en place en même temps
-function setPos(cid,pid){ state[cid]=pid; if(pid) EXCL.forEach(g=>{ if(g.includes(cid)) g.forEach(o=>{ if(o!==cid) state[o]=null; }); }); }
+function setPos(cid,pid){ state[cid]=pid; if(!pid) return;
+  EXCL.forEach(g=>{ if(g.includes(cid)) g.forEach(o=>{ if(o!==cid) state[o]=null; }); });
+  const key=lk(CL[cid],CL[cid].pos.find(p=>p.id===pid));
+  C.forEach(c=>{ if(c.id!==cid){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) state[c.id]=null; } }); }
 function place(cid,pid){ setPos(cid, state[cid]===pid ? null : pid); selected=cid; clearPreset(); render(); }
+function occupant(key){ for(const c of C){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) return c.id; } return null; }
 
-C.forEach(c=>c.pos.forEach(p=>{
-  const g=el("g",{class:"part",id:c.id+"-"+p.id,"data-cl":c.id},gParts);
-  const d="M"+p.pts.map(q=>q.join(",")).join(" L");
+const LINES={};
+C.forEach(c=>c.pos.forEach(p=>{ const k=lk(c,p); (LINES[k]=LINES[k]||{pts:p.pts,links:p.links,owners:[]}).owners.push([c.id,p.id]); }));
+Object.entries(LINES).forEach(([k,L])=>{
+  const g=el("g",{class:"part",id:"ln-"+k,"data-cls":L.owners.map(o=>o[0]).join(" ")},gParts);
+  const d="M"+L.pts.map(q=>q.join(",")).join(" L");
   el("path",{d,class:"glow",fill:"none"},g);
   el("path",{d,class:"vis",fill:"none"},g);
   el("path",{d,class:"hit",fill:"none"},g);
-  const multi=c.pos.length>1;
-  g.addEventListener("click",()=>place(c.id,p.id));
+  g.addEventListener("click",()=>{
+    if(L.owners.length===1){ place(...L.owners[0]); return; }
+    // position partagée : libre -> 1re cloison -> 2e cloison -> libre
+    const occ=occupant(k), i=L.owners.findIndex(o=>o[0]===occ);
+    if(occ) state[occ]=null;
+    const nx=L.owners[i+1];
+    if(nx) setPos(nx[0],nx[1]);
+    selected = nx ? nx[0] : (occ||L.owners[0][0]); clearPreset(); render();
+  });
   g.addEventListener("mouseenter",e=>{
-    document.querySelectorAll(`[data-cl="${c.id}"]`).forEach(x=>x.classList.add("sib"));
-    hl(p.links,true);
-    const here=state[c.id]===p.id;
-    showTip(e, `${c.name}${multi?" – position "+p.label:""} · ${here?"en place · clic pour ranger":"libre · clic pour y mettre la cloison"}`);
+    L.owners.forEach(o=>document.querySelectorAll(`[data-cls~="${o[0]}"]`).forEach(x=>x.classList.add("sib")));
+    hl(L.links,true);
+    const occ=occupant(k);
+    const names=L.owners.map(o=>CL[o[0]].name);
+    let t;
+    if(L.owners.length>1) t=`Position partagée (${names.join(" / ")}) · ${occ?"occupée par la "+CL[occ].name:"libre"} · clic pour changer`;
+    else { const c=CL[L.owners[0][0]], p=c.pos.find(x=>x.id===L.owners[0][1]);
+      t=`${c.name}${c.pos.length>1?" – position "+p.label:""} · ${occ?"en place · clic pour ranger":"libre · clic pour y mettre la cloison"}`; }
+    showTip(e,t);
   });
   g.addEventListener("mousemove",moveTip);
-  g.addEventListener("mouseleave",()=>{ document.querySelectorAll(".sib").forEach(x=>x.classList.remove("sib")); hl(p.links,false); hideTip(); });
-}));
+  g.addEventListener("mouseleave",()=>{ document.querySelectorAll(".sib").forEach(x=>x.classList.remove("sib")); hl(L.links,false); hideTip(); });
+});
 
 const zoneEls={};
 Object.entries(Z).forEach(([k,z])=>{
@@ -292,8 +314,8 @@ function render(){
     r.setAttribute("fill",c||"#fff"); r.setAttribute("stroke",c?"#fff":"#333");
     g.querySelectorAll("text").forEach(t=>t.setAttribute("fill",c?"#fff":"#111"));
   });
-  C.forEach(c=>c.pos.forEach(p=>{ const g=document.getElementById(c.id+"-"+p.id); const on=state[c.id]===p.id;
-    g.classList.toggle("closed",on); g.classList.toggle("open",!on); g.classList.toggle("sel",selected===c.id); }));
+  Object.entries(LINES).forEach(([k,L])=>{ const g=document.getElementById("ln-"+k); const occ=occupant(k);
+    g.classList.toggle("closed",!!occ); g.classList.toggle("open",!occ); g.classList.toggle("sel",L.owners.some(o=>o[0]===selected)); });
 
   const nPlaced=C.filter(c=>state[c.id]).length;
   document.getElementById("kSpaces").textContent=gs.length;
@@ -345,12 +367,12 @@ function renderList(){
     const d=document.createElement("div"); d.className="clcard"+(selected===c.id?" sel":"")+(c.pos.length>1?" multi":"");
     d.innerHTML=`<div class="clhead"><b>${c.name}</b><span>${c.pos.length>1?c.pos.length+" positions":"1 position"}</span></div>${segHTML(c)}`;
     d.onclick=()=>{ selected=c.id; render(); };
-    d.onmouseenter=()=>document.querySelectorAll(`[data-cl="${c.id}"]`).forEach(x=>x.classList.add("sib"));
+    d.onmouseenter=()=>document.querySelectorAll(`[data-cls~="${c.id}"]`).forEach(x=>x.classList.add("sib"));
     d.onmouseleave=()=>document.querySelectorAll(".sib").forEach(x=>x.classList.remove("sib"));
     grid.appendChild(d);
   });
   bindSeg(grid);
-  const n=C.filter(c=>c.id!=="c21"&&c.id!=="c21E").reduce((s,c)=>s*(c.pos.length+1),1)*3;
+  const n=C.filter(c=>!["c21","c21E","c62","c63"].includes(c.id)).reduce((s,c)=>s*(c.pos.length+1),1)*3*15;
   document.getElementById("nCombos").textContent=`${C.length} cloisons · ${n.toLocaleString("fr-FR")} combinaisons théoriques sur le parc`;
 }
 
@@ -359,7 +381,7 @@ function renderCombos(){
   const box=document.getElementById("combos"); box.innerHTML="";
   const o62=[null,...CL.c62.pos.map(p=>p.id)], o63=[null,...CL.c63.pos.map(p=>p.id)];
   const lab=(c,p)=>p?CL[c].pos.find(x=>x.id===p).label:"rangée";
-  const opts=[]; o62.forEach(a=>o63.forEach(b=>opts.push([a,b])));
+  const opts=[]; o62.forEach(a=>o63.forEach(b=>{ if(!(a==="p3"&&b==="p3")) opts.push([a,b]); }));
   opts.forEach(([a,b])=>{
     const st={...state,c62:a,c63:b};
     const gs=groupsFor(st).filter(g=>g.members.some(k=>SECT6.includes(k)));
