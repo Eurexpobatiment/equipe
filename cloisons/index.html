@@ -96,6 +96,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
 .sw2{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:7px;vertical-align:-1px;border:1px solid rgba(0,0,0,.25)}
 body.embed header,body.embed footer{display:none}
 body.embed main{padding:0;max-width:none}
+body.embed .how,body.embed #combosCard{display:none}
 body.pick main{grid-template-columns:1fr}
 body.pick aside,body.pick .full,body.pick .legend,body.pick [data-preset],body.pick .toolbar .sep,body.pick .toolbar .lbl:first-child,body.pick #extInfo{display:none !important}
 body.pick .card{border:0;border-radius:0}
@@ -172,7 +173,7 @@ body.pick .card{border:0;border-radius:0}
     <div class="clgrid" id="clgrid"></div>
   </section>
 
-  <section class="card full">
+  <section class="card full" id="combosCard">
     <div class="sechead"><h2>Halls 6.2 et 6.3 : les 15 combinaisons possibles</h2><span class="muted">Cloison 6.2A/6.3 (rangée + 3 positions) × Cloison 6.3B/6.3C (rangée + 3 positions), sans les deux cloisons sur la position ③ partagée · clic pour l'appliquer</span></div>
     <div class="combos" id="combos"></div>
   </section>
