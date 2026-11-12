@@ -191,6 +191,7 @@ table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:760px;
 @media (max-width:820px){.mcal .mc{min-height:64px;padding:2px}.mcal .ev{font-size:9.5px;line-height:15px;padding:0 2px}.mcal .mh{font-size:11px}}
 
 /* Agenda (cloisons, EDL) */
+.clpick iframe{width:100%;height:460px;border:1px solid #d0d5dd;border-radius:10px;display:block;background:#fff}
 .clbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
 .clbar input{padding:6px 8px;border:1px solid #d0d5dd;border-radius:8px;font:inherit}
 .ag-day{margin-bottom:14px}
@@ -1415,7 +1416,17 @@ const agPeriode=x=>{const f=agFin(x);
   return x.heureFin?'🕒 jusqu\'à '+agH(x.heureFin):''};
 const agValidate=o=>{if(o.dateFin&&o.dateFin<o.date)return 'La date de fin est avant la date de début';
   if((!o.dateFin||o.dateFin===o.date)&&o.heure&&o.heureFin&&o.heureFin<o.heure)return "L'heure de fin est avant l'heure de début";return ''};
-const agAfter=()=>{const a=$('#f_date'),b=$('#f_dateFin');if(a&&b)a.addEventListener('change',()=>{if(!b.value||b.value<a.value)b.value=a.value})};
+const agAfter=()=>{const a=$('#f_date'),b=$('#f_dateFin');if(a&&b)a.addEventListener('change',()=>{if(!b.value||b.value<a.value)b.value=a.value});clPickInit()};
+/* Formulaire de mouvement : choix de la cloison et de sa position directement sur le plan */
+function clPickInit(){
+  const sel=$('#f_position'); if(!sel) return;
+  sel.closest('.fl').insertAdjacentHTML('beforebegin',`<div class="fl full clpick"><span>Cloison sur le plan : touche sa position</span>
+    <iframe id="clPick" src="cloisons/?pick=1" title="Choisir la cloison sur le plan"></iframe></div>`);
+  sel.closest('.fl').querySelector('span').textContent='Cloison choisie (ou choix dans la liste)';
+  sel.addEventListener('change',clPickSync);
+}
+function clPickSync(){const f=document.getElementById('clPick'),p=CL_BY[($('#f_position')||{}).value];
+  if(f&&f.contentWindow)try{f.contentWindow.postMessage({cloisonsSelect:p?{c:p.c,p:p.p}:{c:null,p:null}},'*')}catch(e){}}
 function vAgenda(el,sheet){
   const st=UI.ag[sheet], A=AG[sheet];
   el.innerHTML=`<div class="bar"><h2>${A.titre}</h2>
@@ -1438,6 +1449,10 @@ function vAgenda(el,sheet){
   }
   agList(sheet);
 }
+window.addEventListener('message',e=>{const k=document.getElementById('clPick');if(!k||e.source!==k.contentWindow||!e.data)return;
+  if(e.data.cloisonsH)k.style.height=(e.data.cloisonsH+2)+'px';
+  if(e.data.cloisonsReady)clPickSync();
+  if(e.data.cloisonsPick){const o=CL_POS.find(q=>q.c===e.data.cloisonsPick.c&&q.p===e.data.cloisonsPick.p),s=$('#f_position');if(s)s.value=o?o.v:''}});
 window.addEventListener('message',e=>{const f=document.getElementById('cloisonsFrame');if(!f||e.source!==f.contentWindow||!e.data)return;
   if(e.data.cloisonsH)f.style.height=(e.data.cloisonsH+4)+'px';
   if(e.data.cloisonsReady)clSend()});

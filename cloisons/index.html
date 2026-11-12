@@ -96,6 +96,9 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
 .sw2{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:7px;vertical-align:-1px;border:1px solid rgba(0,0,0,.25)}
 body.embed header,body.embed footer{display:none}
 body.embed main{padding:0;max-width:none}
+body.pick main{grid-template-columns:1fr}
+body.pick aside,body.pick .full,body.pick .legend,body.pick [data-preset],body.pick .toolbar .sep,body.pick .toolbar .lbl:first-child,body.pick #extInfo{display:none !important}
+body.pick .card{border:0;border-radius:0}
 .extinfo{padding:8px 14px;background:#eef6f1;border-bottom:1px solid var(--line);font-size:13px;color:#0e4d33}
 </style>
 </head>
@@ -178,7 +181,9 @@ body.embed main{padding:0;max-width:none}
 
 <script>
 // Mode intégré (appli Équipe) : sans en-tête, hauteur transmise à la page parente
-try{ if(new URLSearchParams(location.search).has("embed")){ document.body.classList.add("embed");
+let PICK=false; // mode « choix d'une position » (formulaire de mouvement de l'appli Équipe)
+try{ const q=new URLSearchParams(location.search); PICK=q.has("pick"); if(PICK) document.body.classList.add("pick");
+  if(q.has("embed")||PICK){ document.body.classList.add("embed");
   const sendH=()=>{ try{ parent.postMessage({cloisonsH:document.documentElement.scrollHeight},"*"); }catch(e){} };
   new ResizeObserver(sendH).observe(document.body); window.addEventListener("load",sendH); } }catch(e){}
 // ---------- Espaces ----------
@@ -267,7 +272,9 @@ function setPos(cid,pid){ state[cid]=pid; if(!pid) return;
   EXCL.forEach(g=>{ if(g.includes(cid)) g.forEach(o=>{ if(o!==cid) state[o]=null; }); });
   const key=lk(CL[cid],CL[cid].pos.find(p=>p.id===pid));
   C.forEach(c=>{ if(c.id!==cid){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) state[c.id]=null; } }); }
-function place(cid,pid){ setPos(cid, state[cid]===pid ? null : pid); selected=cid; clearPreset(); render(); }
+function pickPos(cid,pid,silent){ C.forEach(c=>state[c.id]=null); if(cid&&pid) state[cid]=pid; selected=cid||null; render();
+  if(!silent) try{ parent.postMessage({cloisonsPick:{c:cid,p:pid}},"*"); }catch(e){} }
+function place(cid,pid){ if(PICK){ pickPos(cid,pid); return; } setPos(cid, state[cid]===pid ? null : pid); selected=cid; clearPreset(); render(); }
 function occupant(key){ for(const c of C){ const p=c.pos.find(x=>x.id===state[c.id]); if(p&&lk(c,p)===key) return c.id; } return null; }
 
 const LINES={};
@@ -280,6 +287,7 @@ Object.entries(LINES).forEach(([k,L])=>{
   if(L.owners.length>1) el("path",{d,class:"vis2",fill:"none",stroke:CL[L.owners[1][0]].color,"stroke-dashoffset":16},g);
   el("path",{d,class:"hit",fill:"none"},g);
   g.addEventListener("click",()=>{
+    if(PICK){ const i=L.owners.findIndex(o=>o[0]===selected&&state[o[0]]===o[1]); pickPos(...L.owners[(i+1)%L.owners.length]); return; }
     if(L.owners.length===1){ place(...L.owners[0]); return; }
     // position partagée : libre -> 1re cloison -> 2e cloison -> libre
     const occ=occupant(k), i=L.owners.findIndex(o=>o[0]===occ);
@@ -451,8 +459,11 @@ function applyExt(){
   const i=document.getElementById("extInfo"); i.textContent=EXT.titre||""; i.style.display=EXT.titre?"":"none";
   render();
 }
-window.addEventListener("message",e=>{ const m=e.data; if(m&&m.cloisonsState){ EXT=m; applyExt(); } });
+window.addEventListener("message",e=>{ const m=e.data; if(!m) return;
+  if(m.cloisonsState){ EXT=m; applyExt(); }
+  if(m.cloisonsSelect&&PICK) pickPos(m.cloisonsSelect.c,m.cloisonsSelect.p,true); });
 preset("actuel");
+if(PICK) pickPos(null,null,true);
 if(document.body.classList.contains("embed")) try{ parent.postMessage({cloisonsReady:1},"*"); }catch(e){}
 </script>
 </body>
