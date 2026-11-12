@@ -1414,10 +1414,16 @@ function vAgenda(el,sheet){
     <div class="seg-ctl">${[['avenir','À venir'],['passes','Passés'],['tout','Tout'],['mois','📅 Mois']].map(([k,l])=>`<button class="${st.m===k?'on':''}" onclick="UI.ag['${sheet}'].m='${k}';render()">${l}</button>`).join('')}</div>
     <input class="search" type="search" placeholder="Rechercher (salon, hall…)" value="${esc(st.q)}" oninput="UI.ag['${sheet}'].q=this.value;agList('${sheet}')">
     ${sheet==='Cloisons'?`<button class="btn pri" onclick="newAg('Cloisons','','Tribune')">+ Tribune</button>`:''}<button class="btn pri" onclick="newAg('${sheet}')">${A.nouveau}</button></div>
-    ${sheet==='Cloisons'?trCarte()+`<div class="seg-ctl" style="margin-bottom:10px">${[['','Tout'],['Cloison','🧱 Cloisons'],['Tribune','🏟️ Tribune']].map(([k,l])=>`<button class="${st.o===k?'on':''}" onclick="UI.ag.Cloisons.o='${k}';render()">${l}</button>`).join('')}</div>`:''}
+    ${sheet==='Cloisons'?trCarte()+`<div class="seg-ctl" style="margin-bottom:10px">${[['','Tout'],['Cloison','🧱 Cloisons'],['Tribune','🏟️ Tribune'],['Plan','🗺️ Plan des cloisons']].map(([k,l])=>`<button class="${st.o===k?'on':''}" onclick="UI.ag.Cloisons.o='${k}';render()">${l}</button>`).join('')}</div>`:''}
     <div id="aglist"></div>`;
+  if(sheet==='Cloisons'&&st.o==='Plan'){ // plan interactif des cloisons mobiles (dossier cloisons/)
+    $('#aglist').innerHTML=`<iframe id="cloisonsFrame" src="cloisons/?embed=1" title="Plan des cloisons mobiles" style="width:100%;height:1400px;border:0;border-radius:12px;background:#fff;display:block"></iframe>
+      <p class="hint"><a href="cloisons/" target="_blank" rel="noopener">Ouvrir le plan en plein écran</a></p>`;
+    return;
+  }
   agList(sheet);
 }
+window.addEventListener('message',e=>{const f=document.getElementById('cloisonsFrame');if(f&&e.source===f.contentWindow&&e.data&&e.data.cloisonsH)f.style.height=(e.data.cloisonsH+4)+'px'});
 function agList(sheet){
   const st=UI.ag[sheet], A=AG[sheet], t=today();
   let L=D[sheet].slice();
