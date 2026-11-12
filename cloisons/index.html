@@ -31,9 +31,11 @@ svg#map{display:block;width:100%;height:auto;background:#fff;touch-action:manipu
 svg#map .viewport{transition:none}
 .part .hit{stroke:transparent;stroke-width:42;cursor:pointer;stroke-linecap:round}
 .part .vis{stroke-linecap:round;transition:stroke .25s, stroke-width .25s, stroke-dasharray .25s;pointer-events:none}
-.part.closed .vis{stroke:#ff4d4f;stroke-width:13}
-.part.open .vis{stroke:#b6f36b;stroke-width:7;stroke-dasharray:16 12}
-.part .glow{stroke:#ffd400;stroke-width:0;stroke-linecap:round;pointer-events:none;opacity:.85;transition:stroke-width .2s}
+.part.closed .vis{stroke-width:14;stroke-dasharray:none}
+.part.closed .vis2{display:none}
+.part.open .vis,.part.open .vis2{stroke-width:7;stroke-dasharray:16 16;opacity:.9}
+.part .vis2{stroke-linecap:butt;pointer-events:none}
+.part .glow{stroke:#fff;stroke-width:0;stroke-linecap:round;pointer-events:none;opacity:.85;transition:stroke-width .2s}
 .part:hover .glow,.part.sel .glow{stroke-width:30}
 .zone rect{transition:fill .3s, stroke .3s}
 .zone text{pointer-events:none}
@@ -80,7 +82,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
 .seg{display:flex;flex-wrap:wrap;gap:4px}
 .seg button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 9px;font:500 12.5px Inter,sans-serif;cursor:pointer;color:var(--ink)}
 .seg button:first-child.on{background:#0e4d33;border-color:#0e4d33;color:#fff}
-.seg button.on{background:#d63031;border-color:#d63031;color:#fff}
+.seg button.on{background:var(--cc,#d63031);border-color:rgba(0,0,0,.35);color:#111;font-weight:700}
 .combos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .combo{border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:12.5px}
 .combo:hover{border-color:#999}
@@ -90,7 +92,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
 .cline{display:flex;justify-content:space-between;gap:8px;border-top:1px dashed var(--line);padding:3px 0}
 .cline b{white-space:nowrap}
 .part.sib .glow{stroke:#fff;stroke-width:24;opacity:.6}
-.part.sib.sel .glow,.part.sel .glow{stroke:#ffd400;opacity:.85}
+.part.sib.sel .glow,.part.sel .glow{stroke:#fff;opacity:.75}
+.sw2{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:7px;vertical-align:-1px;border:1px solid rgba(0,0,0,.25)}
 </style>
 </head>
 <body>
@@ -119,10 +122,11 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding:4px 16px 20px
       <g id="parts"></g>
     </svg>
     <div class="legend">
-      <span><i style="border-top:6px solid #ff4d4f"></i>Cloison en place (fermée)</span>
-      <span><i style="border-top:4px dashed #b6f36b;background:#0e4d33;height:6px;border-radius:2px"></i>Position possible, libre</span>
+      <span><i style="border-top:6px solid #ff9f1a"></i>Trait plein = cloison en place</span>
+      <span><i style="border-top:4px dashed #ff9f1a;background:#0e4d33;height:6px;border-radius:2px"></i>Pointillé = position possible, libre</span>
+      <span>Une couleur = une cloison</span>
       <span><i style="width:14px;height:14px;border:2px solid #333;border-radius:3px;background:#fff"></i>Espace indépendant</span>
-      <span><i style="width:14px;height:14px;border-radius:3px;background:#5b8def"></i>Même couleur = un seul espace</span>
+      <span><i style="width:14px;height:14px;border-radius:3px;background:#1d3557"></i>Badges de même couleur = un seul espace</span>
       <label class="slider">Plan de fond <input type="range" id="op" min="0" max="100" value="100"></label>
     </div>
     <div class="tip" id="tip"></div>
@@ -220,9 +224,11 @@ const C = [
       {id:"p3",label:"③ 6.2B | 6.2A",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
    note:"La position ③ (entre 6.2B et 6.2A) est partagée avec la cloison 6.2 : une seule des deux peut s'y trouver. Positions ① et ② : la bande étroite entre les deux traits passe d'un côté ou de l'autre. Les surfaces 6.3B / 6.3C affichées sont celles du plan officiel."}
 ];
+const COLORS={c42A:"#ff4d4f",c42C:"#ff9f1a",c41A:"#ffe066",c41B:"#a9e34b",c3132:"#3bc9db",c31:"#f06595",c22:"#ffffff",c21r:"#ffa8a8",c21:"#4dabf7",c21E:"#ff922b",cH1:"#d0bfff",c51:"#63e6be",c61:"#ffd8a8",c62:"#ff6bcb",c63:"#74c0fc"};
+C.forEach(c=>c.color=COLORS[c.id]);
 const CL={}; C.forEach(c=>CL[c.id]=c);
 const lk=(c,p)=>p.line||(c.id+"-"+p.id);
-const PALETTE=["#5b8def","#f59f00","#9b59b6","#16a085","#e67e22","#2c82c9","#e84393","#27ae60","#8e6c3a","#00a8b5","#c0392b","#7f8c8d"];
+const PALETTE=["#1d3557","#6a1b4d","#3d2c8d","#7a4b00","#005f73","#5c3d2e","#4a4e69","#7b2cbf","#9d0208","#264653","#6c584c","#2b2d42"];
 
 let state={};   // cloison id -> id de position occupée, ou null (rangée)
 let selected=null;
@@ -260,7 +266,8 @@ Object.entries(LINES).forEach(([k,L])=>{
   const g=el("g",{class:"part",id:"ln-"+k,"data-cls":L.owners.map(o=>o[0]).join(" ")},gParts);
   const d="M"+L.pts.map(q=>q.join(",")).join(" L");
   el("path",{d,class:"glow",fill:"none"},g);
-  el("path",{d,class:"vis",fill:"none"},g);
+  L.vis=el("path",{d,class:"vis",fill:"none",stroke:CL[L.owners[0][0]].color},g);
+  if(L.owners.length>1) el("path",{d,class:"vis2",fill:"none",stroke:CL[L.owners[1][0]].color,"stroke-dashoffset":16},g);
   el("path",{d,class:"hit",fill:"none"},g);
   g.addEventListener("click",()=>{
     if(L.owners.length===1){ place(...L.owners[0]); return; }
@@ -315,7 +322,7 @@ function render(){
     g.querySelectorAll("text").forEach(t=>t.setAttribute("fill",c?"#fff":"#111"));
   });
   Object.entries(LINES).forEach(([k,L])=>{ const g=document.getElementById("ln-"+k); const occ=occupant(k);
-    g.classList.toggle("closed",!!occ); g.classList.toggle("open",!occ); g.classList.toggle("sel",L.owners.some(o=>o[0]===selected)); });
+    g.classList.toggle("closed",!!occ); g.classList.toggle("open",!occ); L.vis.setAttribute("stroke",CL[occ||L.owners[0][0]].color); g.classList.toggle("sel",L.owners.some(o=>o[0]===selected)); });
 
   const nPlaced=C.filter(c=>state[c.id]).length;
   document.getElementById("kSpaces").textContent=gs.length;
@@ -333,7 +340,7 @@ function render(){
 }
 
 function segHTML(c){
-  return `<div class="seg">`+
+  return `<div class="seg" style="--cc:${c.color}">`+
     `<button class="${!state[c.id]?'on':''}" data-c="${c.id}" data-p="">Rangée</button>`+
     c.pos.map(p=>`<button class="${state[c.id]===p.id?'on':''}" data-c="${c.id}" data-p="${p.id}">${p.label}</button>`).join("")+`</div>`;
 }
@@ -350,7 +357,7 @@ function renderDetail(){
   if(cur){ const a=cur.links.filter(k=>Z[k].m2>0).map(zn); txt=`En place en position <b>${cur.label}</b> : elle sépare <b>${a.join("</b> et <b>")}</b>.`; }
   else txt=`Rangée : elle ne sépare rien, les espaces de part et d'autre de ses positions sont réunis.`;
   det.innerHTML=`<h2>Cloison sélectionnée</h2>
-    <h3>${c.name}</h3>
+    <h3><span class="sw2" style="background:${c.color};width:16px;height:16px"></span>${c.name}</h3>
     <div class="row"><span class="badge" style="background:${cur?'#d63031':'#0e4d33'}">${cur?'EN PLACE':'RANGÉE'}</span>
     <span style="color:var(--muted);font-size:12.5px">${c.pos.length>1?c.pos.length+" positions possibles":"1 position possible"}</span></div>
     <p>${txt}</p>
@@ -365,7 +372,7 @@ function renderList(){
   const sorted=[...C].sort((a,b)=>b.pos.length-a.pos.length);
   sorted.forEach(c=>{
     const d=document.createElement("div"); d.className="clcard"+(selected===c.id?" sel":"")+(c.pos.length>1?" multi":"");
-    d.innerHTML=`<div class="clhead"><b>${c.name}</b><span>${c.pos.length>1?c.pos.length+" positions":"1 position"}</span></div>${segHTML(c)}`;
+    d.innerHTML=`<div class="clhead"><b><span class="sw2" style="background:${c.color}"></span>${c.name}</b><span>${c.pos.length>1?c.pos.length+" positions":"1 position"}</span></div>${segHTML(c)}`;
     d.onclick=()=>{ selected=c.id; render(); };
     d.onmouseenter=()=>document.querySelectorAll(`[data-cls~="${c.id}"]`).forEach(x=>x.classList.add("sib"));
     d.onmouseleave=()=>document.querySelectorAll(".sib").forEach(x=>x.classList.remove("sib"));
