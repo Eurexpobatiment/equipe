@@ -160,7 +160,7 @@ body.pick .card{border:0;border-radius:0}
       <ol>
         <li>Chaque <b>cloison</b> est une seule pièce mobile. Elle peut être <b>rangée</b> (ouverte) ou mise en place à l'une de ses <b>positions</b>.</li>
         <li>Une cloison ne peut être qu'<b>à un seul endroit à la fois</b> : la placer à une position libère les autres.</li>
-        <li>Hall 6.2 : la position entre <b>6.2B et 6.2A</b> est partagée par les cloisons 6.2 et 6.3 – une seule des deux peut l'occuper.</li>
+        <li>Hall 6.2 : la position entre <b>6.2B et 6.2A</b> est partagée par les cloisons 6.2A/6.3 et 6.3B/6.3C – une seule des deux peut l'occuper.</li>
         <li>Les positions occupées découpent les halls ; les espaces de même couleur forment un seul plateau.</li>
         <li><b>Position actuelle</b> : reprend le plan annoté (traits rouges = positions occupées).</li>
       </ol>
@@ -173,7 +173,7 @@ body.pick .card{border:0;border-radius:0}
   </section>
 
   <section class="card full">
-    <div class="sechead"><h2>Halls 6.2 et 6.3 : les 15 combinaisons possibles</h2><span class="muted">Cloison 6.2 (rangée + 3 positions) × Cloison 6.3 (rangée + 3 positions), sans les deux cloisons sur la position ③ partagée · clic pour l'appliquer</span></div>
+    <div class="sechead"><h2>Halls 6.2 et 6.3 : les 15 combinaisons possibles</h2><span class="muted">Cloison 6.2A/6.3 (rangée + 3 positions) × Cloison 6.3B/6.3C (rangée + 3 positions), sans les deux cloisons sur la position ③ partagée · clic pour l'appliquer</span></div>
     <div class="combos" id="combos"></div>
   </section>
 </main>
@@ -217,7 +217,7 @@ const C = [
   {id:"c42C", name:"Cloison 4.2B/4.2C", intra:true, pos:[{id:"a",label:"4.2B | 4.2C",pts:[[1162,335],[1162,588]],links:["4.2B","4.2C"]}]},
   {id:"c41A", name:"Cloison 4.1/4.2", pos:[{id:"a",label:"4.1 | 4.2 (moitié ouest)",pts:[[927,588],[1040,588]],links:["4.1","4.2B"]}], note:"La liaison 4.1 / 4.2 est fermée par deux cloisons 4.1/4.2 (moitié ouest et moitié est) : il faut les deux pour séparer complètement les halls."},
   {id:"c41B", name:"Cloison 4.1/4.2", pos:[{id:"a",label:"4.1 | 4.2 (moitié est)",pts:[[1046,588],[1160,588]],links:["4.1","4.2B"]}], note:"La liaison 4.1 / 4.2 est fermée par deux cloisons 4.1/4.2 (moitié ouest et moitié est) : il faut les deux pour séparer complètement les halls."},
-  {id:"c3132",name:"Cloison 3.1 / 3.2", pos:[{id:"a",label:"3.1 | 3.2",pts:[[550,840],[705,685]],links:["3.1","3.2"]}]},
+  {id:"c3132",name:"Cloison 3.1/3.2", pos:[{id:"a",label:"3.1 | 3.2",pts:[[550,840],[705,685]],links:["3.1","3.2"]}]},
   {id:"c31",  name:"Cloison 2.1/3.1", pos:[{id:"a",label:"2.1A | 3.1",pts:[[660,950],[735,1025]],links:["3.1","2.1A"]}]},
   {id:"c22",  name:"Cloison 2.1A/2.2", pos:[{id:"a",label:"2.1A | 2.2",pts:[[445,1093],[515,1020]],links:["2.2","2.1A"]}]},
   {id:"c21",  name:"Cloison 2.1", intra:true, pos:[
@@ -228,16 +228,16 @@ const C = [
   {id:"cH1",  name:"Cloison 1/2.1", pos:[{id:"a",label:"Hall 1 | 2.1",pts:[[610,1430],[695,1345],[775,1270]],links:["1","2.1A","2.1B"]}]},
   {id:"c51",  name:"Cloison 5.1/6.2", pos:[{id:"a",label:"5.1 | 6.2B",pts:[[1375,1030],[1465,945]],links:["5.1","6.2B"]}]},
   {id:"c61",  name:"Cloison 6.1/6.2", pos:[{id:"a",label:"6.1 | 6.2A",pts:[[1320,1260],[1495,1430]],links:["6.1","6.2A"]}]},
-  {id:"c62",  name:"Cloison 6.2", pos:[
-      {id:"p1",label:"① 6.3A | 6.3B",pts:[[1662,907],[1842,1087]],links:["6.3A","6.3B"]},
-      {id:"p2",label:"② 6.2 | 6.3",pts:[[1550,1032],[1725,1205]],links:["6.2A","6.3A"]},
-      {id:"p3",label:"③ 6.2B | 6.2A",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
-   note:"La position ③ (entre 6.2B et 6.2A) est partagée avec la cloison 6.3 : une seule des deux peut s'y trouver."},
-  {id:"c63",  name:"Cloison 6.3", pos:[
-      {id:"p1",label:"① 6.3B | 6.3C (côté 6.3C)",pts:[[1748,828],[1920,1000]],links:["bande63","6.3C"]},
-      {id:"p2",label:"② 6.3B | 6.3C (côté 6.3B)",pts:[[1722,850],[1900,1025]],links:["6.3B","bande63"]},
-      {id:"p3",label:"③ 6.2B | 6.2A",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
-   note:"La position ③ (entre 6.2B et 6.2A) est partagée avec la cloison 6.2 : une seule des deux peut s'y trouver. Positions ① et ② : la bande étroite entre les deux traits passe d'un côté ou de l'autre. Les surfaces 6.3B / 6.3C affichées sont celles du plan officiel."}
+  {id:"c62",  name:"Cloison 6.2A/6.3", pos:[
+      {id:"p1",label:"① 6.3A/6.3B",pts:[[1662,907],[1842,1087]],links:["6.3A","6.3B"]},
+      {id:"p2",label:"② 6.2A/6.3",pts:[[1550,1032],[1725,1205]],links:["6.2A","6.3A"]},
+      {id:"p3",label:"③ 6.2A/6.2B",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
+   note:"La position ③ 6.2A/6.2B est partagée avec la cloison 6.3B/6.3C : une seule des deux peut s'y trouver."},
+  {id:"c63",  name:"Cloison 6.3B/6.3C", pos:[
+      {id:"p1",label:"① 6.3B/6.3C (côté 6.3C)",pts:[[1748,828],[1920,1000]],links:["bande63","6.3C"]},
+      {id:"p2",label:"② 6.3B/6.3C (côté 6.3B)",pts:[[1722,850],[1900,1025]],links:["6.3B","bande63"]},
+      {id:"p3",label:"③ 6.2A/6.2B",line:"L62BA",pts:[[1365,1205],[1550,1032]],links:["6.2B","6.2A"]}],
+   note:"La position ③ 6.2A/6.2B est partagée avec la cloison 6.2A/6.3 : une seule des deux peut s'y trouver. Positions ① et ② : la bande étroite entre les deux traits passe d'un côté ou de l'autre. Les surfaces 6.3B / 6.3C affichées sont celles du plan officiel."}
 ];
 const COLORS={c42A:"#ff4d4f",c42C:"#ff9f1a",c41A:"#ffe066",c41B:"#a9e34b",c3132:"#3bc9db",c31:"#f06595",c22:"#ffffff",c21:"#4dabf7",cH1:"#d0bfff",c51:"#63e6be",c61:"#ffd8a8",c62:"#ff6bcb",c63:"#74c0fc"};
 C.forEach(c=>c.color=COLORS[c.id]);
@@ -412,7 +412,7 @@ function renderCombos(){
     const gs=groupsFor(st).filter(g=>g.members.some(k=>SECT6.includes(k)));
     const on=state.c62===a&&state.c63===b;
     const d=document.createElement("div"); d.className="combo"+(on?" on":"");
-    d.innerHTML=`<div class="ctop"><span>6.2 : <b>${lab("c62",a)}</b></span><span>6.3 : <b>${lab("c63",b)}</b></span></div>`+
+    d.innerHTML=`<div class="ctop"><span>6.2A/6.3 : <b>${lab("c62",a)}</b></span><span>6.3B/6.3C : <b>${lab("c63",b)}</b></span></div>`+
       `<div class="cnum">${gs.length} espace${gs.length>1?"s":""}</div>`+
       gs.map(g=>`<div class="cline"><span>${spaceLine(g)}</span><b>${fmt(g.m2)}</b></div>`).join("");
     d.onclick=()=>{ state.c62=a; state.c63=b; clearPreset(); render(); zoom("est"); };
