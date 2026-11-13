@@ -1816,12 +1816,70 @@ function chFromDemande(id){const d=DT.list&&DT.list.find(x=>x.id===id);if(!d)ret
   goTab('Travaux');
   chNew({titre:d.intitule,espace:d.lieu||'',demande:d.numero,dateDebut:d.datePrevue||d.dateDebut||today(),dateFin:d.dateFin||d.datePrevue||d.dateDebut||today(),responsable:people().includes(d.chargeDe)?d.chargeDe:'',note:[d.demandeur,d.service].filter(Boolean).join(' · ')});}
 async function loadXLSX(){if(window.XLSX)return;toast('Préparation du fichier…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
+// Export Excel des travaux : onglet « Gantt » (la période, les filtres et le regroupement affichés dans 📅 Planning) + onglet « Chantiers » (la liste complète)
 async function chExport(){
-  try{await loadXLSX();
-    const rows=D.Chantiers.slice().sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)).map(c=>({'Chantier':c.titre,'Espace':c.espace,'Zone':c.zone,'Type':c.type,'Entreprise':c.entreprise,'Responsable':c.responsable,'Début':c.dateDebut,'Fin':c.dateFin,'Horaires':c.horaires,'Statut':c.statut,'Avancement %':num(c.avancement),'Montant HT':c.montant?num(c.montant):'','Code budget':c.codeBudget,'Demande':c.demande,'Nacelle':c.nacelle,'Contraintes':c.contraintes,'Note':c.note,'Chevauchement':chConflicts(c).map(o=>o.titre).join(' / ')}));
-    const wb=XLSX.utils.book_new(),ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'Chantier':''}]);
-    ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(45,Math.max(10,k.length+2,...rows.map(r=>String(r[k]??'').length+1)))}));
-    XLSX.utils.book_append_sheet(wb,ws,'Chantiers'); XLSX.writeFile(wb,`Planning travaux - ${today()}.xlsx`);
+  try{await loadExcelJS();
+    const st=UI.ch, t=today(), N=st.weeks*7, d0=monday(st.off), d1=addDays(d0,N-1), FC=6;
+    const wb=new ExcelJS.Workbook(), F='Calibri', argb=h=>'FF'+String(h||'#64748b').replace('#','').toUpperCase();
+    const fill=h=>({type:'pattern',pattern:'solid',fgColor:{argb:argb(h)}}), hair={style:'hair',color:{argb:'FFD0D5DD'}}, thin={style:'thin',color:{argb:'FF9AA3B2'}};
+    const dt=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||'');return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):null};
+    const idx=d=>Math.round((parseD(d)-parseD(d0))/864e5), wk=d=>{const on=parseD(d);on.setDate(on.getDate()+3);const y=new Date(on.getFullYear(),0,4);return 1+Math.round(((on-y)/864e5-3+((y.getDay()+6)%7))/7)};
+    const days=[...Array(N)].map((_,i)=>addDays(d0,i)), we=d=>[0,6].includes(parseD(d).getDay());
+    const g=wb.addWorksheet('Gantt',{views:[{state:'frozen',xSplit:FC,ySplit:5,showGridLines:false}],
+      pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:5',margins:{left:.25,right:.25,top:.4,bottom:.4,header:.2,footer:.2}}});
+    g.columns=[{width:34},{width:22},{width:20},{width:9},{width:9},{width:10},...days.map(()=>({width:N>100?2.2:N>40?3:4.2}))];
+    const ti=g.getCell(1,1);ti.value='Planning travaux · Eurexpo';ti.font={name:F,size:15,bold:true,color:{argb:'FF0F2A4A'}};
+    const fl=[st.esp,st.type,st.resp,st.q&&'« '+st.q+' »'].filter(Boolean);
+    const sb=g.getCell(2,1);sb.value=`Du ${fD(d0,{day:'numeric',month:'long',year:'numeric'})} au ${fD(d1,{day:'numeric',month:'long',year:'numeric'})} · export du ${fD(t,{day:'numeric',month:'long',year:'numeric'})}${fl.length?' · filtre : '+fl.join(', '):''}`;sb.font={name:F,size:9,italic:true,color:{argb:'FF64748B'}};
+    // en-têtes : mois / semaines / jours
+    const hd=(r,c,v,o={})=>{const x=g.getCell(r,c);x.value=v;x.font={name:F,size:o.sz||8,bold:o.b!==false,color:{argb:o.fc||'FFFFFFFF'}};x.fill=fill(o.bg||'#0F2A4A');x.alignment={horizontal:o.h||'center',vertical:'middle',wrapText:!!o.w};x.border={left:o.bl||hair,right:hair,top:hair,bottom:hair};return x};
+    const band=(r,keyf,label,o)=>{let s=0;days.forEach((d,i)=>{if(i===N-1||keyf(days[i+1])!==keyf(d)){if(i>s)g.mergeCells(r,FC+1+s,r,FC+1+i);hd(r,FC+1+s,label(days[s],i-s+1),o);s=i+1}})};
+    band(3,d=>d.slice(0,7),(d,n)=>n>=4?fD(d,{month:'long',year:'numeric'}):'',{sz:9,bl:thin});
+    band(4,d=>addDays(d,-((parseD(d).getDay()+6)%7)),(d,n)=>n>=3?'S'+wk(d):'',{bg:'#3A6EA5'});
+    days.forEach((d,i)=>hd(5,FC+1+i,N>100?'':parseD(d).getDate(),{bg:we(d)?'#9AA3B2':d===t?'#E63946':'#5B7FA8',sz:7,b:d===t}));
+    ['Chantier','Espace / zone','Entreprise','Début','Fin','Statut'].forEach((l,i)=>{g.mergeCells(3,i+1,5,i+1);hd(3,i+1,l,{h:i<3?'left':'center',sz:9})});
+    [3,4,5].forEach(r=>g.getRow(r).height=r===5?15:16);
+    let r=6;
+    const grp=(label,n)=>{const row=g.getRow(r);row.height=16;for(let c=1;c<=FC+N;c++){const x=row.getCell(c);x.fill=fill('#E8EDF4');x.border={top:thin,bottom:hair}}
+      const x=row.getCell(1);x.value=n!=null?`${label}  (${n})`:label;x.font={name:F,size:10,bold:true,color:{argb:'FF0F2A4A'}};r++};
+    const line=(cells,a,b,col,lab,o={})=>{const row=g.getRow(r);row.height=17;
+      cells.forEach((v,i)=>{const x=row.getCell(i+1);x.value=v==null||v===''?null:v;x.font={name:F,size:9,bold:i===0,color:o.late&&i===4?{argb:'FFC00000'}:undefined};
+        x.alignment={horizontal:i<3?'left':'center',vertical:'middle',shrinkToFit:i<3};x.border={bottom:hair,right:i===FC-1?thin:undefined};if(i===3||i===4)x.numFmt='dd/mm/yy'});
+      const s=Math.max(0,idx(a)),e=Math.min(N-1,idx(b)),av=Math.max(0,Math.min(100,num(o.av||0)));
+      days.forEach((d,i)=>{const x=row.getCell(FC+1+i),on=i>=s&&i<=e;
+        x.border={bottom:hair,left:i%7===0?{style:'hair',color:{argb:'FF9AA3B2'}}:undefined,right:d===t?{style:'thin',color:{argb:'FFE63946'}}:undefined};
+        if(on){x.fill=o.salon?{type:'pattern',pattern:'lightUp',fgColor:{argb:'FF8E5BD1'},bgColor:{argb:'FFEDE4FA'}}:fill(col);
+          if(!o.salon&&av&&i<s+Math.round((e-s+1)*av/100))x.fill={type:'pattern',pattern:'darkGray',fgColor:{argb:argb(col)},bgColor:{argb:'FF0F2A4A'}};
+          if(o.pale)x.fill={type:'pattern',pattern:'lightGray',fgColor:{argb:argb(col)},bgColor:{argb:'FFFFFFFF'}}}
+        else if(we(d))x.fill=fill('#F1F3F6')});
+      if(e>=s){const x=row.getCell(FC+1+s);x.value=lab;x.font={name:F,size:8,bold:true,color:{argb:o.salon?'FF4B2A7A':o.pale?'FF334155':'FFFFFFFF'}};x.alignment={horizontal:'left',vertical:'middle',wrapText:false}}
+      r++};
+    const salOn=lsGet('ch_salons')!=='0', sal=salOn?salons().filter(s=>s.d0<=d1&&s.d1>=d0):[];
+    if(sal.length){grp("Salons (d'après les états des lieux)",sal.length);sal.forEach(s=>line([s.nom,s.halls,'',dt(s.d0),dt(s.d1),'Salon'],s.d0,s.d1,'#8E5BD1',s.nom,{salon:1}))}
+    const L=chFiltered().filter(c=>c.dateDebut<=d1&&c.dateFin>=d0).sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut));
+    const key={espace:c=>c.espace||'Sans espace',type:c=>c.type||'Autre',responsable:c=>c.responsable||'Sans responsable',entreprise:c=>c.entreprise||'Sans entreprise'}[st.group];
+    const groups={};L.forEach(c=>{(st.group==='espace'?(espList(c.espace).length?espList(c.espace):['Sans espace']):[key(c)]).forEach(k=>(groups[k]=groups[k]||[]).push(c))});
+    const ix=x=>{const i=ESPACES().indexOf(x);return i<0?999:i};
+    Object.keys(groups).sort((a,b)=>st.group!=='espace'?a.localeCompare(b,'fr'):ix(a)-ix(b)||a.localeCompare(b,'fr')).forEach(k=>{grp(k,groups[k].length);
+      groups[k].forEach(c=>{const cf=chConflicts(c).length;
+        line([(cf?'⚠️ ':'')+c.titre,[espList(c.espace).join(', '),c.zone].filter(Boolean).join(' · '),c.entreprise,dt(c.dateDebut),dt(c.dateFin),c.statut||'Prévu'],
+          c.dateDebut,c.dateFin,chCol(c),c.titre,{av:c.avancement,pale:['Suspendu','Reporté'].includes(c.statut),late:CH_ACTIF(c.statut)&&c.dateFin<t})})});
+    if(!L.length&&!sal.length){g.getCell(r,1).value='Aucun chantier sur cette période';g.getCell(r,1).font={name:F,size:9,italic:true};r++}
+    // légende
+    r++;const lg=g.getCell(r,1);lg.value='Légende';lg.font={name:F,size:9,bold:true};r++;
+    Object.entries(CH_TYPES).filter(([k])=>L.some(c=>c.type===k)).forEach(([k,c])=>{g.getCell(r,1).value=k;g.getCell(r,1).font={name:F,size:8};g.getCell(r,2).fill=fill(c);r++});
+    [['Partie hachurée foncée : avancement',null],['Hachures claires : suspendu / reporté',null],['⚠️ chevauchement sur le même espace',null],['Trait rouge : aujourd\'hui',null]].forEach(([l])=>{g.getCell(r,1).value=l;g.getCell(r,1).font={name:F,size:8,italic:true,color:{argb:'FF64748B'}};r++});
+    // onglet « Chantiers » : la liste complète, comme avant
+    const ws=wb.addWorksheet('Chantiers',{views:[{state:'frozen',ySplit:1}]});
+    const rows=D.Chantiers.slice().sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)).map(c=>({'Chantier':c.titre,'Espace':c.espace,'Zone':c.zone,'Type':c.type,'Entreprise':c.entreprise,'Responsable':c.responsable,'Début':dt(c.dateDebut),'Fin':dt(c.dateFin),'Horaires':c.horaires,'Statut':c.statut,'Avancement %':num(c.avancement),'Montant HT':c.montant?num(c.montant):'','Code budget':c.codeBudget,'Demande':c.demande,'Nacelle':c.nacelle,'Contraintes':c.contraintes,'Note':c.note,'Chevauchement':chConflicts(c).map(o=>o.titre).join(' / ')}));
+    const K=Object.keys(rows[0]||{'Chantier':''});
+    ws.columns=K.map(k=>({header:k,key:k,width:Math.min(45,Math.max(10,k.length+2,...rows.map(x=>(x[k] instanceof Date?10:String(x[k]??'').length)+1)))}));
+    rows.forEach(x=>ws.addRow(K.map(k=>x[k]===''||x[k]==null?null:x[k])));
+    ws.getRow(1).eachCell(x=>{x.font={name:F,bold:true,color:{argb:'FFFFFFFF'}};x.fill=fill('#0F2A4A');x.alignment={vertical:'middle'}});
+    ws.getColumn('Début').numFmt=ws.getColumn('Fin').numFmt='dd/mm/yyyy';ws.getColumn('Montant HT').numFmt='#,##0.00 €';
+    ws.autoFilter={from:{row:1,column:1},to:{row:1+Math.max(1,rows.length),column:K.length}};
+    const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download=`Planning travaux - ${t}.xlsx`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
   }catch(e){toast(e.message,1)}
 }
 /* ----- import d'un planning d'entreprise (glisser-déposer dans « Nouveau chantier ») → chantiers ----- */
