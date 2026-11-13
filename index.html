@@ -401,7 +401,15 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .cldrop{border:2px dashed #c3cad8;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin:0 0 12px}
 .cldrop .link{font-size:13px}
 #cldropban{position:fixed;inset:0;z-index:9999;background:rgba(20,33,61,.55);display:flex;align-items:center;justify-content:center;pointer-events:none}
-#cldropban div{background:#fff;border:3px dashed var(--navy);border-radius:16px;padding:34px 40px;font-size:20px;font-weight:700;color:var(--navy)}
+#cldropban div,#chpdropban div{background:#fff;border:3px dashed var(--navy);border-radius:16px;padding:34px 40px;font-size:20px;font-weight:700;color:var(--navy)}
+#chpdropban{position:fixed;inset:0;z-index:9999;background:rgba(20,33,61,.55);display:flex;align-items:center;justify-content:center;pointer-events:none}
+.chpov .mod{max-width:1080px}
+.chpmode{margin:0 0 12px}
+.chpbar{margin:6px 0 8px}.chpbar b{font-size:14px}
+.chptbl{max-height:46vh;overflow:auto}.chptbl .btbl{min-width:820px}.chptbl th{position:sticky;top:0;background:#f5f7fb;z-index:1;text-align:left;font-size:13px}
+.chptbl td{padding:4px 6px;vertical-align:top}.chptbl td input:not([type=checkbox]){width:100%;border:1px solid #d5d9e2;border-radius:6px;padding:5px 7px;font-size:14px;font-family:inherit;background:#fff}
+.chptbl td:nth-child(2){min-width:260px}.chptbl td:nth-child(3),.chptbl td:nth-child(4){width:140px}.chptbl td input[type=checkbox]{width:18px;height:18px;margin-top:6px}
+.chptbl td small.hint{display:block;margin:2px 0 0}.chptbl tr.chpsum td{background:#f2f4f8}.chptbl tr.chpsum td:nth-child(2) input{font-weight:700}.chptbl tr.off td>*:not(input[type=checkbox]){opacity:.45}
 .cltbl tr.clwarn td{background:#fff3d6}
 .clximp{font-size:13px;margin:-4px 0 12px}.clximp .btn{margin:4px 6px 0 0}
 /* Documents techniques */
@@ -1783,7 +1791,7 @@ function chListe(el){
         <span class="sp"></span><span class="chav">${barHtml(num(c.avancement)/100)}<small>${num(c.avancement)} %</small></span>${c.montant?`<b class="r">${eur(num(c.montant))}</b>`:''}</div>`}).join('')}</div>`).join('')||'<p class="empty">Aucun chantier. <a href="#" onclick="chNew();return false">Ajouter un chantier</a></p>');
 }
 const chVal=o=>o.dateFin&&o.dateFin<o.dateDebut?'La date de fin est avant la date de début':o.montant&&!isPureNum(o.montant)?'Montant : saisis un nombre':'';
-function chNew(pre={}){const t=today();openForm('Chantiers',{dateDebut:t,dateFin:t,statut:'Prévu',responsable:'',...pre},'Nouveau chantier',{validate:chVal,after:chAfter})}
+function chNew(pre={}){const t=today();openForm('Chantiers',{dateDebut:t,dateFin:t,statut:'Prévu',responsable:'',...pre},'Nouveau chantier',{validate:chVal,after:()=>{chAfter();chpZone()}})}
 function chEdit(id){
   const c=D.Chantiers.find(x=>x.id===id); if(!c) return;
   const cf=chConflicts(c);
@@ -1816,6 +1824,250 @@ async function chExport(){
     XLSX.utils.book_append_sheet(wb,ws,'Chantiers'); XLSX.writeFile(wb,`Planning travaux - ${today()}.xlsx`);
   }catch(e){toast(e.message,1)}
 }
+/* ----- import d'un planning d'entreprise (glisser-déposer dans « Nouveau chantier ») → chantiers ----- */
+// Formats lus : Excel / CSV / ODS (tableau Tâche · Début · Fin · Durée…, ou planning Gantt avec les dates en colonnes et des cases remplies / colorées) et PDF (export MS Project, planning texte)
+const CHP={lines:[],src:'',pre:{},mode:1};
+const chpN=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
+const chpV=v=>v==null||v instanceof Date?'':String(v).replace(/\s+/g,' ').trim();
+function chpMois(s){const t=chpN(s).replace(/\./g,'');if(t.length<3)return 0;
+  const F=[/^JANV?/,/^F[E]V/,/^MARS?$/,/^AVR/,/^MAI$/,/^JUIN?$/,/^JUIL?/,/^AOU/,/^SEPT?/,/^OCT/,/^NOV/,/^DEC/],E=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  let i=F.findIndex(re=>re.test(t));if(i<0&&/^(MAR|JUN|JUL|FEB|APR|MAY|AUG|DEC)/.test(t))i=E.indexOf(t.slice(0,3));if(i<0&&t.length<=9)i=['JANVIER','FEVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOUT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DECEMBRE'].indexOf(t);
+  return i+1}
+function chpYear(y,m,d){ // année absente : celle qui met la date le plus près d'aujourd'hui (planning à venir)
+  if(y)return +y<100?2000+(+y):+y;const n=new Date(),c=n.getFullYear();return new Date(c,m-1,d)<new Date(n.getTime()-200*864e5)?c+1:c}
+const chpYmd=(y,m,d)=>{const c=new Date().getFullYear();if(!(m>=1&&m<=12&&d>=1&&d<=31&&y>=c-6&&y<=c+10))return '';const t=new Date(y,m-1,d);return t.getMonth()===m-1?ymd(t):''};
+function chpDate(v){
+  if(v==null||v==='')return '';
+  if(v instanceof Date){if(isNaN(v))return '';const t=new Date(v.getTime()+12*3600e3);return chpYmd(t.getFullYear(),t.getMonth()+1,t.getDate())}
+  if(typeof v==='number'){if(v>36000&&v<60000){const t=new Date(Math.round((v-25569)*864e5));return chpYmd(t.getUTCFullYear(),t.getUTCMonth()+1,t.getUTCDate())}return ''}
+  const s=String(v).trim();let m;
+  if(m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))return chpYmd(+m[1],+m[2],+m[3]);
+  if(m=s.match(/^(?:[a-zéû]{2,9}\.?\s+)?(\d{1,2})([\/.-])(\d{1,2})(?:\2(\d{2}|\d{4}))?(?=\s|$|[^\d])/i))return m[4]||m[2]==='/'?chpYmd(chpYear(m[4],+m[3],+m[1]),+m[3],+m[1]):'';
+  if(m=s.match(/^(?:[a-zéû]{2,9}\.?\s+)?(\d{1,2})(?:er)?\s+([a-zéèûô]{3,9})\.?(?:\s+(\d{2,4}))?(?=\s|$|[^\w])/i)){const mo=chpMois(m[2]);if(mo)return chpYmd(chpYear(m[3],mo,+m[1]),mo,+m[1])}
+  return ''}
+// toutes les dates d'un texte libre (ligne de PDF) ; « 4.2 » (Hall 4.2) n'est pas une date, « 16/11 » oui
+function chpDates(s){const R=[],re=/(\d{4}-\d{2}-\d{2})|(?<![\d.,])(\d{1,2})([\/.])(\d{1,2})(?:\3(\d{4}|\d{2}))?(?![\d.,]*\d)|(\d{1,2})(?:er)?\s+(janv(?:ier)?|f[ée]v(?:rier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)\.?(?:\s+(\d{4}))?/gi;let m;
+  while(m=re.exec(s)){let d='';if(m[1])d=chpDate(m[1]);else if(m[2]){if(!m[5]&&m[3]!=='/')continue;d=chpYmd(chpYear(m[5],+m[4],+m[2]),+m[4],+m[2])}else{const mo=chpMois(m[7]);d=chpYmd(chpYear(m[8],mo,+m[6]),mo,+m[6])}
+    if(d)R.push({d,i:m.index,l:m[0].length})}
+  return R}
+const chpWE=d=>{const w=parseD(d).getDay();return w===0||w===6};
+function chpDuree(v){ // « 5 jours », « 5j », « 2 sem », « 1 mois » → nombre de jours ouvrés
+  if(typeof v==='number')return v>0&&v<1000?Math.round(v):0;const m=String(v||'').replace(',','.').match(/^\s*(\d+(?:\.\d+)?)\s*(jours?|jrs?|jo|j|days?|d|semaines?|sem|wk|w|s|mois|m|heures?|h)?(?![a-z])/i);if(!m)return 0;
+  const n=+m[1],u=(m[2]||'j').toLowerCase();return Math.max(1,Math.round(/^(s|sem|w)/.test(u)?n*5:/^m/.test(u)?n*21:/^h/.test(u)?n/8:n))}
+function chpFinOuvree(d0,n){let d=d0,k=chpWE(d)?0:1;while(k<n){d=addDays(d,1);if(!chpWE(d))k++}return d}
+// texte → espaces de l'appli (« Hall 4.2 », « H4.2 », « parvis »…)
+function chpEspaces(txt){const t=' '+chpN(txt)+' ',R=[];
+  CONFIG.halls.forEach(h=>{const m=chpN(h).match(/^HALL\s+(\d)(?:\.(\d))?\s*(.*)$/);if(!m)return;
+    const suf=m[3]?'\\s*'+m[3].replace(/\s+/g,'\\s*')+'(?![A-Z0-9])':'';const re=new RegExp('[^A-Z0-9](HALLS?|H)\\s*'+m[1]+(m[2]?'[.,]'+m[2]+'(?!\\d)':'(?![.,]?\\d)')+suf);if(re.test(t))R.push(h)});
+  if(!R.some(h=>/^Hall 2\.1/.test(h))&&/[^A-Z0-9](HALL|H)\s*2[.,]1(?!\d)/.test(t))R.push('Hall 2.1 AB'); // « Hall 2.1 » sans précision
+  if(R.includes('Hall 2.1 AB')&&R.includes('Hall 2.1 Ext')&&!/2[.,]1\s*AB/.test(t))R.splice(R.indexOf('Hall 2.1 AB'),1); // « Hall 2.1 Ext » seul
+  [['Parvis',/PARVIS/],['Parkings',/PARKING/],['Toitures',/TOITURE|COUVERTURE/],['Voiries / extérieurs',/VOIRIE|EXTERIEURS?\b/],['Locaux techniques',/LOCAUX? TECHNIQUES?/],['Sous-sol / galeries techniques',/SOUS-SOL|GALERIES? TECHNIQUE/],['Bureaux / administratif',/BUREAUX|ADMINISTRATI/]]
+    .forEach(([e,re])=>{if(re.test(t))R.push(e)});
+  return [...new Set(R)]}
+// ligne de regroupement (récapitulatif MS Project, lot) : sa période englobe exactement celle des lignes qui la suivent
+function chpGroupes(L){
+  for(let i=0;i<L.length;i++){const a=L[i];if(a.sum)continue;let j=i+1,mn='9',mx='0';
+    while(j<L.length&&L[j].d0>=a.d0&&L[j].d1<=a.d1){mn=L[j].d0<mn?L[j].d0:mn;mx=L[j].d1>mx?L[j].d1:mx;j++}
+    if(j-i-1>=2&&mn===a.d0&&mx===a.d1){a.sum=1;for(let k=i+1;k<j;k++)L[k].groupe=a.tache}}
+  return L}
+const CHP_COLS=[['tache',/^(NOM|NOM DE LA TACHE|TACHES?|DESIGNATIONS?|LIBELLES?|INTITULES?|PHASES?|OPERATIONS?|TRAVAUX|DESCRIPTIONS?|ACTIVITES?|OUVRAGES?|ETAPES?|PRESTATIONS?|NATURE|TASK|TASK NAME|NAME|OBJET|INTERVENTIONS?)\b/],
+  ['d0',/^(DU|DE|COMMENCEMENT|DEMARRAGE|START|BEGIN)\b|DEBUT|^START DATE/],['d1',/^(AU|JUSQU|ACHEVEMENT|TERMINAISON|FINISH|END)\b|\bFIN\b/],
+  ['date',/^(DATES?|JOURS?|LE)\b/],['duree',/^(DUREE|NB JOURS|NOMBRE DE JOURS|DURATION)\b/],['niveau',/NIVEAU HIERARCHIQUE|OUTLINE LEVEL|NIVEAU DE PLAN/],
+  ['entreprise',/^(ENTREPRISES?|SOCIETES?|PRESTATAIRES?|INTERVENANTS?|RESSOURCES?|NOMS? DES RESSOURCES|RESOURCE NAMES?|SOUS[- ]TRAITANTS?|TITULAIRES?)\b/],
+  ['lot',/^(LOTS?|CORPS D.ETAT|CORPS DE METIER)\b/],['lieu',/^(LIEUX?|ESPACES?|HALLS?|ZONES?|LOCALISATION|EMPLACEMENTS?|BATIMENTS?|SECTEURS?)\b/],
+  ['horaires',/^(HORAIRES?|HEURES?|CRENEAUX?|POSTE)\b/],['note',/^(COMMENTAIRES?|OBSERVATIONS?|REMARQUES?|NOTES?|CONTRAINTES?)\b/]];
+function chpHeader(r){const m={};(r||[]).forEach((c,j)=>{const t=chpN(chpV(c));if(!t||t.length>40)return;const k=(CHP_COLS.find(([k,re])=>!(k in m)&&re.test(t))||[])[0];if(k)m[k]=j});return m}
+// 1) tableau avec en-têtes (Tâche · Début · Fin, ou Tâche · Début · Durée, ou Tâche · Date)
+function chpTable(rows){
+  for(let i=0;i<Math.min(rows.length,40);i++){const m=chpHeader(rows[i]);
+    if(!('tache' in m)||!('d0' in m||'date' in m))continue;
+    const g=(r,k)=>k in m?r[m[k]]:null,L=[];let head='';
+    rows.slice(i+1).forEach(r=>{r=r||[];const tache=chpV(g(r,'tache'));let d0=chpDate(g(r,'d0'))||chpDate(g(r,'date')),d1=chpDate(g(r,'d1'))||chpDate(g(r,'date'));
+      if(!d0){if(tache&&r.filter(c=>chpV(c)).length<=2)head=tache;return} // titre de lot sans date
+      if(!tache)return;
+      if(!d1){const n=chpDuree(g(r,'duree'));d1=n?chpFinOuvree(d0,n):d0}
+      if(d1<d0)[d0,d1]=[d1,d0];
+      L.push({tache,d0,d1,groupe:[chpV(g(r,'lot')),head].filter(Boolean).join(' · '),entreprise:chpV(g(r,'entreprise')),lieu:chpV(g(r,'lieu')),horaires:chpV(g(r,'horaires')),info:chpV(g(r,'note')),niv:+g(r,'niveau')||0})});
+    if(!L.length)continue;
+    if(L.some(x=>x.niv))L.forEach((x,k)=>{const nx=L[k+1];if(nx&&nx.niv>x.niv){x.sum=1;for(let q=k+1;q<L.length&&L[q].niv>x.niv;q++)if(L[q].niv===x.niv+1)L[q].groupe=x.tache}});
+    else chpGroupes(L);
+    return L}
+  return null}
+// 2) planning Gantt : une ligne d'en-tête de dates (ou de n° de jours sous les mois, ou de semaines S46…), cases remplies ou colorées
+function chpGanttCols(rows){
+  for(let i=0;i<Math.min(rows.length,40);i++){const r=rows[i]||[];
+    // a) vraies dates
+    let C=[];r.forEach((c,j)=>{const d=c instanceof Date||typeof c==='number'?chpDate(c):/^\D{0,5}\d{1,2}[\/.-]\d{1,2}([\/.-]\d{2,4})?$/.test(chpV(c))?chpDate(chpV(c)):'';if(d&&!C.some(x=>x.d===d))C.push({j,d})});
+    if(C.length>=5)return {i,C,step:chpStep(C)};
+    // b) semaines « S46 », « Sem. 46 »
+    C=[];r.forEach((c,j)=>{const m=chpV(c).match(/^(?:S|SEM\.?|SEMAINE|W|WK)\s*(\d{1,2})$/i);if(m&&!C.some(x=>x.w===+m[1]))C.push({j,w:+m[1]})});
+    if(C.length>=4){const ya=chpYearAbove(rows,i);let y=ya||new Date().getFullYear();if(!ya&&C[0].w<isoWeek(new Date())-26)y++;
+      let pw=0;C.forEach(c=>{if(c.w<pw)y++;pw=c.w;c.d=isoMonday(y,c.w)});return {i,C,step:7}}
+    // c) n° de jours 1…31 (ou « lu 16 ») sous une ligne de mois
+    C=[];r.forEach((c,j)=>{const s=chpV(c),v=typeof c==='number'?c:/^\d{1,2}$/.test(s)?+s:+((s.match(/^[a-z]{1,4}\.?\s+(\d{1,2})$/i)||[])[1]||0);if(v>=1&&v<=31&&Number.isInteger(v))C.push({j,n:v})});
+    if(C.length>=7){let inc=0;for(let k=1;k<C.length;k++)if(C[k].n===C[k-1].n+1||C[k].n===1||C[k].n===C[k-1].n+3||C[k].n===C[k-1].n+7||C[k].n<C[k-1].n)inc++;
+      if(inc>=(C.length-1)*0.8){const mo=chpMoisAbove(rows,i,C);let {y,m}=mo,p=0;
+        C.forEach(c=>{const lab=mo.at[c.j];if(lab){y=lab.y;m=lab.m}else if(c.n<p){m++;if(m>12){m=1;y++}}p=c.n;c.d=chpYmd(y,m,c.n)});
+        C=C.filter(c=>c.d);if(C.length>=7)return {i,C,step:chpStep(C)}}}}
+  return null}
+function chpStep(C){const df=[];for(let k=1;k<C.length;k++)df.push((parseD(C[k].d)-parseD(C[k-1].d))/864e5);df.sort((a,b)=>a-b);const s=Math.round(df[Math.floor(df.length/2)]||1);return s>=28?30:s>=6?7:1}
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const n=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-n);const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y0)/864e5+1)/7)}
+function isoMonday(y,w){const j4=new Date(y,0,4),m=new Date(j4);m.setDate(j4.getDate()-((j4.getDay()+6)%7)+(w-1)*7);return ymd(m)}
+function chpYearAbove(rows,i){for(let k=Math.max(0,i-4);k<=i;k++)for(const c of rows[k]||[]){if(c instanceof Date)return new Date(c.getTime()+12*3600e3).getFullYear();const m=chpV(c).match(/\b(20\d\d)\b/);if(m)return +m[1]}return 0}
+function chpMoisAbove(rows,i,C){ // libellés de mois des lignes au-dessus (cellule fusionnée : le libellé est sur sa 1re colonne)
+  for(let k=i-1;k>=Math.max(0,i-4);k--){const r=rows[k]||[],at={};let first=null;
+    r.forEach((c,j)=>{if(j<C[0].j-1)return;let y=0,m=0;if(c instanceof Date){const t=new Date(c.getTime()+12*3600e3);y=t.getFullYear();m=t.getMonth()+1}
+      else{const mm=chpV(c).match(/^([a-zéèûô]{3,9})\.?[\s\/'-]*(\d{2}|\d{4})?$/i);if(mm&&chpMois(mm[1])){m=chpMois(mm[1]);y=mm[2]?(+mm[2]<100?2000+(+mm[2]):+mm[2]):0}}
+      if(m&&!(first&&at[j-1]&&at[j-1].m===m)){at[j]={y,m};if(!first)first={y,m}}});
+    if(first){let yy=first.y||chpYearAbove(rows,i)||chpYear('',first.m,C[0].n),pm=first.m;
+      Object.keys(at).sort((a,b)=>a-b).forEach(j=>{const a=at[j];if(!a.y){if(a.m<pm)yy++;a.y=yy}else yy=a.y;pm=a.m});
+      const at2={};Object.entries(at).forEach(([j,a])=>{const c=C.find(c=>c.j>=+j);if(c)at2[c.j]=a});return {y:at2[C[0].j]?at2[C[0].j].y:first.y||yy,m:first.m,at:at2}}}
+  const n=new Date();return {y:n.getFullYear(),m:n.getMonth()+1,at:{}}}
+function chpGantt(rows,fill){
+  const G=chpGanttCols(rows);if(!G)return null;const {i,C,step}=G,j0=C[0].j;
+  // colonnes de texte à gauche : en-têtes si présents, sinon la colonne qui a le plus de texte
+  const m={};for(let k=Math.max(0,i-3);k<=i+1&&k<rows.length;k++){const h=chpHeader((rows[k]||[]).slice(0,j0));Object.keys(h).forEach(x=>{if(!(x in m))m[x]=h[x]})}
+  if(!('tache' in m)){const cnt={};rows.slice(i+1).forEach(r=>(r||[]).slice(0,j0).forEach((c,j)=>{const v=chpV(c);if(v&&/[a-z]/i.test(v)&&!chpDate(c))cnt[j]=(cnt[j]||0)+Math.min(v.length,60)}));
+    const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];if(!best)return null;m.tache=+best[0]}
+  // fond coloré de toute une colonne (week-ends, aujourd'hui) ou de toute une ligne (lignes alternées) : ce n'est pas une barre
+  const R=rows.map((r,ri)=>ri>i&&r&&chpV(r[m.tache])?ri:-1).filter(x=>x>=0),noC=new Set(),noR=new Set();
+  if(fill){C.forEach(c=>{const n=R.filter(ri=>fill[ri]&&fill[ri][c.j]).length;if((R.length>=4&&n>=R.length*0.7)||(step===1&&chpWE(c.d)&&R.length>=2&&n>=R.length*0.6))noC.add(c.j)});
+    R.forEach(ri=>{if(C.length>=15&&C.every(c=>noC.has(c.j)||(fill[ri]&&fill[ri][c.j])))noR.add(ri)})}
+  const isM=(r,ri,j)=>{if(fill&&fill[ri]&&fill[ri][j]&&!noC.has(j)&&!noR.has(ri))return true;const s=chpV(r[j]);return r[j]!==0&&s!==''&&s!=='0'&&!/^[-–—.]$/.test(s)};
+  const L=[];let head='';
+  rows.forEach((r,ri)=>{if(ri<=i)return;r=r||[];const tache=chpV(r[m.tache]);
+    const segs=[];let cur=null;
+    C.forEach((c,k)=>{if(!isM(r,ri,c.j))return;const txt=chpV(r[c.j]);if(cur&&k===cur.k+1){cur.k=k;cur.d1=c.d}else{cur={k,d0:c.d,d1:c.d,txt:[]};segs.push(cur)}if(txt&&!/^[xX✓✔■●•1]$/.test(txt))cur.txt.push(txt)});
+    // week-end non coché au milieu d'une barre : même tâche
+    if(step===1)for(let s=segs.length-1;s>0;s--){const a=segs[s-1],b=segs[s];let d=addDays(a.d1,1),ok=true;while(d<b.d0){if(!chpWE(d)){ok=false;break}d=addDays(d,1)}if(ok){a.d1=b.d1;a.txt.push(...b.txt);segs.splice(s,1)}}
+    if(!segs.length){if(tache)head=tache;return}
+    const lab=tache||segs.flatMap(s=>s.txt)[0];if(!lab)return;
+    segs.forEach(s=>{const d1=step===7?addDays(s.d1,4):step===30?ymd(new Date(parseD(s.d1).getFullYear(),parseD(s.d1).getMonth()+1,0)):s.d1;
+      L.push({tache:lab,d0:s.d0,d1,groupe:[chpV(r[m.lot]),tache?head:''].filter(Boolean).join(' · '),entreprise:chpV(r[m.entreprise]),lieu:chpV(r[m.lieu]),horaires:chpV(r[m.horaires]),info:[...new Set(s.txt)].filter(t=>t!==lab).join(', ')})})});
+  return chpGroupes(L)}
+// 3) texte (PDF) : une ligne = un libellé + une ou deux dates (+ durée)
+function chpTexte(lines){const L=[];
+  lines.forEach(l=>{const s=l.replace(/\s+/g,' ').trim();if(!s)return;const D_=chpDates(s);if(!D_.length)return;
+    let parts=s.slice(0,D_[0].i);if(parts.replace(/[|\s\d]/g,'').length<3)parts=s.slice(D_[D_.length-1].i+D_[D_.length-1].l);
+    const tache=parts.split('|').map(x=>x.replace(/\b(lun|mar|mer|jeu|ven|sam|dim)\.?(?=\s|$)/gi,'').replace(/\b\d+(?:[.,]\d+)?\s*(jours?|jrs?|j|sem(aines?)?|mois|h)\b\??/gi,'').replace(/\b\d+\s*%/g,'').replace(/^\s*\d+(\.\d+)*\s+/,'').replace(/\s+(le|du|au|des|à partir du|semaine du)\s*$/i,'').replace(/^[\s\-–:]+|[\s\-–:]+$/g,'').trim())
+      .filter(x=>x.length>1&&/[a-z]{2}/i.test(x)).sort((a,b)=>b.length-a.length)[0]||'';
+    if(!tache||/(edit|imprim|mis a jour|mise a jour|version|page \d|date d.edition|^date$)/i.test(chpN(tache)))return; // en-tête / pied de page
+    let d0=D_[0].d,d1=(D_[1]||D_[0]).d;
+    if(D_.length===1){const n=chpDuree((s.match(/\b(\d+(?:[.,]\d+)?\s*(?:jours?|jrs?|j|sem(?:aines?)?))(?![a-z])/i)||[])[1]);if(n)d1=chpFinOuvree(d0,n)}
+    if(d1<d0)[d0,d1]=[d1,d0];L.push({tache,d0,d1,groupe:'',entreprise:'',lieu:'',horaires:'',info:''})});
+  return chpGroupes(L)}
+async function chpLirePdf(f){
+  if(!window.pdfjsLib){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';s.onload=res;s.onerror=()=>rej(new Error('Lecture PDF indisponible (pas de connexion ?)'));document.head.appendChild(s)});
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'}
+  const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;return chpPdfLignes(pdf)}
+async function chpPdfLignes(pdf){const out=[];
+  for(let p=1;p<=Math.min(pdf.numPages,40);p++){const tc=await (await pdf.getPage(p)).getTextContent(),Y=[];
+    tc.items.forEach(it=>{if(!it.str||!it.str.trim())return;const y=it.transform[5],x=it.transform[4],h=Math.abs(it.transform[3])||8;let row=Y.find(r=>Math.abs(r.y-y)<Math.max(r.h,h)*0.5);if(!row){row={y,h,it:[]};Y.push(row)}row.it.push({x,w:it.width||0,s:it.str})});
+    Y.sort((a,b)=>b.y-a.y).forEach(r=>{r.it.sort((a,b)=>a.x-b.x);let s='',px=null;r.it.forEach(t=>{if(px!=null)s+=t.x-px>r.h*1.2?' | ':t.x-px>r.h*0.15?' ':'';s+=t.s;px=t.x+t.w});out.push(s)})}
+  if(!out.some(l=>l.trim()))throw new Error('Ce PDF ne contient pas de texte (scan ou image) : demande le planning en Excel à l\'entreprise');
+  return out}
+function chpFill(x){const s=x&&x.s;if(!s||!s.patternType||s.patternType==='none')return false;const fg=s.fgColor||{};
+  if(fg.rgb)return !/^(FF)?FFFFFF$/i.test(fg.rgb);if(fg.theme!=null)return !(fg.theme===0&&!fg.tint);return fg.indexed!=null&&fg.indexed!==64&&fg.indexed!==9}
+function chpFeuilles(wb){return wb.SheetNames.map(n=>{const ws=wb.Sheets[n];if(!ws['!ref'])return {rows:[]};const R=XLSX.utils.decode_range(ws['!ref']),rows=[],fill=[],eR=Math.min(R.e.r,R.s.r+1500),eC=Math.min(R.e.c,R.s.c+800);
+  for(let r=R.s.r;r<=eR;r++){const a=[],fa=[];for(let c=R.s.c;c<=eC;c++){const x=ws[XLSX.utils.encode_cell({r,c})];a.push(x?x.v:null);fa.push(chpFill(x))}rows.push(a);fill.push(fa)}
+  // cellules fusionnées : la valeur et la couleur valent pour toute la zone (lot sur plusieurs lignes, barre de Gantt fusionnée)
+  (ws['!merges']||[]).forEach(m=>{const v=(rows[m.s.r-R.s.r]||[])[m.s.c-R.s.c],fl=(fill[m.s.r-R.s.r]||[])[m.s.c-R.s.c];if((m.e.c-m.s.c+1)*(m.e.r-m.s.r+1)>5000)return;
+    for(let r=m.s.r;r<=Math.min(m.e.r,eR);r++)for(let c=m.s.c;c<=Math.min(m.e.c,eC);c++){const ri=r-R.s.r,ci=c-R.s.c;if(rows[ri][ci]==null)rows[ri][ci]=v;if(fl)fill[ri][ci]=true}});
+  return {rows,fill}})}
+function chpAnalyse(sheets){ // le meilleur onglet (tableau d'abord, sinon Gantt)
+  let best=null;for(const s of sheets){const L=chpTable(s.rows)||chpGantt(s.rows,s.fill);if(L&&L.length&&(!best||L.length>best.length))best=L}return best||[]}
+async function chpLire(f){
+  if(/\.pdf$/i.test(f.name))return chpTexte(await chpLirePdf(f));
+  if(/\.txt$/i.test(f.name))return chpTexte((await f.text()).split(/\r?\n/));
+  if(/\.csv$/i.test(f.name)){const t=await f.text(),h=t.split('\n')[0],sep=(h.match(/\t/g)||[]).length?'\t':(h.match(/;/g)||[]).length>=(h.match(/,/g)||[]).length?';':',';
+    return chpAnalyse([{rows:t.replace(/\r/g,'').split('\n').map(l=>l.split(sep).map(c=>c.replace(/^"|"$/g,'').trim()))}])}
+  await loadXLSX();return chpAnalyse(chpFeuilles(XLSX.read(await f.arrayBuffer(),{cellDates:true,cellStyles:true})))}
+/* --- interface --- */
+const CHP_ACC='.xlsx,.xlsm,.xls,.ods,.csv,.pdf,.txt';
+function chpZone(){ // zone de dépôt en haut de la fenêtre « Nouveau chantier »
+  const f=$('.ov .mod .form');if(!f||$('#chpf'))return;
+  f.insertAdjacentHTML('beforebegin',`<div class="cldrop chpdrop" id="chpdrop"><span id="chpmsg">📥 Glisse ici le <b>planning de l'entreprise</b> (Excel, CSV ou PDF) <button class="link" type="button" onclick="$('#chpf').value='';$('#chpf').click()">ou choisis le fichier</button> : chaque tâche du planning devient un chantier.</span><input type="file" id="chpf" hidden accept="${CHP_ACC}" onchange="if(this.files[0])chpFile(this.files[0])"></div>`)}
+function chpPre(){ // ce qui est déjà saisi dans le formulaire sert de valeurs par défaut
+  const o={};FORMS.Chantiers.forEach(f=>{const e=$('#f_'+f.k);if(!e)return;
+    o[f.k]=f.t==='multi'?[...e.querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList(e.querySelector('.mother').value)).join(', '):e.value.trim()});return o}
+async function chpFile(f){
+  const z=$('#chpmsg'),msg=h=>{if(z)z.innerHTML=h};
+  if(!new RegExp('\\.('+CHP_ACC.replace(/[.]/g,'').replace(/,/g,'|')+')$','i').test(f.name))return toast('Dépose un planning Excel, CSV ou PDF',1);
+  const pre=$('#f_titre')?chpPre():CHP.pre;msg('⏳ Lecture de « '+esc(f.name)+' »…');
+  try{const L=await chpLire(f);
+    if(!L.length){msg(`⚠️ Aucune tâche datée trouvée dans « ${esc(f.name)} » : il faut une colonne de tâches avec leurs dates (début / fin ou durée), ou un planning avec les dates en colonnes. <button class="link" type="button" onclick="$('#chpf').value='';$('#chpf').click()">Choisir un autre fichier</button>`);return toast('Aucune tâche datée trouvée dans le fichier',1)}
+    const ex=new Set(D.Chantiers.map(c=>chpN(c.titre)+'|'+c.dateDebut)),pt=pre.titre?pre.titre+' · ':'';
+    CHP.src=f.name;CHP.pre=pre;CHP.mode=1;CHP.lines=L.map(x=>{const titre=(x.groupe?x.groupe+' · ':'')+x.tache,deja=ex.has(chpN(pt+titre)+'|'+x.d0)||ex.has(chpN(titre)+'|'+x.d0);
+      return {...x,titre,espace:chpEspaces([x.lieu,x.tache,x.groupe].join(' ')).join(', ')||x.lieu,deja,on:!x.sum&&!deja}});
+    chpModal()}
+  catch(e){msg('⚠️ '+esc(e.message));toast(e.message,1)}
+}
+function chpModal(){
+  const pre=CHP.pre,L=CHP.lines,F=FORMS.Chantiers,fk=k=>F.find(f=>f.k===k),fl=d=>fD(d,{day:'numeric',month:'short',year:'numeric'});
+  hallsDatalist();budgetDatalists();
+  const d0=L.reduce((a,x)=>x.d0<a?x.d0:a,'9'),d1=L.reduce((a,x)=>x.d1>a?x.d1:a,'0');
+  modal(`<h2>📥 Planning importé</h2>
+    <p class="hint">${L.length} ligne${L.length>1?'s':''} lue${L.length>1?'s':''} dans « ${esc(CHP.src)} », du ${fl(d0)} au ${fl(d1)}. Vérifie, corrige au besoin, décoche ce qui ne doit pas aller au planning, puis crée les chantiers.
+      ${L.some(x=>x.sum)?'<br>Les lignes de <b>regroupement</b> (lots, récapitulatifs) sont décochées : leurs tâches sont déjà dans la liste.':''}${L.some(x=>x.deja)?'<br>Les tâches <b>déjà présentes</b> dans les chantiers sont décochées.':''}</p>
+    <div class="seg-ctl chpmode"><button type="button" class="on" data-m="1">Un chantier par tâche</button><button type="button" data-m="0">Un seul chantier (tâches dans la note)</button></div>
+    <div class="form">
+      <label class="fl full"><span id="chp_tl"></span><input id="chp_titre" value="${esc(pre.titre||'')}" autocomplete="off"></label>
+      ${fieldHtml({...fk('espace'),l:'Espace(s) des tâches où aucun espace n\'est reconnu',req:0},pre.espace)}
+      ${['entreprise','type','responsable','statut','horaires'].map(k=>fieldHtml(k==='entreprise'?{...fk(k),l:'Entreprise (si pas indiquée sur la ligne)'}:fk(k),pre[k]||(k==='statut'?'Prévu':''))).join('')}
+    </div>
+    <div class="bar chpbar"><b id="chpn"></b><span class="sp"></span><button class="btn sm" type="button" onclick="chpAll(1)">Tout cocher</button><button class="btn sm" type="button" onclick="chpAll(0)">Tout décocher</button></div>
+    <div class="tblwrap chptbl"><table class="btbl"><thead><tr><th></th><th>Tâche (titre du chantier)</th><th>Début</th><th>Fin</th><th>Espace(s)</th><th>Entreprise</th></tr></thead><tbody>
+      ${L.map((x,i)=>`<tr class="${x.sum?'chpsum':''} ${x.on?'':'off'}" data-i="${i}"><td><input type="checkbox" ${x.on?'checked':''} onchange="chpSet(${i},'on',this.checked)"></td>
+        <td><input value="${esc(x.titre)}" onchange="chpSet(${i},'titre',this.value)">${x.sum?'<small class="hint">regroupement</small>':''}${x.deja?'<small class="hint">déjà dans les chantiers</small>':''}${x.info?`<small class="hint">${esc(x.info)}</small>`:''}</td>
+        <td><input type="date" value="${x.d0}" onchange="chpSet(${i},'d0',this.value)"></td><td><input type="date" value="${x.d1}" onchange="chpSet(${i},'d1',this.value)"></td>
+        <td><input list="dl-halls" value="${esc(x.espace)}" placeholder="par défaut" onchange="chpSet(${i},'espace',this.value)"></td>
+        <td><input list="dl-presta" value="${esc(x.entreprise)}" placeholder="par défaut" onchange="chpSet(${i},'entreprise',this.value)"></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="err" id="ferr"></div>
+    <div class="acts"><button class="btn" type="button" onclick="chNew(CHP.pre)">← Formulaire</button><span class="sp"></span><button class="btn" onclick="closeModal(true)">Annuler</button><button class="btn pri" id="chpgo" onclick="chpGo()">Créer</button></div>`,true);
+  $('.ov').classList.add('chpov');
+  $('.chpmode').querySelectorAll('button').forEach(b=>b.onclick=()=>{CHP.mode=+b.dataset.m;$('.chpmode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));chpMode()});
+  chpMode()}
+function chpMode(){$('#chp_tl').textContent=CHP.mode?'Début du titre de chaque chantier (facultatif, ex. « Réfection toiture »)':'Titre du chantier *';
+  $('#chp_titre').placeholder=CHP.mode?'':CHP.src.replace(/\.[^.]+$/,'');chpCount()}
+function chpSet(i,k,v){const x=CHP.lines[i];x[k]=typeof v==='string'?v.trim():v;if(k==='on'){const tr=$(`.chptbl tr[data-i="${i}"]`);if(tr)tr.classList.toggle('off',!v)}chpCount()}
+function chpAll(on){CHP.lines.forEach((x,i)=>{x.on=!!on;const tr=$(`.chptbl tr[data-i="${i}"]`);if(tr){tr.classList.toggle('off',!on);tr.querySelector('input[type=checkbox]').checked=!!on}});chpCount()}
+function chpCount(){const n=CHP.lines.filter(x=>x.on).length,b=$('#chpgo');$('#chpn').textContent=n+' tâche'+(n>1?'s':'')+' cochée'+(n>1?'s':'');
+  b.textContent=CHP.mode?`Créer ${n} chantier${n>1?'s':''}`:'Créer le chantier';b.disabled=!n}
+async function chpGo(){
+  const err=m=>{$('#ferr').textContent=m||''},e=$('#f_espace');
+  const g={espace:[...e.querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList(e.querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')};
+  ['entreprise','type','responsable','statut','horaires'].forEach(k=>g[k]=$('#f_'+k).value.trim());
+  const pref=$('#chp_titre').value.trim()||(CHP.mode?'':CHP.src.replace(/\.[^.]+$/,'')),L=CHP.lines.filter(x=>x.on),pre=CHP.pre;
+  if(!L.length)return err('Coche au moins une tâche');
+  const bad=L.find(x=>!x.d0||!x.d1||!x.titre);if(bad)return err(bad.titre?'Dates manquantes pour « '+bad.titre+' »':'Une tâche cochée n\'a pas de titre');
+  L.forEach(x=>{if(x.d1<x.d0)[x.d0,x.d1]=[x.d1,x.d0]});
+  const src='Importé du planning « '+CHP.src+' »';
+  // champs du formulaire repris tels quels (zone, ligne budgétaire, n° de demande, nacelle, contraintes…)
+  const base={zone:pre.zone||'',codeBudget:pre.codeBudget||'',demande:pre.demande||'',nacelle:pre.nacelle||'',contraintes:pre.contraintes||'',avancement:pre.avancement||'',montant:'',...g};
+  let items;
+  if(CHP.mode){const se=L.find(x=>!espList(x.espace).length&&!g.espace);if(se)return err('Choisis au moins un espace par défaut (ou indique-le sur la ligne « '+se.titre+' »)');
+    items=L.map(x=>({...base,titre:((pref?pref+' · ':'')+x.titre).slice(0,280),espace:x.espace||g.espace,entreprise:x.entreprise||g.entreprise,horaires:x.horaires||g.horaires,
+      dateDebut:x.d0,dateFin:x.d1,note:[x.info,pre.note,src].filter(Boolean).join('\n')}))}
+  else{const es=[...new Set([...espList(g.espace),...L.flatMap(x=>espList(x.espace))])];if(!es.length)return err('Choisis au moins un espace');
+    const ents=[...new Set([g.entreprise,...L.map(x=>x.entreprise)].filter(Boolean))],dd=d=>fD(d,{day:'2-digit',month:'2-digit'});
+    items=[{...base,titre:pref.slice(0,280),espace:es.join(', '),entreprise:ents.join(', '),dateDebut:L.reduce((a,x)=>x.d0<a?x.d0:a,'9'),dateFin:L.reduce((a,x)=>x.d1>a?x.d1:a,'0'),
+      montant:pre.montant||'',note:[pre.note,'Planning :',...L.map(x=>'• '+dd(x.d0)+(x.d1!==x.d0?' → '+dd(x.d1):'')+' : '+x.titre+(x.espace?' ('+x.espace+')':'')+(x.entreprise&&x.entreprise!==g.entreprise?' — '+x.entreprise:'')),src].filter(Boolean).join('\n')}]}
+  const b=$('#chpgo');b.disabled=true;let ok=0;
+  try{for(const it of items){b.textContent=`Création ${ok+1}/${items.length}…`;const r=await api('save',{sheet:'Chantiers',item:it});const k=D.Chantiers.findIndex(x=>x.id===r.id);if(k<0)D.Chantiers.push(r);else D.Chantiers[k]=r;
+      if(CHP.mode)L[ok].on=false;ok++}
+    closeModal(true);render();toast(ok>1?ok+' chantiers ajoutés au planning ✓':'Chantier ajouté au planning ✓')}
+  catch(e2){err((ok?ok+' chantier'+(ok>1?'s':'')+' créé'+(ok>1?'s':'')+', puis erreur : ':'')+e2.message+(ok?' — les tâches déjà créées sont décochées, tu peux relancer.':''));
+    L.slice(0,CHP.mode?ok:0).forEach(x=>{const i=CHP.lines.indexOf(x),tr=$(`.chptbl tr[data-i="${i}"]`);if(tr){tr.classList.add('off');tr.querySelector('input[type=checkbox]').checked=false}});chpCount()}
+}
+// glisser-déposer n'importe où dans la page quand la fenêtre « Nouveau chantier » est ouverte
+(()=>{let n=0;const zone=()=>$('#chpf'),isF=e=>[...(e.dataTransfer&&e.dataTransfer.types||[])].some(t=>t==='Files'||t==='application/x-moz-file');
+  const ban=on=>{let b=$('#chpdropban');if(on&&!b){b=document.createElement('div');b.id='chpdropban';b.innerHTML='<div>📥 Dépose le planning de l\'entreprise</div>';document.body.appendChild(b)}if(!on&&b)b.remove()};
+  window.addEventListener('dragenter',e=>{if(!isF(e))return;n++;if(zone())ban(1)});
+  window.addEventListener('dragleave',e=>{if(!isF(e))return;if(--n<=0){n=0;ban(0)}});
+  window.addEventListener('dragover',e=>{if(!isF(e)||!zone())return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
+  window.addEventListener('drop',e=>{n=0;ban(0);if(!zone()||!(e.dataTransfer&&e.dataTransfer.files.length))return;e.preventDefault();chpFile(e.dataTransfer.files[0])});
+})();
 
 /* ================== BUDGET BÂTIMENT ================== */
 const NAT_ENT=['BDC','Facture','Avoir','Reprise'];
@@ -2504,7 +2756,7 @@ function clLotForm(lot,L,h){
   const ban=on=>{let b=$('#cldropban');if(on&&!b){b=document.createElement('div');b.id='cldropban';b.innerHTML='<div>📥 Dépose le formulaire Excel de demande de clefs</div>';document.body.appendChild(b)}if(!on&&b)b.remove()};
   window.addEventListener('dragenter',e=>{if(!isF(e))return;n++;if(zone())ban(1)});
   window.addEventListener('dragleave',e=>{if(!isF(e))return;if(--n<=0){n=0;ban(0)}});
-  window.addEventListener('dragover',e=>{if(!isF(e))return;e.preventDefault();e.dataTransfer.dropEffect=zone()?'copy':'none'});
+  window.addEventListener('dragover',e=>{if(!isF(e))return;e.preventDefault();e.dataTransfer.dropEffect=zone()||$('#chpf')?'copy':'none'});
   window.addEventListener('drop',e=>{if(!isF(e)&&!(e.dataTransfer&&e.dataTransfer.files.length))return;e.preventDefault();n=0;ban(0); // jamais d'ouverture du fichier par le navigateur
     const f=e.dataTransfer.files[0];if(!f||!zone())return;if(!/\.(xlsx|xlsm|xls|csv)$/i.test(f.name))return toast('Dépose un fichier Excel (.xlsx)',1);
     if(!$('#clxf'))clNew();clXFile(f)});
