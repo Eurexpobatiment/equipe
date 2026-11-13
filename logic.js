@@ -213,7 +213,7 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       try { l = JSON.parse(o.liste || '[]'); } catch (err) { throw new Error('Liste de drapeaux illisible'); }
       if (!Array.isArray(l)) throw new Error('Liste de drapeaux illisible');
       o.liste = JSON.stringify(l.filter(x => x && x.d && x.f && Number(x.q) > 0)
-        .map(x => ({ d: clean_(x.d, 80), f: clean_(x.f, 20), q: Number(qte_(x.q, 'quantité')) })));
+        .map(x => Object.assign({ d: clean_(x.d, 80), f: clean_(x.f, 20), q: Number(qte_(x.q, 'quantité')) }, x.c ? { c: 1 } : {}))));
       if (!o.statut) o.statut = 'Prévu';
       if (!cur) o.creeLe = now;
       o.majLe = now; o.majPar = user;

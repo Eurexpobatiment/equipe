@@ -262,7 +262,7 @@ function save_(name, item, user, opts) {
       try { l = JSON.parse(o.liste || '[]'); } catch (err) { throw new Error('Liste de drapeaux illisible'); }
       if (!Array.isArray(l)) throw new Error('Liste de drapeaux illisible');
       o.liste = JSON.stringify(l.filter(function (x) { return x && x.d && x.f && Number(x.q) > 0; })
-        .map(function (x) { return { d: clean_(x.d, 80), f: clean_(x.f, 20), q: Number(qte_(x.q, 'quantité')) }; }));
+        .map(function (x) { var r = { d: clean_(x.d, 80), f: clean_(x.f, 20), q: Number(qte_(x.q, 'quantité')) }; if (x.c) r.c = 1; return r; }));
       if (!o.statut) o.statut = 'Prévu';
       if (!cur) o.creeLe = now;
       o.majLe = now; o.majPar = user;

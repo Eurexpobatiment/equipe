@@ -448,6 +448,7 @@ button.doccard.dxd{width:100%;text-align:left;font:inherit;cursor:pointer}button
 .pvtbl tbody tr{cursor:default}.pvtbl tr.pvsel td{background:#eef4ff}
 .pvtbl small{color:var(--muted);font-size:11px;margin-left:2px}.pvtbl small i{font-style:normal;opacity:.7}
 .pvtbl td.ko .pvn{border-color:var(--accent);color:var(--accent)}
+.pvd{width:100%;min-width:120px;padding:4px 6px;border:1px solid #d5d9e2;border-radius:6px;font-size:14px}
 .pvn{width:52px;padding:4px 5px;border:1px solid #d5d9e2;border-radius:6px;font-size:14px;text-align:center}
 .pvquick{gap:6px}.pvquick .sel{padding:4px 6px}
 .trib{display:flex;flex-direction:column;gap:4px}.trib.out{background:#fff4e5}.trib .btn{align-self:flex-start;margin-top:2px}
@@ -753,7 +754,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '19'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '20'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[]};
@@ -2416,8 +2417,11 @@ const drGroupes=()=>[...new Set([...DR_GROUPES,...D.Drapeaux.map(r=>r.groupe).fi
 const drOrd=()=>{const g=drGroupes();return (a,b)=>g.indexOf(a.groupe||'')-g.indexOf(b.groupe||'')||(+a.ordre||9999)-(+b.ordre||9999)||a.nom.localeCompare(b.nom,'fr')};
 const drNoms=()=>{const m=new Map();D.Drapeaux.slice().sort(drOrd()).forEach(r=>{if(!m.has(r.nom))m.set(r.nom,r.groupe||'')});return m}; // nom → groupe, dans l'ordre
 const drStock=()=>{const m={};D.Drapeaux.forEach(r=>{const k=drKey(r.nom,r.format);m[k]=(m[k]||0)+drTot(r)});return m};
-function pvListe(p){try{const l=JSON.parse(p.liste||'[]');return Array.isArray(l)?l.filter(x=>x&&x.d&&x.f&&+x.q>0):[]}catch(e){return []}}
-const pvNb=p=>pvListe(p).reduce((a,x)=>a+(+x.q),0);
+// Liste des drapeaux d'un pavoisement : ceux du stock (pvListe) et ceux fournis par le client (c:1, pvClient), qui occupent des mâts sans toucher au stock
+function pvTout(p){try{const l=JSON.parse(p.liste||'[]');return Array.isArray(l)?l.filter(x=>x&&x.d&&x.f&&+x.q>0):[]}catch(e){return []}}
+const pvListe=p=>pvTout(p).filter(x=>!x.c), pvClient=p=>pvTout(p).filter(x=>x.c);
+const pvNb=p=>pvTout(p).reduce((a,x)=>a+(+x.q),0), pvNbCli=p=>pvClient(p).reduce((a,x)=>a+(+x.q),0);
+const pvCliTxt=l=>l.map(x=>x.d+' '+x.f+(+x.q>1?' ×'+x.q:'')).join(', ');
 // Le pavoisement immobilise-t-il ses drapeaux le jour d ? (un pavoisement « Posé » non déposé les garde jusqu'à aujourd'hui)
 function pvHolds(p,d){if(p.statut==='Annulé'||!p.dateDebut||d<p.dateDebut)return false;const fin=p.dateFin||p.dateDebut,t=today();
   if(p.statut==='Déposé')return d<t&&d<=fin; return d<=fin||(p.statut==='Posé'&&d<=t)}
@@ -2492,16 +2496,16 @@ function pvVue(el){
   const st=UI.dr, t=today(), q=(st.pq||'').toLowerCase();
   let L=D.Pavoisements.slice();
   if(st.pm==='avenir')L=L.filter(p=>p.statut!=='Annulé'&&((p.dateFin||p.dateDebut)>=t||p.statut==='Posé'));else if(st.pm==='passes')L=L.filter(p=>(p.dateFin||p.dateDebut)<t&&p.statut!=='Posé');
-  if(q)L=L.filter(p=>[p.titre,p.lieu,p.responsable,p.note,pvListe(p).map(x=>x.d).join(' ')].join(' ').toLowerCase().includes(q));
+  if(q)L=L.filter(p=>[p.titre,p.lieu,p.responsable,p.note,pvTout(p).map(x=>x.d).join(' '),pvNbCli(p)?'client':''].join(' ').toLowerCase().includes(q));
   L.sort((a,b)=>st.pm==='passes'?b.dateDebut.localeCompare(a.dateDebut):a.dateDebut.localeCompare(b.dateDebut));
   el.innerHTML=`<div class="bar"><div class="seg-ctl">${[['avenir','À venir / en place'],['passes','Passés'],['tout','Tout']].map(([k,l])=>`<button class="${st.pm===k?'on':''}" onclick="UI.dr.pm='${k}';render()">${l}</button>`).join('')}</div>
       <input class="search" type="search" placeholder="Rechercher (salon, lieu, drapeau…)" value="${esc(st.pq)}" oninput="UI.dr.pq=this.value;pgRefresh()"></div>
-    ${L.map(p=>{const M=pvManques(p),fin=p.dateFin||p.dateDebut,l=pvListe(p);
-      const parF=drFormats().map(f=>{const n=l.filter(x=>x.f===f).reduce((a,x)=>a+(+x.q),0);return n?n+' × '+f:''}).filter(Boolean).join(', ');
+    ${L.map(p=>{const M=pvManques(p),fin=p.dateFin||p.dateDebut,l=pvTout(p),nc=pvNbCli(p);
+      const parF=[...new Set([...drFormats(),...l.map(x=>x.f)])].map(f=>{const n=l.filter(x=>x.f===f).reduce((a,x)=>a+(+x.q),0);return n?n+' × '+f:''}).filter(Boolean).join(', ');
       const retard=p.statut==='Posé'&&fin<t, enPlace=pvHolds(p,t);
       return `<div class="it" onclick="pvEdit('${p.id}')"><span class="hr" style="min-width:86px">${fD(p.dateDebut,{day:'numeric',month:'short'})}${fin!==p.dateDebut?'<br><small>→ '+fD(fin,{day:'numeric',month:'short'})+'</small>':''}</span>
         <div class="bd"><div><b>🚩 ${esc(p.titre)}</b>${p.lieu?' — '+esc(p.lieu):''}</div>
-          <div class="sub"><span>${pvNb(p)} drapeau${pvNb(p)>1?'x':''}${parF?' ('+esc(parF)+')':''}</span>${pvMatsTxt(p.lieu,l)?`<span ${pvMatsPb(p.lieu,l).length?'class="negt"':''}>🏁 ${esc(pvMatsTxt(p.lieu,l))}</span>`:''}${p.responsable?`<span>👤 ${esc(p.responsable)}</span>`:''}${enPlace?'<span>📍 en place</span>':''}
+          <div class="sub"><span>${pvNb(p)} drapeau${pvNb(p)>1?'x':''}${parF?' ('+esc(parF)+')':''}</span>${nc?`<span>🏷️ ${nc} client : ${esc(pvCliTxt(pvClient(p)))}</span>`:''}${pvMatsTxt(p.lieu,l)?`<span ${pvMatsPb(p.lieu,l).length?'class="negt"':''}>🏁 ${esc(pvMatsTxt(p.lieu,l))}</span>`:''}${p.responsable?`<span>👤 ${esc(p.responsable)}</span>`:''}${enPlace?'<span>📍 en place</span>':''}
           ${retard?`<span class="negt">⏰ dépose prévue le ${fD(fin)} non faite</span>`:''}${M.length?`<span class="negt">⚠️ manque : ${esc(pvManqueTxt(M))}</span>`:''}${p.note?`<span>📝 ${esc(p.note)}</span>`:''}</div></div>
         <button class="st" style="background:${PV_ST[p.statut]||'#64748b'}" title="${PV_NEXT[p.statut]?'Passer à « '+PV_NEXT[p.statut]+' »':''}" onclick="event.stopPropagation();pvNext('${p.id}',this)">${esc(p.statut||'Prévu')}</button></div>`}).join('')
       ||`<p class="empty">${q?'Aucun résultat.':st.pm==='avenir'?'Aucun pavoisement prévu.':'Rien à afficher.'}</p>`}
@@ -2514,7 +2518,7 @@ let PV={sel:new Map(),conf:'',id:''};
 function pvNew(d){d=d||today();pvOpen({dateDebut:d,dateFin:d,statut:'Prévu',responsable:me},'Nouveau pavoisement')}
 function pvEdit(id){const p=D.Pavoisements.find(x=>x.id===id);if(p)pvOpen(p,'Pavoisement · '+p.titre)}
 function pvOpen(p,title){
-  PV={sel:new Map(pvListe(p).map(x=>[drKey(x.d,x.f),+x.q])),conf:'',id:p.id||''};
+  PV={sel:new Map(pvListe(p).map(x=>[drKey(x.d,x.f),+x.q])),cli:pvClient(p).map(x=>({d:x.d,f:x.f,q:+x.q})),conf:'',id:p.id||''};
   const lieux=[...new Set([...PV_SITES.map(x=>x.nom),PV_SITES.map(x=>x.nom).join(' + '),...D.Pavoisements.map(x=>x.lieu).filter(Boolean)])];
   const extra=`<datalist id="dl-pvlieux">${lieux.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
     <div class="coms pvbox"><h3>Drapeaux à sortir · <span id="pvtot"></span></h3>
@@ -2525,6 +2529,9 @@ function pvOpen(p,title){
     <div class="bar pvquick"><span class="hint" style="margin:0">Ajouter 1 de chaque :</span><select class="sel" id="pvqf">${drFormats().map(f=>`<option>${esc(f)}</option>`).join('')}</select>
       ${drGroupes().map(g=>`<button class="btn sm" type="button" data-g="${esc(g)}" onclick="pvAddGroupe(this.dataset.g)">${esc(g)}</button>`).join('')}<button class="btn sm" type="button" onclick="PV.sel.clear();pvPick()">Tout retirer</button></div>
     <div class="tblwrap" style="max-height:46vh;overflow:auto"><div id="pvpick"></div></div>
+    <h3 style="margin-top:12px">🏷️ Drapeaux client · <span id="pvclitot"></span></h3>
+    <p class="hint" style="margin:0 0 6px">Drapeaux fournis par le client : ils occupent des mâts mais ne sortent pas du stock.</p>
+    <div id="pvcli"></div><div class="acts"><button class="btn sm" type="button" onclick="pvCliAdd()">+ Drapeau client</button></div>
     ${p.id?`<div class="acts"><button class="btn sm" type="button" onclick="pvCopier('${p.id}')">📋 Copier la liste (WhatsApp)</button></div>`:''}
     ${p.majPar?`<div class="made">Dernière modification par ${esc(p.majPar)}</div>`:''}</div>`;
   openForm('Pavoisements',p,title,{extra,validate:pvValidate,after:()=>{
@@ -2533,10 +2540,20 @@ function pvOpen(p,title){
     $('#f_lieu').addEventListener('input',()=>{const F=Object.keys(pvMats($('#f_lieu').value)),qf=$('#pvqf');if(F.length===1&&qf)qf.value=F[0];PV.conf='';pvTot()});
     {const F=Object.keys(pvMats(p.lieu));if(F.length===1)$('#pvqf').value=F[0]}
     ['f_dateDebut','f_dateFin','f_statut'].forEach(i=>$('#'+i).addEventListener('change',()=>{const a=$('#f_dateDebut'),b=$('#f_dateFin');if(i==='f_dateDebut'&&(!b.value||b.value<a.value))b.value=a.value;PV.conf='';pvPick()}));
-    pvPick()}});
+    pvCliRender();pvPick()}});
 }
 function pvForm(){return {id:PV.id,dateDebut:$('#f_dateDebut').value,dateFin:$('#f_dateFin').value||$('#f_dateDebut').value,statut:$('#f_statut').value,
-  liste:JSON.stringify([...PV.sel].filter(([,q])=>q>0).map(([k,q])=>{const i=k.lastIndexOf('|');return {d:k.slice(0,i),f:k.slice(i+1),q}}))}}
+  liste:JSON.stringify([...PV.sel].filter(([,q])=>q>0).map(([k,q])=>{const i=k.lastIndexOf('|');return {d:k.slice(0,i),f:k.slice(i+1),q}})
+    .concat(PV.cli.filter(x=>x.f&&+x.q>0).map(x=>({d:String(x.d||'').trim()||'Drapeau client',f:x.f,q:+x.q,c:1}))))}}
+function pvCliRender(){const b=$('#pvcli');if(!b)return;const F=[...new Set([...drFormats(),...PV.cli.map(x=>x.f).filter(Boolean)])];
+  b.innerHTML=PV.cli.length?`<table class="btbl pvtbl"><thead><tr><th>Drapeau (logo, marque…)</th><th class="c">Format</th><th class="c">Qté</th><th></th></tr></thead><tbody>${PV.cli.map((x,i)=>`<tr class="pvsel">
+    <td><input class="pvd" value="${esc(x.d||'')}" placeholder="Drapeau client" oninput="PV.cli[${i}].d=this.value;PV.conf=''"></td>
+    <td class="c"><select class="sel" onchange="PV.cli[${i}].f=this.value;PV.conf='';pvTot()">${F.map(f=>`<option ${f===x.f?'selected':''}>${esc(f)}</option>`).join('')}</select></td>
+    <td class="c"><input class="pvn" type="number" min="0" inputmode="numeric" value="${x.q||''}" oninput="PV.cli[${i}].q=Math.max(0,parseInt(this.value,10)||0);PV.conf='';pvTot()"></td>
+    <td class="c"><button class="btn sm" type="button" title="Retirer" onclick="PV.cli.splice(${i},1);PV.conf='';pvCliRender();pvTot()">✕</button></td></tr>`).join('')}</tbody></table>`:'';
+  pvTot()}
+function pvCliAdd(){const F=Object.keys(pvMats($('#f_lieu')&&$('#f_lieu').value)),f=F.length===1?F[0]:($('#pvqf')&&$('#pvqf').value)||drFormats()[0];
+  PV.cli.push({d:'',f,q:1});PV.conf='';pvCliRender();const i=document.querySelectorAll('#pvcli .pvd');if(i.length)i[i.length-1].focus()}
 function pvPick(){
   const box=$('#pvpick'); if(!box) return;
   const p=pvForm(), per=p.dateDebut?pvPeriode(p):null, dis=per?drDispoPeriode(per[0],per[1],PV.id):null, S=drStock(), F=drFormats();
@@ -2553,8 +2570,9 @@ function pvPick(){
 function pvSet(inp){const v=Math.max(0,parseInt(inp.value,10)||0);v?PV.sel.set(inp.dataset.k,v):PV.sel.delete(inp.dataset.k);PV.conf='';
   const m=inp.nextElementSibling&&inp.nextElementSibling.textContent.match(/\/(\d+)/);inp.parentElement.classList.toggle('ko',!!m&&v>+m[1]);
   inp.closest('tr').classList.toggle('pvsel',[...inp.closest('tr').querySelectorAll('.pvn')].some(i=>+i.value>0));pvTot()}
-function pvTot(){const n=[...PV.sel.values()].reduce((a,v)=>a+v,0),e=$('#pvtot');if(e)e.textContent=n+' drapeau'+(n>1?'x':'');
-  const b=$('#pvmats'),li=$('#f_lieu');if(!b||!li)return;const l=pvListe(pvForm()),t=pvMatsTxt(li.value,l),pb=pvMatsPb(li.value,l);
+function pvTot(){const n=[...PV.sel.values()].reduce((a,v)=>a+v,0),e=$('#pvtot');if(e)e.textContent=n+' drapeau'+(n>1?'x':'')+' du stock';
+  const nc=PV.cli.reduce((a,x)=>a+(+x.q||0),0),ec=$('#pvclitot');if(ec)ec.textContent=nc+' drapeau'+(nc>1?'x':'');
+  const b=$('#pvmats'),li=$('#f_lieu');if(!b||!li)return;const l=pvTout(pvForm()),t=pvMatsTxt(li.value,l),pb=pvMatsPb(li.value,l);
   b.innerHTML=t?`<div class="mine" style="margin:0 0 6px${pb.length?';background:#fde4e5':''}">🏁 ${esc(li.value)} : ${esc(t)}${pb.length?'<br>⚠️ '+esc(pb.join(' ; ')):''}</div>`:''}
 function pvAddGroupe(g){const f=$('#pvqf').value,S=drStock();let n=0;
   [...drNoms()].filter(([,gr])=>gr===g).forEach(([nom])=>{const k=drKey(nom,f);if(S[k]&&!PV.sel.get(k)){PV.sel.set(k,1);n++}});
@@ -2563,22 +2581,23 @@ function pvValidate(o){
   if(o.dateFin&&o.dateFin<o.dateDebut) return 'La dépose est avant la pose';
   if(!DEMO&&SRV&&!SRV.has('Pavoisements')) return "Le script du Google Sheet n'est pas à jour (voir l'onglet Drapeaux)";
   o.liste=pvForm().liste;
-  if(!pvListe(o).length&&o.statut!=='Annulé') return 'Choisis au moins un drapeau';
-  const M=pvManques(o), MP=pvMatsPb(o.lieu,pvListe(o)), sig=JSON.stringify([M,MP]);
+  if(!pvTout(o).length&&o.statut!=='Annulé') return 'Choisis au moins un drapeau (du stock ou client)';
+  const M=pvManques(o), MP=pvMatsPb(o.lieu,pvTout(o)), sig=JSON.stringify([M,MP]);
   if((M.length||MP.length)&&PV.conf!==sig){PV.conf=sig;return '⚠️ '+[M.length?'Pas assez de drapeaux : '+pvManqueTxt(M):'',MP.length?'Mâts : '+MP.join(' ; '):''].filter(Boolean).join('. ')+'. Clique encore sur Enregistrer pour enregistrer quand même.'}
   return '';
 }
 function pvCopier(id){const p=D.Pavoisements.find(x=>x.id===id);if(!p)return;const fin=p.dateFin||p.dateDebut;
   const txt=`🚩 Pavoisement ${p.titre}${p.lieu?' – '+p.lieu:''}\nPose le ${fD(p.dateDebut,{weekday:'long',day:'numeric',month:'long'})}${fin!==p.dateDebut?', dépose le '+fD(fin,{weekday:'long',day:'numeric',month:'long'}):''}\n`+
-    drFormats().map(f=>{const l=pvListe(p).filter(x=>x.f===f);return l.length?`\n${f} (${l.reduce((a,x)=>a+(+x.q),0)}) :\n`+l.map(x=>`- ${x.d}${+x.q>1?' ×'+x.q:''}`).join('\n'):''}).filter(Boolean).join('\n');
+    drFormats().map(f=>{const l=pvListe(p).filter(x=>x.f===f);return l.length?`\n${f} (${l.reduce((a,x)=>a+(+x.q),0)}) :\n`+l.map(x=>`- ${x.d}${+x.q>1?' ×'+x.q:''}`).join('\n'):''}).filter(Boolean).join('\n')+
+    (pvClient(p).length?`\n\nDrapeaux client (${pvNbCli(p)}) :\n`+pvClient(p).map(x=>`- ${x.d} ${x.f}${+x.q>1?' ×'+x.q:''}`).join('\n'):'');
   (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Liste copiée ✓')).catch(()=>{prompt('Copie la liste :',txt)})}
 async function drExport(){
   try{await loadXLSX();const t=today(),S=drStock(),so=drSortis(t),F=drFormats(),wb=XLSX.utils.book_new();
     const add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(50,Math.max(10,k.length+2,...rows.map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
     add(D.Drapeaux.slice().sort(drOrd()).map(r=>{const k=drKey(r.nom,r.format);return {'Groupe':r.groupe,'Drapeau':r.nom,'Format':r.format,'Neufs':+r.neufs||0,'Occasions':+r.occasions||0,'Usés':+r.uses||0,'Stock':S[k]||0,"Sortis aujourd'hui":so[k]||0,'Disponibles':(S[k]||0)-(so[k]||0),'Note':r.note}}),'Stock');
     const T=[...drNoms()].map(([n,g])=>{const o={'Groupe':g,'Drapeau':n};F.forEach(f=>{const v=S[drKey(n,f)];o[f]=v||''});return o});add(T,'Inventaire (tableau)');
-    add(D.Pavoisements.slice().sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)).map(p=>({'Salon / événement':p.titre,'Lieu':p.lieu,'Pose':p.dateDebut,'Dépose':p.dateFin,'Statut':p.statut,'Nb drapeaux':pvNb(p),'Mâts':pvMatsTxt(p.lieu,pvListe(p)),
-      'Drapeaux':pvListe(p).map(x=>x.d+' '+x.f+(+x.q>1?' ×'+x.q:'')).join(', '),'Manques':pvManqueTxt(pvManques(p)),'Responsable':p.responsable,'Note':p.note})),'Pavoisements');
+    add(D.Pavoisements.slice().sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)).map(p=>({'Salon / événement':p.titre,'Lieu':p.lieu,'Pose':p.dateDebut,'Dépose':p.dateFin,'Statut':p.statut,'Nb drapeaux':pvNb(p),'Mâts':pvMatsTxt(p.lieu,pvTout(p)),
+      'Drapeaux':pvListe(p).map(x=>x.d+' '+x.f+(+x.q>1?' ×'+x.q:'')).join(', '),'Drapeaux client':pvCliTxt(pvClient(p)),'Manques':pvManqueTxt(pvManques(p)),'Responsable':p.responsable,'Note':p.note})),'Pavoisements');
     XLSX.writeFile(wb,`Drapeaux - ${t}.xlsx`)}catch(e){toast(e.message,1)}
 }
 
