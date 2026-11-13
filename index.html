@@ -2548,20 +2548,20 @@ async function bmRetenir(bid,oid){
   try{await saveItem('Benchmarks',{...b,retenu:r});toast(r?'Offre retenue ★':'Choix annulé')}catch(e){toast(e.message,1)}
 }
 /* --- dépôt des devis --- */
-function bmConnus(){const s=new Set();[D.SAP.map(x=>x.societe),D.BudgetLignes.map(x=>x.prestataire),D.Chantiers.map(x=>x.entreprise),D.Projets.map(x=>x.entreprise),D.BenchOffres.map(x=>x.entreprise)].flat().forEach(n=>espList(n).forEach(x=>x.length>=3&&s.add(x)));return [...s]}
+function bmConnus(sauf){const s=new Set();[D.SAP.map(x=>x.societe),D.BudgetLignes.map(x=>x.prestataire),D.Chantiers.map(x=>x.entreprise),D.Projets.map(x=>x.entreprise),D.BenchOffres.filter(x=>x.id!==sauf&&!x.lecture).map(x=>x.entreprise)].flat().forEach(n=>espList(n).forEach(x=>x.length>=3&&s.add(x)));return [...s]}
 const bmIgn=()=>{const b=D.Benchmarks.find(x=>x.id===UI.bm.open);return b?b.titre:''}; // mots du titre : pas le nom de l'entreprise
-async function bmLire(f){
+async function bmLire(f,sauf){
   const n=f.name.toLowerCase();
   if(/\.pdf$/.test(n)){
     if(!window.pdfjsLib){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';s.onload=res;s.onerror=()=>rej(new Error('Lecture PDF indisponible (pas de connexion ?)'));document.head.appendChild(s)});
       pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'}
     const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let L;
     try{L=await chpPdfLignes(pdf)}catch(e){return {scan:1}}
-    return bmAnalyse(L.map(l=>l.split(' | ')),f.name,bmConnus(),bmIgn())}
+    return bmAnalyse(L.map(l=>l.split(' | ')),f.name,bmConnus(sauf),bmIgn())}
   if(/\.(xlsx|xlsm|xls|ods|csv)$/.test(n)){
     await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{cellDates:false});let best=null;
     wb.SheetNames.forEach(sn=>{const ws=wb.Sheets[sn];if(!ws||!ws['!ref'])return;const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}).slice(0,3000);
-      const a=bmAnalyse(rows,f.name,bmConnus(),bmIgn());const sc=(a.src==='auto'?1000:0)+a.lignes.length;if(!best||sc>best.sc)best={...a,sc}});
+      const a=bmAnalyse(rows,f.name,bmConnus(sauf),bmIgn());const sc=(a.src==='auto'?1000:0)+a.lignes.length;if(!best||sc>best.sc)best={...a,sc}});
     return best||{}}
   return {}; // image, Word, mail : fichier gardé, montant à saisir
 }
@@ -2578,7 +2578,7 @@ async function bmFiles(files){
     if(FBM&&FB&&FB.devisOk&&FB.devisOk()){prog(`⏳ ${pre}Enregistrement du fichier <b>${esc(f.name)}</b>…`);try{fid=await FB.envoyerDevis(bid,f)}catch(e){warn.push(f.name+' : fichier non gardé ('+e.message+')')}}
     const ent=r.entreprise||f.name.replace(/\.[a-z0-9]{2,5}$/i,'').slice(0,60)||'Entreprise ?';
     try{await saveItem('BenchOffres',{benchId:bid,entreprise:ent,numero:r.numero||'',date:r.date||'',montant:r.total!=null?String(Math.round(r.total*100)/100):'',delai:r.delai||'',validite:r.validite||'',
-        lignes:JSON.stringify(r.lignes||[]),scores:'{}',commentaire:'',lecture:r.total!=null?(r.src||'auto'):'manuel',fichier:fid,fichierNom:f.name.slice(0,200),fichierTaille:String(f.size)});ok++;
+        lignes:JSON.stringify(r.lignes||[]),scores:'{}',commentaire:(r.note||'').slice(0,500),lecture:r.total!=null?(r.src||'auto'):'manuel',fichier:fid,fichierNom:f.name.slice(0,200),fichierTaille:String(f.size)});ok++;
       if(r.scan)warn.push(f.name+' : PDF scanné (image), montant à saisir à la main');
       else if(r.total==null)warn.push(f.name+' : montant non trouvé, à saisir');}
     catch(e){warn.push(f.name+' : '+e.message)}}}
@@ -2603,6 +2603,19 @@ async function bmVoir(oid){
     setTimeout(()=>URL.revokeObjectURL(u),120000)}
   catch(e){if(w)w.close();toast(e.message,1)}
 }
+// relit le fichier gardé d'une offre et remplit la fiche ouverte (à vérifier puis « Enregistrer »)
+async function bmRelire(oid){
+  const o=D.BenchOffres.find(x=>x.id===oid),b=$('#bmrelire');if(!o||!o.fichier||!FB||!FB.lireDevis)return toast('Fichier indisponible',1);
+  if(b){b.disabled=true;b.textContent='⏳ Lecture…'}
+  try{const blob=await FB.lireDevis(o.benchId,o.fichier),r=await bmLire(new File([blob],o.fichierNom||'devis.pdf'),oid);
+    if(r.scan||(r.total==null&&!(r.lignes||[]).length))return toast('Rien de lisible dans ce fichier (scan ou image ?)',1);
+    const set=(k,v)=>{const e=$('#f_'+k);if(!e||v==null||v==='')return;v=String(v);if(e.tagName==='SELECT'&&![...e.options].some(x=>x.value===v))e.add(new Option(v,v));e.value=v};
+    set('entreprise',r.entreprise);set('numero',r.numero);set('date',r.date);set('montant',r.total!=null?String(Math.round(r.total*100)/100).replace('.',','):'');set('delai',r.delai);set('validite',r.validite);
+    const c=$('#f_commentaire');if(c&&!c.value.trim()&&r.note)c.value=r.note.slice(0,500);
+    UI.bmL=(r.lignes||[]).map(l=>({...l}));bmLRender();toast('Devis relu : vérifie puis enregistre')}
+  catch(e){toast(e.message,1)}
+  finally{if(b){b.disabled=false;b.textContent='🔄 Relire le devis'}}
+}
 /* --- fiche d'une offre : correction de la lecture, notes, lignes --- */
 function bmOffreNew(bid){bmOffre('',bid)}
 function bmOffre(oid,bid){
@@ -2612,7 +2625,7 @@ function bmOffre(oid,bid){
   UI.bmL=bmJ(o.lignes,[]).map(l=>({...l}));
   const notes=crit.length?`<div class="coms"><h3>Notation (sur 10)</h3><div class="bmnotes">${crit.map((c,i)=>`<label class="fl"><span>${esc(c.n)} · ${c.p} %</span><input type="number" min="0" max="10" step="0.5" inputmode="decimal" data-c="${esc(c.n)}" class="bmsc" value="${S[c.n]??''}"></label>`).join('')}</div>
     <p class="hint">Le prix est noté automatiquement d'après le moins-disant. Critères et pondérations : dans la fiche du benchmark.</p></div>`:'';
-  const fic=o.fichier?`<p class="hint">📎 <button class="link" type="button" onclick="bmVoir('${o.id}')">${esc(o.fichierNom||'Voir le devis')}</button>${o.fichierTaille?' · '+Math.max(1,Math.round(+o.fichierTaille/1024))+' Ko':''}</p>`:'';
+  const fic=o.fichier?`<p class="hint">📎 <button class="link" type="button" onclick="bmVoir('${o.id}')">${esc(o.fichierNom||'Voir le devis')}</button>${o.fichierTaille?' · '+Math.max(1,Math.round(+o.fichierTaille/1024))+' Ko':''} · <button class="link" type="button" id="bmrelire" onclick="bmRelire('${o.id}')" title="Relit le fichier et remplace les champs et les lignes ci-dessous (rien n'est enregistré avant « Enregistrer »)">🔄 Relire le devis</button></p>`:'';
   const extra=`${fic}${notes}<div class="coms"><h3>Lignes du devis</h3><p class="hint">Lues automatiquement dans le devis : corrige, supprime ou ajoute des lignes (elles servent au comparatif poste par poste).</p>
     <div id="bmlines"></div><button class="btn" type="button" onclick="UI.bmL.push({d:'',q:'',u:'',pu:'',t:''});bmLRender(1)">+ Ligne</button></div>`;
   openForm('BenchOffres',o,oid?'🧾 '+o.entreprise:'Nouvelle offre',{fields:FORMS.BenchOffres,extra,
@@ -2666,12 +2679,13 @@ function bmNum(v){
   else if(ld>=0&&(s.match(/\./g).length>1||/^-?\d{1,3}\.\d{3}$/.test(s)))s=s.replace(/\./g,'');
   const n=Number(s);return isFinite(n)?n:null}
 const BM_UNIT=/^(u|un|unite|unites|ens|ensemble|f|ft|fft|forfait|m|ml|m2|m²|m3|m³|h|hr|heure|heures|j|jour|jours|kg|t|l|pce|pc|pcs|piece|pieces|lot|nb|qte)\.?$/i;
-const BM_EXCL=/\b(sous[- ]?total|total|t\.?v\.?a|ttc|net a payer|acompte|report|a reporter|page \d|capital|siret|siren|r\.?c\.?s|naf|ape|iban|bic|tel|fax|telephone|portable|code postal|escompte|penalites?|montant (ht|h\.t)|base ht|remises?|rabais|ristourne)\b/;
+const bmEstU=s=>BM_UNIT.test(bmN(s))||/^[a-z]{0,3}\/ ?[a-z]{1,8}$/i.test(String(s).trim()); // « U », « Ens. », « F/site », « /APDC »
+const BM_EXCL=/\b(sous[- ]?total|total|t\.?v\.?a|ttc|net a payer|acompte|report|a reporter|page \d|capital|siret|siren|r\.?c\.?s|naf|ape|iban|bic|tel|fax|telephone|portable|code postal|escompte|penalites?|montant (ht|h\.t|total|global)|base ht|remises?|rabais|ristourne)\b/;
 // une ligne de cellules → {texte, nums:[…], unite} (les cellules « 2 u » ou « 150,00 € HT » sont séparées)
 function bmCells(row){const T=[],N=[];let u='';
   (row||[]).forEach(c=>{if(c==null||c==='')return;if(typeof c==='number'){N.push(c);return}
     const s=String(c).replace(/[  ]/g,' ').trim();if(!s)return;const n=bmNum(s);if(n!=null){N.push(n);return}
-    if(BM_UNIT.test(bmN(s))&&T.length){u=s;return}
+    if(bmEstU(s)&&(T.length||N.length)){u=s;return}
     if(/^\d+([.,]\d+)?\s*%$/.test(s))return; // taux de TVA / remise
     let m=s.match(/^(-?\d+(?:[.,]\d+)?)\s+([a-zA-Z²³]{1,8}\.?)$/);if(m&&BM_UNIT.test(bmN(m[2]))){N.push(bmNum(m[1]));u=m[2];return}
     // texte suivi de montants (cellules collées dans le PDF) : « Dépose luminaires 4 85,00 340,00 »
@@ -2679,18 +2693,28 @@ function bmCells(row){const T=[],N=[];let u='';
     while(k>0){const t=tok[k-1];const two=k>1?tok[k-2]+' '+t:null;
       if(two&&/^\d{1,3} \d{3}([.,]\d+)?$/.test(two)){tail.unshift(bmNum(two));k-=2;continue}
       const n=bmNum(t);if(n!=null){tail.unshift(n);k--;continue}
-      if(BM_UNIT.test(bmN(t))&&tail.length){u=t;k--;continue}
+      if(bmEstU(t)&&tail.length){u=t;k--;continue}
       if(/^(€|eur|ht|h\.t\.?)$/i.test(t)){k--;continue}
       break}
     if(tail.length&&k>0&&N.length===0){T.push(tok.slice(0,k).join(' '));N.push(...tail)}else if(N.length){T.push(s)}else T.push(s)});
   return {texte:T.join(' ').replace(/\s+/g,' ').trim(),nums:N,u}}
 // lignes chiffrées : désignation + (qté, PU,) total
-function bmLignes(rows){const L=[];let prevTxt='';
-  rows.forEach(r=>{const c=bmCells(r),t=c.texte,n=c.nums.filter(x=>x!=null);const nt=bmN(t);
-    if(!n.length){prevTxt=t&&/[a-z]{3}/i.test(t)&&t.length<200&&!BM_EXCL.test(nt)?t:'';return}
-    if(BM_EXCL.test(nt)||/^(designation|libelle|description|quantite|prix)/.test(nt)){prevTxt='';return}
-    let d=t.replace(/^\s*([0-9]+([.)][0-9]+)*[.)]?|[a-z][.)])\s+/i,'').trim();
+const BM_SUITE=/(\b(de|du|des|d|le|la|les|l|et|ou|a|au|aux|pour|en|sur|avec|par|dont)|[\/,\-(+&])$/; // désignation qui se poursuit sur la ligne suivante
+const BM_PUCE=/^\s*([-•–*]|[0-9]+([.)][0-9]+)*[.)]?|[a-z][.)])\s+/i;
+function bmLignes(rows){const L=[];let prevTxt='',last=null; // last : ligne chiffrée lue juste au-dessus (sa désignation peut continuer)
+  const seul=r=>{if(!r)return false;const c=bmCells(r);return c.nums.length>0&&!/[a-zA-Zéèàù]{3}/.test(c.texte)}; // montants sans désignation
+  rows.forEach((r,i)=>{const c=bmCells(r);let t=c.texte,n=c.nums.filter(x=>x!=null);
+    if(n.length===1&&t&&(r||[]).every(x=>typeof x!=='number')){const raw=r.filter(x=>x!=null).join(' ').replace(/\s+/g,' ').trim();if(!/\d[.,]\d{2}\b|€/.test(raw)){t=raw;n=[]}} // « … de la zone 1 » : texte, pas un montant
+    const nt=bmN(t);
+    if(!n.length){const ok=t&&/[a-z]{3}/i.test(t)&&t.length<200&&!BM_EXCL.test(nt);
+      // suite d'une désignation coupée en plusieurs lignes dans le PDF (« … pose des équipements (modem, switch, » / « proxy) »)
+      if(ok&&last&&t.length<=90&&(last.d+' '+t).length<=300&&!BM_PUCE.test(t)&&(/^[a-zà-ÿ]/.test(t)||BM_SUITE.test(bmN(last.d)))&&!seul(rows[i+1])){last.d+=' '+t;prevTxt='';return}
+      last=null;prevTxt=ok?t:'';return}
+    last=null;
+    if(BM_EXCL.test(nt)||/^(designation|libelle|description|quantite|prix|dont\b)/.test(nt)||/\b(p|page)\.?$/.test(nt)){prevTxt='';return} // totaux, en-têtes, récapitulatif (« Chapitre 1 … p. 3 »)
+    let d=t.replace(BM_PUCE,'').trim();
     if(!/[a-zA-Zéèàù]{3}/.test(d)){if(prevTxt&&n.length>=2)d=prevTxt;else{prevTxt='';return}}
+    else if(prevTxt&&!BM_PUCE.test(t)&&(/^[a-zà-ÿ]/.test(d)||BM_SUITE.test(bmN(prevTxt)))&&(prevTxt+' '+d).length<=300)d=prevTxt.replace(BM_PUCE,'')+' '+d; // début de la désignation sur la ligne du dessus
     if(/\b\d{2}[\/.]\d{2}[\/.]\d{2,4}\b/.test(d)&&n.length<2){prevTxt='';return}
     let q='',pu='',tot=n[n.length-1];
     if(n.length>=3){const [a,b]=[n[n.length-3],n[n.length-2]];if(Math.abs(a*b-tot)<=Math.max(0.02*Math.abs(tot),0.06)){q=a;pu=b}
@@ -2700,7 +2724,8 @@ function bmLignes(rows){const L=[];let prevTxt='';
     else if(n.length===2){const [a,b]=n;if(Math.abs(a-b)<0.005){q=1;pu=a}else if(a>0&&Math.abs(Math.round(a)-a)<1e-9&&a<=10000&&b>a&&Math.abs(b/a-Math.round(b/a*100)/100)<1e-9){q=a;pu=Math.round(b/a*100)/100}else{pu=a}}
     else{const raw=(r||[]).map(x=>typeof x==='number'?'1.00':String(x)).join(' ');if(!/\d[.,]\d{2}\b|€/.test(raw)){prevTxt='';return}}
     if(!(tot>0)||tot>1e8){prevTxt='';return}
-    L.push({d:d.slice(0,300),q,u:c.u||'',pu,t:Math.round(tot*100)/100});prevTxt=''});
+    last={d:d.slice(0,300),q,u:c.u||'',pu,t:Math.round(tot*100)/100};L.push(last);prevTxt=''});
+  L.forEach(l=>l.d=l.d.replace(/\s+/g,' ').slice(0,300));
   return L}
 const BM_MOIS={janvier:1,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,aout:8,septembre:9,octobre:10,novembre:11,decembre:12};
 function bmDate(s){s=bmN(s);let m=s.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/);
@@ -2717,7 +2742,7 @@ function bmEntreprise(txt,fname,connus,ign){
   for(const l of T){const m=String(l).replace(/\s*\|\s*/g,' ').match(/(?:^|\s)((?:[A-Z0-9][\wÀ-ÿ&'’.\-]*\s){0,4}[A-Z0-9][\wÀ-ÿ&'’.\-]*)\s+(SAS|SARL|SA|EURL|SASU|SNC|SCOP|SE)\b/);
     if(m&&!BM_CLIENT.test(m[1])&&!/^(societe|capital|au|la|le)$/i.test(m[1].trim())){const n=m[1].replace(/^(soci[ée]t[ée]|ste|ets|entreprise)\s+/i,'').trim();if(n.length>=2)return n}}
   const ig=new Set(bmN(ign||'').split(/[^a-z0-9]+/).filter(w=>w.length>2));
-  const f0=String(fname||'').replace(/\.[a-z0-9]{2,5}$/i,'').replace(/[_\-.]+/g,' ').replace(/\b(devis|dev|offre|proposition|commerciale|cotation|chiffrage|v\d+|rev\s?\w|ind\s?\w|version|n°?|no|du|le|de|pour|eurexpo|gl events?|lyon)\b/gi,' ')
+  const f0=String(fname||'').replace(/\.[a-z0-9]{2,5}$/i,'').replace(/[_\-.]+/g,' ').replace(/\b(devis|dev|offre|proposition|commerciale|cotation|chiffrage|v\d+|rev\s?\w|ind\s?\w|version|n°?|no|du|le|de|pour|eurexpo|gl events?|lyon|agence|ag)\b/gi,' ')
     .replace(/\b\d+[\d\/]*\b/g,' ').replace(/\s+/g,' ').trim();
   const f=f0.split(' ').filter(w=>!ig.has(bmN(w))).join(' ');
   // 1er mot du nom de fichier présent en tête du devis : on reprend la ligne d'en-tête (« SPIE CityNetworks »)
@@ -2725,14 +2750,21 @@ function bmEntreprise(txt,fname,connus,ign){
   if(w1.length>=3){const h=T.slice(0,8).map(l=>String(l).split(/\s*\|\s*/)[0].trim()).find(l=>l.length<=45&&new RegExp('(^|[^a-z0-9])'+w1.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])').test(bmN(l))&&!BM_CLIENT.test(l)&&!/devis|offre|proposition/i.test(l));if(h)return h}
   if(/[a-z]{3}/i.test(f))return f.replace(/\b\w/g,c=>c.toUpperCase()).slice(0,60);
   const d=[...all.matchAll(/@([a-z0-9\-]+)\.(fr|com|eu|net|org|biz)\b/g)].map(m=>m[1]).find(x=>!/gmail|gl-?events|eurexpo|outlook|hotmail|orange|wanadoo|free|yahoo|laposte|sfr/.test(x));
-  if(d)return d.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  if(d){const h=T.map(l=>String(l).split(/\s*\|\s*/)[0].trim()).find(l=>l.length>=3&&l.length<=40&&!/[@\d]|devis|offre|www\./i.test(l)&&!BM_CLIENT.test(l)&&new RegExp('(^|[^a-z0-9])'+d.replace(/-/g,' ')+'($|[^a-z0-9])').test(bmN(l)));
+    return h||d.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
   return ''}
+const BM_REC=/\b(annuel(le)?s?|mensuel(le)?s?|par (an|mois)|sur \d+ (ans|mois)|exploitation|loyers?|abonnements?)\b|\/ ?(an|mois)\b/;
+const BM_DELAI_NON=/paiement|reglement|paye|factur|validit|garanti|resili|penalit|retard|notification|retractation|preavis|renvo|renverra|legal|legaux|suspen|defaut d.accord|prolong/;
+const BM_DUREE=/(\d+(?: ?(?:a|-) ?\d+)?)\)?\s*(semaines?|jours?(?: ouvr(?:e|able)s?| calendaires?)?|mois)\b/;
+const bmDur=d=>d[1].replace(/ ?a ?/,' à ')+' '+d[2].replace(/ouvre(s?)$/,'ouvré$1'); // texte sans accents → « 3 à 4 semaines », « 10 jours ouvrés »
+const BM_DELAI_PRES=new RegExp('delais?[^0-9.;]{0,25}?'+BM_DUREE.source);
 function bmAnalyse(rows,fname,connus,ign){
   rows=(rows||[]).filter(r=>r&&r.some(c=>c!=null&&String(c).trim()!==''));
   const txt=rows.map(r=>r.map(c=>c==null?'':typeof c==='number'?String(c).replace('.',','):String(c)).filter(Boolean).join(' | '));
   const out={entreprise:bmEntreprise(txt,fname,connus,ign),numero:'',date:'',total:null,delai:'',validite:'',lignes:[],src:''};
   // n° du devis
-  for(const l of txt.slice(0,80)){const m=l.match(/\b(?:devis|proposition|offre|cotation|chiffrage)(?:\s+(?:commerciale|de prix))?\s*(?:n[°ºo]\.?|num[ée]ro|no\.?|#|r[ée]f(?:[ée]rence)?\.?)?\s*:?\s*([A-Z]{0,6}[\-\/ ]?\d[\w\-\/.]{1,28})/i)||l.match(/\bn[°º]\s*(?:de\s+)?(?:devis|offre)\s*:?\s*([A-Z0-9][\w\-\/.]{2,28})/i);
+  for(const l of txt.slice(0,80)){const m=l.match(/\b(?:devis|proposition|offre|cotation|chiffrage)(?:\s+(?:commerciale|de prix))?\s*(?:n[°ºo]\.?|num[ée]ro|no\.?|#|r[ée]f(?:[ée]rence)?\.?)?\s*:?\s*([A-Z]{0,6}[\-\/ ]?\d[\w\-\/.]{1,28})/i)||l.match(/\bn[°º]\s*(?:de\s+)?(?:devis|offre)\s*:?\s*([A-Z0-9][\w\-\/.]{2,28})/i)
+      ||(/\b(devis|offre|proposition|cotation)\b/i.test(l)&&l.match(/\bn[°º]\s*:?\s*-?\s*([A-Z0-9][\w\-\/.]{2,28})/i));
     if(m&&/\d/.test(m[1])&&!/^\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}$/.test(m[1])){out.numero=m[1].replace(/[.\-\/]+$/,'').trim();break}}
   // date : celle annoncée par « date / le / du », sinon la première trouvée
   for(const l of txt.slice(0,80)){if(/\b(date|le|du|lyon,|fait a)\b/i.test(bmN(l))&&!/validit|livraison|naissance|echeance/i.test(bmN(l))){const d=bmDate(l);if(d){out.date=d;break}}}
@@ -2744,17 +2776,31 @@ function bmAnalyse(rows,fname,connus,ign){
     if(/\bttc\b|\btva\b/.test(n.replace(/hors tax\w*/,''))&&!/\bh\.? ?t\b/.test(n))return;
     let nums=bmCells(r).nums;if(!nums.length&&rows[i+1]){const nx=bmCells(rows[i+1]);if(!nx.texte||nx.texte.length<4)nums=nx.nums}
     if(!nums.length)return;
-    C.push({v:nums[nums.length-1]>0?nums[nums.length-1]:nums.find(x=>x>0),sous:/sous[- ]?total|total partiel|total lot|total chapitre|avant remise|brut/.test(n),net:/\bnet\b|apres remise|general|global/.test(n)})});
-  const ok=C.filter(c=>c.v>0&&!c.sous);
+    C.push({v:nums[nums.length-1]>0?nums[nums.length-1]:nums.find(x=>x>0),lib:bmCells(r).texte||String(txt[i]).split(' | ')[0],rec:BM_REC.test(bmN(txt[i])),sous:/sous[- ]?total|total partiel|total lot|total chapitre|avant remise|brut/.test(n),net:/\bnet\b|apres remise|general|global/.test(n)})});
+  const ok0=C.filter(c=>c.v>0&&!c.sous),rec=ok0.filter(c=>c.rec),ok=ok0.some(c=>!c.rec)?ok0.filter(c=>!c.rec):ok0; // « Montant d'exploitation annuel HT » n'est pas le total du devis
   const nets=ok.filter(c=>c.net);
   if(nets.length)out.total=nets[nets.length-1].v;else if(ok.length)out.total=Math.max(...ok.map(c=>c.v));
   out.lignes=bmLignes(rows);
+  const notes=[];
+  // les premières lignes font exactement le total : la suite (options, exploitation, prix à l'acte, récapitulatif) est hors montant
+  if(out.total!=null){let s=0,k=-1;out.lignes.forEach((l,i)=>{s+=l.t;if(Math.abs(s-out.total)<=0.5)k=i});
+    if(k>=0&&k<out.lignes.length-1){const n=out.lignes.length-1-k;out.lignes=out.lignes.slice(0,k+1);notes.push(n+' ligne'+(n>1?'s':'')+' après le total non reprise'+(n>1?'s':'')+' (options, exploitation, prix à l\'acte…)')}}
+  if(rec.length&&ok!==ok0)notes.unshift('Hors montant : '+[...new Map(rec.map(c=>[c.lib+c.v,c.lib.replace(/\s*:\s*$/,'').slice(0,70)+' '+c.v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'])).values()].slice(0,4).join(' · '));
+  out.note=notes.join(' — ');
   const somme=Math.round(out.lignes.reduce((a,l)=>a+l.t,0)*100)/100;
   if(out.total!=null)out.src='auto';else if(somme>0){out.total=somme;out.src='calc'}else out.src='manuel';
   // délai, validité
+  // délai : « Délais de réalisation » puis « … est de 15 semaines » (souvent sur les lignes suivantes) ; pas les délais de paiement, de garantie, de résiliation…
+  const plat=txt.map(l=>String(l).replace(/\s*\|\s*/g,' '));
+  const duree=(i,fort)=>{const n=bmN(plat[i]);if(BM_DELAI_NON.test(n))return '';
+    if(!fort){const d=n.match(BM_DELAI_PRES);return d?bmDur(d):''} // « Délai : 6 semaines » sur la même ligne
+    const m=n.match(/delais? (?:de |d')?(?:realisation|execution|installation|intervention|livraison|travaux|mise en (?:oeuvre|service)|chantier|fabrication|approvisionnement)/);if(!m)return '';
+    const seg=(n.slice(m.index)+' '+bmN(plat.slice(i+1,i+3).join(' '))).slice(0,260).split(/\. |;/)[0],d=seg.match(BM_DUREE);
+    return d&&!BM_DELAI_NON.test(seg.slice(0,d.index))?bmDur(d):''};
+  for(const fort of [1,0]){for(let i=0;i<plat.length&&!out.delai;i++)out.delai=duree(i,fort)}
   for(const l of txt){const n=bmN(l);
-    if(!out.delai){const m=String(l).replace(/\s*\|\s*/g,' ').match(/d[ée]lais?\s*(?:de\s+|d['’])?(?:r[ée]alisation|ex[ée]cution|intervention|livraison|travaux|mise en (?:oeuvre|œuvre))?\s*:?\s*([^.;]{2,60})/i);
-      if(m&&/\d|semaine|jour|mois|immediat|a convenir/i.test(bmN(m[1]))&&!/paiement|reglement|validite/.test(n))out.delai=m[1].trim().slice(0,60)}
+    if(!out.delai&&!BM_DELAI_NON.test(n)){const m=String(l).replace(/\s*\|\s*/g,' ').match(/d[ée]lais?\s*(?:de\s+|d['’])?(?:r[ée]alisation|ex[ée]cution|intervention|livraison|travaux|mise en (?:oeuvre|œuvre))?\s*:?\s*([^.;]{2,60})/i);
+      if(m&&/\d|semaine|jour|mois|immediat|a convenir/i.test(bmN(m[1])))out.delai=m[1].trim().slice(0,60)}
     if(!out.validite&&/validit/.test(n)){const m=n.match(/(\d+)\s*(jours?|mois|semaines?)/);const d=bmDate(l);out.validite=m?m[1]+' '+m[2]:d?d.split('-').reverse().join('/'):''}}
   return out}
 
