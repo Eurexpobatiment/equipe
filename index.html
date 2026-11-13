@@ -659,7 +659,8 @@ const FORMS = {
     {k:'statut',l:'Statut',t:'select',o:['À l\'étude','En cours','Terminé','Clôturé','Annulé'],def:'En cours'},
     {k:'dateDebut',l:'Début',t:'date'},
     {k:'dateFin',l:'Fin prévue',t:'date'},
-    {k:'note',l:'Note',t:'textarea'}],
+    {k:'note',l:'Note',t:'textarea'},
+    {k:'partage',l:'🤝 Partager avec (ils verront le projet et pourront y saisir devis, BDC, factures)',t:'people',notMe:1,full:1}],
   Chantiers: [
     {k:'titre',l:'Chantier / travaux',req:1,full:1},
     {k:'espace',l:'Espace(s) — plusieurs choix possibles',t:'multi',o:()=>ESPACES(),req:1,full:1},
@@ -726,7 +727,7 @@ const TABS = [
   {id:'Compteurs',l:'💧 Relevés compteurs',g:'Suivi technique'},
   {id:'Conso',l:'⚡ Consommations halls',g:'Suivi technique'},
   {id:'Budget',l:'💶 Budget',g:'Gestion'},
-  {id:'Projets',l:'📊 Suivi projets',g:'Gestion'}, // chacun n'y voit que ses propres projets
+  {id:'Projets',l:'📊 Suivi projets',g:'Gestion'}, // chacun y voit ses projets et ceux qu'on partage avec lui
   {id:'Equipe',l:'👥 Équipe',g:'Gestion'}];
 const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur téléphone
 /* Icônes au trait du menu (remplacent les emojis) */
@@ -754,7 +755,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '21'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '22'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[]};
@@ -1061,7 +1062,7 @@ function fieldHtml(f,v){
     case 'time': inp=`<input type="time" id="${id}" value="${val}" step="300">`;break;
     case 'datetime': inp=`<input type="datetime-local" id="${id}" value="${val}" step="300">`;break;
     case 'hall': inp=`<input id="${id}" list="dl-halls" value="${val}" autocomplete="off">`;break;
-    case 'people':{const sel=espList(v),ns=people(f.filter);sel.forEach(n=>{if(!ns.includes(n))ns.push(n)});
+    case 'people':{const sel=espList(v),ns=people(f.filter).filter(n=>!(f.notMe&&n===me));sel.forEach(n=>{if(!ns.includes(n))ns.push(n)});
       inp=`<div class="multi" id="${id}">${ns.map(n=>`<label class="mchip"><input type="checkbox" value="${esc(n)}" ${sel.includes(n)?'checked':''}><span>${esc(n)}</span></label>`).join('')||'<span class="hint">Personne dans l\'équipe pour l\'instant.</span>'}</div>`;break;}
     case 'multi':{const sel=espList(v),opts=f.o(),autres=sel.filter(s=>!opts.includes(s));
       inp=`<div class="multi" id="${id}">${opts.map(o=>`<label class="mchip"><input type="checkbox" value="${esc(o)}" ${sel.includes(o)?'checked':''}><span>${esc(o)}</span></label>`).join('')}
@@ -1079,7 +1080,7 @@ function openForm(sheet,item,title,opt={}){
   hallsDatalist(); budgetDatalists();
   modal(`<h2>${esc(title)}</h2><div class="form">${F.map(f=>fieldHtml(f,it[f.k])).join('')}</div>
     <div class="err" id="ferr"></div>
-    <div class="acts">${!isNew?'<button class="btn danger" id="fdel">Supprimer</button>':''}<span class="sp"></span>
+    <div class="acts">${!isNew&&!opt.noDel?'<button class="btn danger" id="fdel">Supprimer</button>':''}<span class="sp"></span>
       <button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="fsave">Enregistrer</button></div>
     ${opt.extra||''}`);
   const ferr=m=>{$('#ferr').textContent=m||''};
@@ -1093,7 +1094,7 @@ function openForm(sheet,item,title,opt={}){
     try{const r=await saveItem(sheet,o);closeModal();toast('Enregistré ✓');if(opt.onSaved)opt.onSaved(r)}
     catch(e){ferr(e.message);b.disabled=false;b.textContent='Enregistrer'}
   };
-  if(!isNew){const d=$('#fdel');d.onclick=async()=>{
+  if(!isNew&&!opt.noDel){const d=$('#fdel');d.onclick=async()=>{
     if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent='Confirmer la suppression';return}
     d.disabled=true;
     try{await delItem(sheet,it.id);closeModal();toast('Supprimé')}catch(e){ferr(e.message);d.disabled=false}
@@ -2272,13 +2273,16 @@ async function bExport(){
   }catch(e){toast(e.message,1)}
 }
 
-/* ================== 📊 SUIVI FINANCIER DE PROJETS (perso) ==================
-   Projets visibles par leur propriétaire seulement (Firebase : champ proprio, règles Projets / ProjetMvts).
+/* ================== 📊 SUIVI FINANCIER DE PROJETS ==================
+   Projets visibles par leur propriétaire et les membres avec qui il les partage (Firebase : champs proprio / partage / acces, règles Projets / ProjetMvts).
+   Seul le propriétaire change le partage et supprime le projet ; les membres du partage modifient la fiche et saisissent les lignes.
    Devis = reçus (pour info) · Engagé = BDC · Facturé = factures − avoirs
    Reste à engager = budget − engagé · Reste à payer = engagé − facturé */
 const NAT_PJ=['Devis','BDC','Facture','Avoir'];
 const PJ_ST={'À l\'étude':'#3a6ea5','En cours':'#e09a2b','Terminé':'#2a9d5c','Clôturé':'#64748b','Annulé':'#9aa3b2'};
-const pjMine=()=>D.Projets.filter(p=>p.proprio===me);
+const pjAcc=p=>[p.proprio,...espList(p.partage)].filter((x,i,a)=>x&&a.indexOf(x)===i);
+const pjMine=()=>D.Projets.filter(p=>pjAcc(p).includes(me)); // mes projets + ceux partagés avec moi
+const pjShare=p=>p.proprio!==me?`🤝 partagé par ${p.proprio}`:(p.partage?`🤝 partagé avec ${espList(p.partage).join(', ')}`:'');
 const pjLignes=id=>[...new Set(D.ProjetMvts.filter(m=>m.projetId===id&&m.nature==='BDC'&&m.ligne).map(m=>m.ligne))]; // lignes budgétaires des BDC du projet
 function pjCalc(p){
   let dev=0,bdc=0,fac=0;
@@ -2288,27 +2292,29 @@ function pjCalc(p){
   return {dev,bdc,fac,bud,resteEng,resteFac,pct:bud?bdc/bud:(bdc?Infinity:0),pctFac:bud?fac/bud:0,hors:p.budget!==''&&bud>0&&(bdc>bud+0.005||fac>bud+0.005),surFac:fac>bdc+0.005};
 }
 function vProjets(el){
-  const st=UI.pj||(UI.pj={f:'actifs',q:''}), q=st.q.trim().toLowerCase();
-  const all=pjMine(), act=p=>!['Clôturé','Annulé'].includes(p.statut);
+  const st=UI.pj||(UI.pj={f:'actifs',q:'',w:'tous'}), q=st.q.trim().toLowerCase(); if(!st.w)st.w='tous';
+  const all=pjMine(), act=p=>!['Clôturé','Annulé'].includes(p.statut), nPart=all.filter(p=>p.proprio!==me).length;
   let L=all.filter(p=>st.f==='tous'||(st.f==='actifs'?act(p):!act(p)));
+  if(st.w==='miens')L=L.filter(p=>p.proprio===me); else if(st.w==='partages')L=L.filter(p=>p.proprio!==me);
   if(q) L=L.filter(p=>[p.titre,p.entreprise,p.note].join(' ').toLowerCase().includes(q)||D.ProjetMvts.some(m=>m.projetId===p.id&&[m.numero,m.fournisseur,m.ligne,m.libelle].join(' ').toLowerCase().includes(q)));
   L.sort((a,b)=>Object.keys(PJ_ST).indexOf(a.statut)-Object.keys(PJ_ST).indexOf(b.statut)||(a.dateFin||'9999').localeCompare(b.dateFin||'9999')||a.titre.localeCompare(b.titre,'fr'));
   const s={bud:0,dev:0,bdc:0,fac:0}; L.filter(p=>p.statut!=='Annulé').forEach(p=>{const c=pjCalc(p);s.bud+=c.bud;s.dev+=c.dev;s.bdc+=c.bdc;s.fac+=c.fac});
   const rE=s.bud-s.bdc, rF=s.bdc-s.fac, pc=s.bud?s.bdc/s.bud:0;
   const filt=[['actifs','En cours'],['clos','Clôturés'],['tous','Tous']].map(([k,l])=>`<button class="${st.f===k?'on':''}" onclick="UI.pj.f='${k}';render()">${l}</button>`).join('');
+  const filtW=nPart||st.w!=='tous'?`<div class="seg-ctl">${[['tous','Tous'],['miens','Mes projets'],['partages',`Partagés avec moi (${nPart})`]].map(([k,l])=>`<button class="${st.w===k?'on':''}" onclick="UI.pj.w='${k}';render()">${l}</button>`).join('')}</div>`:'';
   const row=p=>{const c=pjCalc(p);return `<tr class="pjrow" onclick="pjOpen('${p.id}')">
-    <td><b>${esc(p.titre)}</b><small>${esc([p.entreprise,pjLignes(p.id).join(', '),p.dateFin&&('fin '+fD(p.dateFin,{day:'2-digit',month:'2-digit',year:'2-digit'}))].filter(Boolean).join(' · '))}</small></td>
+    <td><b>${esc(p.titre)}</b><small>${esc([p.entreprise,pjLignes(p.id).join(', '),p.dateFin&&('fin '+fD(p.dateFin,{day:'2-digit',month:'2-digit',year:'2-digit'})),pjShare(p)].filter(Boolean).join(' · '))}</small></td>
     <td><span class="etat pjst" style="background:${PJ_ST[p.statut]||'#64748b'};color:#fff">${esc(p.statut||'')}</span>${c.hors?' <span class="etat ko">Hors budget</span>':''}${c.surFac?' <span class="etat ko" title="Plus facturé que commandé">Factures &gt; BDC</span>':''}</td>
     <td class="r">${p.budget===''?'—':eur(c.bud)}</td><td class="r">${c.dev?eur(c.dev):'—'}</td><td class="r">${eur(c.bdc)}</td><td class="r">${eur(c.fac)}</td>
     <td class="r ${c.resteEng<-0.005?'negt':''}">${p.budget===''?'—':eur(c.resteEng)}</td><td class="r ${c.resteFac<-0.005?'negt':''}">${eur(c.resteFac)}</td>
     <td class="pc">${p.budget===''?'':barHtml(c.pct)+`<small>${pctTxt(c.pct)}</small>`}</td></tr>`};
   el.innerHTML=`<div class="bar"><h2>Suivi financier de projets</h2><span class="sp"></span>${all.length?'<button class="btn" onclick="pjExport()">⬇️ Export Excel</button>':''}<button class="btn pri" onclick="pjNew()">+ Projet</button></div>
-    <p class="hint">🔒 Tes projets à toi : chaque membre de l'équipe a son propre suivi, personne d'autre ne voit tes projets. Montants en € HT : devis reçus (pour info), engagé = BDC, facturé = factures − avoirs.</p>
-    ${globalThis.PROJ_ERR?`<div class="docwarn">⚠️ Onglet pas encore activé dans Firebase (${esc(globalThis.PROJ_ERR)}).<br>Publie les nouvelles règles : console Firebase › Firestore Database › Règles.</div>`:''}
+    <p class="hint">🔒 Tes projets ne sont visibles que par toi… et par les membres de l'équipe avec qui tu choisis de les partager (🤝 dans la fiche du projet). Montants en € HT : devis reçus (pour info), engagé = BDC, facturé = factures − avoirs.</p>
+    ${globalThis.PROJ_ERR?`<div class="docwarn">⚠️ Règles Firebase à mettre à jour pour le suivi de projets (${esc(globalThis.PROJ_ERR)}).<br>Publie les nouvelles règles : console Firebase › Firestore Database › Règles.</div>`:''}
     <div class="kpis"><div class="kpi"><span>Budget</span><b>${eur(s.bud)}</b></div><div class="kpi"><span>Engagé (BDC)</span><b>${eur(s.bdc)}</b></div>
       <div class="kpi"><span>Facturé</span><b>${eur(s.fac)}</b></div><div class="kpi ${rE<0?'neg':''}"><span>Reste à engager</span><b>${eur(rE)}</b></div>
       <div class="kpi"><span>Reste à payer</span><b>${eur(rF)}</b></div><div class="kpi"><span>Engagé / budget</span><b>${pctTxt(pc)}</b>${barHtml(pc)}</div></div>
-    <div class="bar"><div class="seg-ctl">${filt}</div><input class="search" type="search" placeholder="Rechercher (projet, entreprise, n° BDC…)" value="${esc(st.q)}" oninput="UI.pj.q=this.value;bRefreshTable()"></div>
+    <div class="bar"><div class="seg-ctl">${filt}</div>${filtW}<input class="search" type="search" placeholder="Rechercher (projet, entreprise, n° BDC…)" value="${esc(st.q)}" oninput="UI.pj.q=this.value;bRefreshTable()"></div>
     ${L.length?`<div class="tblwrap"><table class="btbl"><thead><tr><th>Projet</th><th>Statut</th><th class="r">Budget</th><th class="r">Devis</th><th class="r">Engagé</th><th class="r">Facturé</th><th class="r">Reste à engager</th><th class="r">Reste à payer</th><th>%</th></tr></thead><tbody>${L.map(row).join('')}</tbody></table></div>`
       :`<p class="empty">${all.length?'Aucun projet ici.':'Aucun projet pour l\'instant : crée ton premier projet.'}</p>`}`;
 }
@@ -2321,15 +2327,17 @@ function pjOpen(id){
       <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" class="wide2" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
       <input id="pm_lig" class="wide2" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>`;
   UI.pjEd='';
-  openForm('Projets',p,'📊 '+p.titre,{validate:pjVal,extra,after:()=>{pjMvRender(id);$('#pm_add').onclick=()=>pjMvAdd(id);
+  const own=p.proprio===me, F=own?FORMS.Projets:FORMS.Projets.filter(f=>f.k!=='partage');
+  const info=own?'':`<p class="hint">🤝 Projet de <b>${esc(p.proprio)}</b>, partagé avec ${esc(espList(p.partage).join(', '))}. Tu peux le modifier et y saisir des lignes ; seul ${esc(p.proprio)} peut changer le partage ou le supprimer.</p>`;
+  openForm('Projets',p,'📊 '+p.titre,{fields:F,noDel:!own,validate:pjVal,extra:info+extra,after:()=>{pjMvRender(id);$('#pm_add').onclick=()=>pjMvAdd(id);
     $('#pm_nat').onchange=pjLg;pjLg()}});
 }
 function pjMvRender(id){
   const p=D.Projets.find(x=>x.id===id); if(!p||!$('#pmlist')) return;
-  const c=pjCalc(p), ms=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const c=pjCalc(p), sh=pjAcc(p).length>1, ms=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   $('#pmsum').innerHTML=`<div class="mvk"><span>Budget <b>${p.budget===''?'—':eur(c.bud,1)}</b></span><span>Devis <b>${eur(c.dev,1)}</b></span><span>Engagé <b>${eur(c.bdc,1)}</b></span><span>Facturé <b>${eur(c.fac,1)}</b></span>
     <span class="${c.resteEng<-0.005?'negt':''}">Reste à engager <b>${p.budget===''?'—':eur(c.resteEng,1)}</b></span><span class="${c.resteFac<-0.005?'negt':''}">Reste à payer <b>${eur(c.resteFac,1)}</b></span></div>`;
-  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${m.ligne?`<small>${esc('Ligne '+m.ligne)}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
+  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${m.ligne||sh?`<small>${esc([m.ligne&&'Ligne '+m.ligne,sh&&'par '+(m.creePar||m.majPar)].filter(Boolean).join(' · '))}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
 }
 function pjLg(){const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''}
 // Clic sur une ligne : ses valeurs passent dans la saisie, « Ajouter » devient « Enregistrer la modification »
@@ -2363,7 +2371,7 @@ async function pjExport(){
   try{
     if(!window.XLSX){toast('Préparation du fichier…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
     const r2=n=>Math.round(n*100)/100, P=pjMine(), byId=Object.fromEntries(P.map(p=>[p.id,p]));
-    const pr=P.map(p=>{const c=pjCalc(p);return {'Projet':p.titre,'Statut':p.statut,'Entreprise(s)':p.entreprise,'Lignes budgétaires (BDC)':pjLignes(p.id).join(', '),'Début':p.dateDebut,'Fin prévue':p.dateFin,
+    const pr=P.map(p=>{const c=pjCalc(p);return {'Projet':p.titre,'Propriétaire':p.proprio,'Partagé avec':p.partage||'','Statut':p.statut,'Entreprise(s)':p.entreprise,'Lignes budgétaires (BDC)':pjLignes(p.id).join(', '),'Début':p.dateDebut,'Fin prévue':p.dateFin,
       'Budget HT':p.budget===''?'':r2(c.bud),'Devis HT':r2(c.dev),'Engagé (BDC) HT':r2(c.bdc),'Facturé HT':r2(c.fac),'Reste à engager':p.budget===''?'':r2(c.resteEng),'Reste à payer':r2(c.resteFac),'% engagé':c.bud?r2(c.pct*100):'','Note':p.note}});
     const mv=D.ProjetMvts.filter(m=>byId[m.projetId]).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(m=>({'Date':m.date,'Projet':byId[m.projetId].titre,'Nature':m.nature,'N°':m.numero,'Entreprise':m.fournisseur,'Ligne budgétaire':m.ligne,'Libellé':m.libelle,'Montant HT':r2(num(m.montant)*(m.nature==='Avoir'?-1:1))}));
     const wb=XLSX.utils.book_new(), add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(48,Math.max(10,k.length+2,...rows.map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
@@ -3545,7 +3553,8 @@ function demoHandle(a,p){
   if(a==='importClefs'){if(DB.Clefs.length||DB.ClefsPrets.length)throw new Error('Les clefs sont déjà reprises : reprise refusée');DB.Clefs=p.data.clefs.map(x=>({...x}));DB.ClefsPrets=p.data.prets.map(x=>({...x,datePrepa:x.datePrepa||x.renduLe||'2025-01-01'}));return {clefs:DB.Clefs.length,prets:DB.ClefsPrets.length}}
   if(a==='saveClefsLot')return p.items.map(it=>{const o={...it};if(+o.rendu>0&&!o.renduLe)o.renduLe=today();if(+o.rendu>=+o.qte)o.statut='';if(!o.lot)o.lot=o.id;return demoHandle('save',{sheet:'ClefsPrets',user:p.user,item:o})});
   if(!DB.Projets){DB.Projets=[];DB.ProjetMvts=[]}
-  if(a==='save'&&(p.sheet==='Projets'||p.sheet==='ProjetMvts')&&!p.item.id)p.item.proprio=p.user;
+  if(a==='save'&&p.sheet==='Projets'&&!p.item.id)p.item.proprio=p.user;
+  if(a==='save'&&p.sheet==='ProjetMvts'&&!p.item.id){const pj=DB.Projets.find(x=>x.id===p.item.projetId);p.item.proprio=pj?pj.proprio:p.user;p.item.creePar=p.user}
   const L=DB[p.sheet]; if(!L) throw new Error('Onglet inconnu');
   if(a==='save'){
     const cur=p.item.id?L.find(x=>x.id===p.item.id):null; const o={...(cur||{}),...p.item}; const now=nowISO();

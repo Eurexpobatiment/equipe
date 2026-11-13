@@ -24,9 +24,10 @@ export const SCHEMA = {
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
                  'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar'],
   Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar'],
-  // Suivi financier de projets perso : visibles par leur propriétaire seulement (champ proprio)
-  Projets:      ['id', 'titre', 'entreprise', 'ligne', 'budget', 'statut', 'dateDebut', 'dateFin', 'note', 'proprio', 'creeLe', 'majLe', 'majPar'],
-  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'montant', 'libelle', 'proprio', 'creeLe', 'majPar']
+  // Suivi financier de projets : visibles par leur propriétaire (proprio) et les membres avec qui il les partage (partage)
+  // + champ acces (liste : propriétaire + partage), ajouté à l'enregistrement, qui sert aux règles Firebase
+  Projets:      ['id', 'titre', 'entreprise', 'ligne', 'budget', 'statut', 'dateDebut', 'dateFin', 'note', 'proprio', 'partage', 'creeLe', 'majLe', 'majPar'],
+  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'montant', 'libelle', 'proprio', 'creePar', 'creeLe', 'majPar']
 };
 export const NAT_PROJET = ['Devis', 'BDC', 'Facture', 'Avoir'];
 // Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
@@ -48,6 +49,8 @@ export function newId() {
 export function clean_(v, max) { return String(v === null || v === undefined ? '' : v).trim().slice(0, max || 300); }
 export function list_(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
 export const estPerso_ = t => !!t && t.prive === 'oui';
+// Qui a accès à un projet : son propriétaire + les membres avec qui il est partagé
+export const accesProjet_ = p => [...new Set([p.proprio].concat(list_(p.partage)).filter(Boolean))];
 
 export function money_(v, label) {
   const s = String(v === null || v === undefined ? '' : v).replace(/[\s  €]/g, '').replace(',', '.');
@@ -264,10 +267,19 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (!cur) { o.creePar = user; o.creeLe = now; }
       o.majLe = now; o.majPar = user;
       break;
-    case 'Projets':
+    case 'Projets': {
       if (!o.titre) throw new Error('Nom du projet obligatoire');
-      if (cur && cur.proprio !== user) throw new Error('Projet introuvable (supprimé ?)');
+      if (cur && accesProjet_(cur).indexOf(user) < 0) throw new Error('Projet introuvable (supprimé ?)');
       o.proprio = cur ? cur.proprio : user;
+      if (o.proprio === user) { // seul le propriétaire choisit avec qui il partage
+        const noms = opts.equipe ? opts.equipe.filter(e => e.actif !== 'non').map(e => e.nom) : null;
+        const avant = cur ? list_(cur.partage) : [];
+        const p = [...new Set(list_(o.partage))].filter(n => n !== user);
+        const inconnus = noms ? p.filter(n => noms.indexOf(n) < 0 && avant.indexOf(n) < 0) : [];
+        if (inconnus.length) throw new Error('Pas dans l\'équipe : ' + inconnus.join(', '));
+        if (p.length > 25) throw new Error('25 personnes au plus');
+        o.partage = p.join(', ');
+      } else o.partage = cur.partage || '';
       if (o.budget !== '' && o.budget !== undefined) o.budget = money_(o.budget, 'Budget');
       ['dateDebut', 'dateFin'].forEach(k => { if (o[k] && !RE_DATE.test(o[k])) throw new Error('Date invalide : ' + o[k]); });
       if (o.dateDebut && o.dateFin && o.dateFin < o.dateDebut) throw new Error('La date de fin est avant la date de début');
@@ -275,19 +287,21 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (!cur) o.creeLe = now;
       o.majLe = now; o.majPar = user;
       break;
+    }
     case 'ProjetMvts': {
       if (!o.projetId) throw new Error('Projet inconnu');
       const pj = (opts.projets || []).filter(x => x.id === String(o.projetId))[0];
-      if (!pj || pj.proprio !== user) throw new Error('Projet introuvable (supprimé ?)');
-      if (cur && cur.proprio !== user) throw new Error('Ligne introuvable (supprimée ?)');
-      o.proprio = user;
+      if (!pj || accesProjet_(pj).indexOf(user) < 0) throw new Error('Projet introuvable (supprimé ?)');
+      if (cur && cur.projetId !== pj.id) throw new Error('Ligne introuvable (supprimée ?)');
+      o.proprio = pj.proprio; // la ligne suit son projet (l'auteur est dans creePar)
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       if (NAT_PROJET.indexOf(o.nature) < 0) throw new Error('Nature inconnue : ' + o.nature);
       if (o.nature !== 'BDC') o.ligne = ''; // la ligne budgétaire se porte sur les BDC
       o.montant = money_(o.montant, 'Montant');
       if (Number(o.montant) < 0) throw new Error('Montant positif (pour une déduction, choisis « Avoir »)');
-      if (!cur) o.creeLe = now;
+      if (!cur) { o.creeLe = now; o.creePar = user; }
       o.majPar = user;
+      o.__acces = accesProjet_(pj);
       break;
     }
     default: // EDL
@@ -297,6 +311,8 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
   // seulement les champs connus, tous en texte (comme dans le Sheet)
   const out = {};
   SCHEMA[name].forEach(k => { out[k] = o[k] === undefined || o[k] === null ? '' : String(o[k]); });
+  if (name === 'Projets') out.acces = accesProjet_(out);
+  if (name === 'ProjetMvts') out.acces = o.__acces;
   return out;
 }
 
@@ -328,8 +344,8 @@ export function summary_(name, o) {
     case 'Clefs': return (o.numero ? 'n° ' + o.numero + ' ' : '') + o.espace + ' - ' + o.acces + ' · stock ' + o.stock;
     case 'ClefsPrets': return o.societe + ' · ' + [o.prenom, o.nom].filter(Boolean).join(' ') + ' · ' + (o.numero || o.designation) + ' · ' + o.rendu + '/' + o.qte + ' rendue(s)' + (o.statut ? ' · ' + o.statut : '');
     case 'Documents': return o.titre + ' · ' + o.categorie + (o.espaces ? ' · ' + o.espaces : '') + ' · ' + o.source;
-    case 'Projets': return 'Projet perso de ' + o.proprio;
-    case 'ProjetMvts': return 'Ligne de projet perso de ' + o.proprio;
+    case 'Projets': return 'Projet de ' + o.proprio + (o.partage ? ' (partagé)' : '');
+    case 'ProjetMvts': return 'Ligne de projet de ' + o.proprio;
     case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';

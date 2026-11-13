@@ -17,7 +17,7 @@ async function acJeton() {
   if (!acInst) return '';
   try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
 }
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=15';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=16';
 
 let app, auth, db, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -122,7 +122,9 @@ export function start(D, onChange, onErr) {
   stop();
   const parts = {}; let pending = 0, done = false;
   const merge = (name) => {
-    const L = []; Object.keys(parts).filter(k => k.split('|')[0] === name).forEach(k => L.push(...parts[k]));
+    let L = []; Object.keys(parts).filter(k => k.split('|')[0] === name).forEach(k => L.push(...parts[k]));
+    // Projets : mes projets + ceux partagés avec moi (deux requêtes qui peuvent se recouper)
+    if (name === 'Projets' || name === 'ProjetMvts') { const vu = new Set(); L = L.filter(x => !vu.has(x.id) && vu.add(x.id)); }
     // Documents : l'index des dossiers Teams est rangé dans la même collection (fiches à part)
     if (name === 'Documents') { D.DocsIndex = L.filter(x => x.kind === 'index'); D[name] = L.filter(x => x.kind !== 'index'); }
     else D[name] = L;
@@ -162,7 +164,8 @@ export function start(D, onChange, onErr) {
       sub(name, F.query(c, F.where('prive', '==', 'non')));
       sub(name, F.query(c, F.where('prive', '==', 'oui'), F.where('proprio', '==', me)));
     } else if (name === 'Projets' || name === 'ProjetMvts') {
-      sub(name, F.query(c, F.where('proprio', '==', me))); // projets perso : seulement les miens
+      sub(name, F.query(c, F.where('proprio', '==', me)));              // mes projets
+      sub(name, F.query(c, F.where('acces', 'array-contains', me)));    // + ceux qu'on partage avec moi
     } else sub(name, c);
   });
 }
@@ -192,7 +195,7 @@ async function notifier(o, nouveaux) {
 async function save(name, item, opts = {}) {
   const L = (D_ && D_[name]) || [];
   const cur = item.id ? L.find(x => x.id === String(item.id)) || null : null;
-  const o = prepare(name, item, me, cur, L, Object.assign({ taches: D_ && D_.Taches, projets: D_ && D_.Projets }, opts));
+  const o = prepare(name, item, me, cur, L, Object.assign({ taches: D_ && D_.Taches, projets: D_ && D_.Projets, equipe: D_ && D_.Equipe }, opts));
 
   if (name === 'Nacelle') { await saveNacelle(o); journal(cur ? 'modification' : 'ajout', name, o.id, summary_(name, o)); return o; }
 
@@ -202,6 +205,12 @@ async function save(name, item, opts = {}) {
     if (cur && cur.email && cur.email !== o.email) b.delete(ref('Acces', cur.email));
     if (o.email) b.set(ref('Acces', o.email), { nom: o.nom, role: o.role, actif: o.actif, equipeId: o.id });
     await wrap(b.commit()); // les droits d'accès : on attend la confirmation du serveur
+  } else if (name === 'Projets' && cur && String(accesProjet_(cur)) !== String(o.acces)) {
+    // partage modifié : les lignes du projet (devis, BDC…) suivent, dans la même écriture
+    const b = F.writeBatch(db);
+    b.set(ref('Projets', o.id), o);
+    (D_.ProjetMvts || []).filter(m => m.projetId === o.id).forEach(m => b.update(ref('ProjetMvts', m.id), { acces: o.acces }));
+    bg(b.commit());
   } else {
     const w = F.setDoc(ref(name, o.id), o);
     if (name === 'Taches') {
@@ -231,6 +240,7 @@ async function remove(name, id) {
   const cur = L.find(x => x.id === String(id));
   if (!cur) throw new Error('Élément introuvable (déjà supprimé ?)');
   if (name === 'Equipe') throw new Error('Pour retirer quelqu\'un, utilise « Retirer »');
+  if (name === 'Projets' && cur.proprio !== me) throw new Error('Seul ' + cur.proprio + ' (qui a créé le projet) peut le supprimer');
   const b = F.writeBatch(db);
   b.delete(ref(name, cur.id));
   const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'], Projets: ['ProjetMvts', 'projetId'] }[name];

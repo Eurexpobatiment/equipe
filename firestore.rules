@@ -55,19 +55,33 @@ service cloud.firestore {
       allow delete: if member() && (resource.data.prive == 'non' || resource.data.proprio == myNom());
     }
 
-    // Suivi financier de projets perso : visibles et modifiables par leur propriétaire seulement
+    // Suivi financier de projets : visibles par leur propriétaire (proprio) et par les membres avec qui il les partage
+    // (champ acces = propriétaire + partage). Seul le propriétaire change le partage et supprime le projet.
     match /Projets/{id} {
-      allow read, delete: if member() && resource.data.proprio == myNom();
-      allow create: if member() && small() && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom();
-      allow update: if member() && small() && resource.data.proprio == myNom()
-                    && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom();
+      allow read: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.acces);
+      allow create: if member() && small() && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom()
+                    && request.resource.data.acces is list && request.resource.data.acces.size() <= 30 && myNom() in request.resource.data.acces;
+      allow update: if member() && small() && request.resource.data.majPar == myNom() && request.resource.data.proprio == resource.data.proprio
+                    && ((resource.data.proprio == myNom()
+                         && request.resource.data.acces is list && request.resource.data.acces.size() <= 30 && myNom() in request.resource.data.acces)
+                        || (resource.data.proprio != myNom() && myNom() in resource.data.acces
+                         && request.resource.data.get('partage', '') == resource.data.get('partage', '')
+                         && request.resource.data.acces == resource.data.acces));
+      allow delete: if member() && resource.data.proprio == myNom();
+    }
+    // Lignes d'un projet (devis, BDC, factures, avoirs) : suivent leur projet (même proprio, même acces)
+    function pjMvOk(m) {
+      let p = getAfter(/databases/$(db)/documents/Projets/$(m.projetId)).data;
+      return m.proprio == p.proprio && (p.proprio == myNom() || myNom() in p.get('acces', []))
+             && m.get('acces', [p.proprio]) == p.get('acces', [p.proprio]);
     }
     match /ProjetMvts/{id} {
-      allow read, delete: if member() && resource.data.proprio == myNom();
-      allow create: if member() && small() && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom()
-                    && get(/databases/$(db)/documents/Projets/$(request.resource.data.projetId)).data.proprio == myNom();
-      allow update: if member() && small() && resource.data.proprio == myNom()
-                    && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom();
+      allow read: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.acces);
+      allow create: if member() && small() && request.resource.data.majPar == myNom() && pjMvOk(request.resource.data);
+      allow update: if member() && small() && (resource.data.proprio == myNom() || myNom() in resource.data.get('acces', []))
+                    && pjMvOk(request.resource.data)
+                    && (request.resource.data.majPar == myNom() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acces']));
+      allow delete: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.get('acces', []));
     }
 
     // Équipe et droits d'accès : modifiables par les responsables seulement
