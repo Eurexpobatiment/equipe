@@ -404,10 +404,13 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .bmtbl td small{display:block;color:var(--muted);font-size:12px}.bmtbl .bmmt .pbar{margin-top:4px;min-width:70px}.bmtbl tr.bmret td{background:#fff8e1}
 .bmstar{border:0;background:none;font-size:20px;cursor:pointer;color:#c3cad8;line-height:1}.bmstar.on{color:#e0a100}
 .bmfic{font-size:14px;padding:0 2px}.bmnn{color:var(--warn);font-size:12px}.etat.bmw{background:#fff1dc;color:#9a5a00;display:inline-block;margin-top:3px}
-.bmcmp td.best{background:#e4f5ea;color:#1e7a45;font-weight:600}.bmcmp td.worst{background:#fde4e5;color:#b3202c}.bmcmp td.bmabs{color:#c3cad8}.bmcmp tbody tr{cursor:default}.bmcmp tfoot td{padding:8px 10px;border-top:2px solid var(--line)}
+.bmcmp td.best{background:#e4f5ea;color:#1e7a45;font-weight:600}.bmcmp td.worst{background:#fde4e5;color:#b3202c}.bmcmp td.bmabs{color:#c3cad8}.bmcmp tbody tr{cursor:default}.bmcmp tr.bmfam{cursor:pointer}.bmcmp tr.bmfam td:first-child::before{content:'▸ ';color:var(--muted)}.bmcmp tr.bmfam.on td:first-child::before{content:'▾ '}
+.bmcmp tr.bmfl td{background:#f7f9fc;vertical-align:top;padding-top:4px}.bmcmp ul,.bmhg ul{list-style:none;margin:0;padding:0;font-size:12.5px}.bmcmp li,.bmhg li{display:flex;gap:10px;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #dfe4ec}.bmcmp li b,.bmhg li b{white-space:nowrap;font-weight:600}.bmcmp li i,.bmhg li i{color:var(--muted);font-style:normal;white-space:nowrap}
+.bmou{margin:0 0 12px;padding:10px 14px 10px 30px;background:#f3f6fb;border-radius:10px;font-size:13.5px;line-height:1.6}.bmou .post{color:#1e7a45}.bmhors{margin-top:12px}.bmhors summary{font-weight:500;font-size:14px}.bmhg{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.bmlt select{width:100%;min-width:150px;border:1px solid #d5d9e2;border-radius:6px;padding:5px 4px;font-size:12.5px;background:#fff}.bmlt select.bmoff{color:var(--muted);background:#f3f4f7}.bmcmp tfoot td{padding:8px 10px;border-top:2px solid var(--line)}
 .bmdet{margin-top:18px}.bmdet summary{cursor:pointer;font-weight:600;color:var(--navy);margin-bottom:10px}.bmdet summary small{font-weight:400;color:var(--muted)}
 .bmnotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.bmnotes input{width:100%}
-.bmlt{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}.bmlt th{font-size:11.5px;color:var(--muted);text-align:left;padding:4px}.bmlt td{padding:2px}
+.bmlt{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}.bmlt th{font-size:11.5px;color:var(--muted);text-align:left;padding:4px}.bmlt td{padding:2px}
 .bmlt input{width:100%;border:1px solid #d5d9e2;border-radius:6px;padding:5px 6px;font-size:13px}.bmlt td:nth-child(2),.bmlt td:nth-child(3){width:58px}.bmlt td:nth-child(4),.bmlt td:nth-child(5){width:100px}
 .bmlt .x{border:0;background:none;color:var(--muted);cursor:pointer}
 .cldrop{border:2px dashed #c3cad8;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin:0 0 12px}
@@ -2416,7 +2419,7 @@ async function pjExport(){
 /* ================== ⚖️ BENCHMARK DE DEVIS ==================
    Un benchmark = une consultation (ex. « Remplacement éclairage hall 5 »). On y glisse les devis des entreprises (PDF, Excel) :
    l'appli lit entreprise, n°, date, total HT, délai, validité et les lignes chiffrées, garde le fichier (Firebase Storage),
-   puis compare les offres : écarts au moins-disant et au budget, notation pondérée (prix noté automatiquement), comparatif poste par poste.
+   puis compare les offres : écarts au moins-disant et au budget, notation pondérée (prix noté automatiquement), comparatif par famille de travaux.
    Mêmes droits que le suivi de projets : visible par son créateur et les membres avec qui il le partage. */
 const BM_ST={'En consultation':'#3a6ea5','En analyse':'#e09a2b','Attribué':'#2a9d5c','Abandonné':'#9aa3b2'};
 const BM_ACC='.pdf,.xlsx,.xlsm,.xls,.ods,.csv,.png,.jpg,.jpeg,.docx,.doc,.msg,.eml';
@@ -2439,18 +2442,41 @@ function bmCalc(b){
   const complet=R.length&&R.every(r=>r.note!=null&&!r.partiel), best=complet?R.find(r=>r.rn===1)||null:null, ret=R.find(r=>r.o.id===b.retenu)||null;
   return {R,C,min,max,bud,best,ret,n:O.length,moins:R.find(r=>r.rp===1)||null};
 }
-// Comparatif poste par poste : on rapproche les lignes des devis qui se ressemblent (mots communs)
-const BM_STOP=new Set('de la le les des du et en a au aux pour sur avec y compris l d un une par dans ou selon type yc compris fourniture'.split(' '));
-const bmMots=d=>new Set(bmN(d).replace(/^\s*[0-9]+([.)][0-9]+)*[.)]?\s+/,'').replace(/(\d)[.,](\d)/g,'$1$2').replace(/(\d+)\s*(mm|cm|m|m2|m3|ml|w|kw|kva|v|a|t|kg|l)\b/g,'$1$2').replace(/[^a-z0-9]+/g,' ').split(' ').filter(w=>w.length>1&&!BM_STOP.has(w)).map(w=>w.length>4?w.replace(/s$/,''):w));
-const bmSim=(a,b)=>{if(!a.size||!b.size)return 0;let n=0;a.forEach(w=>{if(b.has(w))n++});return 2*n/(a.size+b.size)};
-function bmGroupes(R){
-  const G=[];
-  R.forEach(r=>r.lignes.forEach(l=>{const w=bmMots(l.d);let g=null,bs=0;
-    G.forEach(x=>{if(x.c[r.o.id])return;const s=Math.max(...x.w.map(y=>bmSim(w,y)));if(s>bs){bs=s;g=x}});
-    if(!g||bs<0.5){g={d:l.d,w:[],c:{}};G.push(g)}
-    g.w.push(w);g.c[r.o.id]={...l}}));
-  return G;
-}
+// Comparatif par famille de travaux : les entreprises ne découpent pas leur devis pareil, on regroupe donc leurs lignes par nature de travaux.
+// Ne comptent que les lignes qui font le total HT : sous-totaux de chapitre, options, variantes et prix unitaires sont mis à part.
+const BM_FAM=[['equip','Équipements (fourniture & pose)'],['elec','Alimentation électrique (câbles, tableaux, raccordements)'],['cfa','Courant faible, communication & pilotage'],['gc','Génie civil & maçonnerie'],['sign','Signalétique, marquage & protections'],['depose','Dépose, chantier & déchets'],['etu','Études, contrôle & mise en service'],['maint','Maintenance & exploitation'],['autre','Autres postes']];
+const BM_FAMN=Object.fromEntries(BM_FAM);
+// mots sans équivoque (testés d'abord, dans cet ordre), puis le premier mot-clé rencontré dans la désignation
+const BM_FAM_FORT=[['maint',/\b(maintenance|astreinte|entretien|abonnements?|exploitation|hotline|telemaintenance)\b/],
+  ['etu',/\b(etudes?|coordination|pilotage|doe|dossiers?|bureau de controle|consuel|dict|conception|notes? de calcul|plans? d'? ?exe\w*|mise en service|essais?|parametrage|programmation|formation|reception|integration|gestion de projet|ingenierie)\b/],
+  ['cfa',/\b(courants? faibles?|rj ?45|fibres?|optiques?|\d*fo|om[34]|switch|modem|sim|vdi|ethernet|wifi|4g|proxy|smart ?charging|gestion de puissance|communication|supervision|gtb|gtc|baie (vdi|de brassage|informatique))\b/]];
+const BM_FAM_MOT=[['gc',/\b(massifs?|beton|tranchees?|fouilles?|terrassements?|enrobes?|genie civil|carottages?|percements?|fourreaux?|regards?|maconnerie|saignees?|dalles?|fondations?|vrd|rebouchages?)\b/],
+  ['sign',/\b(peinture|marquage|signaletique|signalisation|etriers?|arceaux?|butees?|potelets?|amenagement de place|pictogrammes?)\b/],
+  ['depose',/\b(deposes?|demolition|demontage|evacuation|dechets|nettoyage|installation de chantier|base vie|echafaudages?|nacelles?|repli|balisage)\b/],
+  ['elec',/\b(cables?|tgbt|td|tableaux?|coffrets?|armoires?|disjoncteurs?|raccordements?|alimentations?|chemins? de cables?|liaisons?|tirage|nsx\w*|departs?|differentiel\w*|parafoudres?|mise a la terre|chassis|goulottes?|conduits?|gaines?)\b/],
+  ['equip',/\b(bornes?|luminaires?|projecteurs?|eclairages?|pompes?|moteurs?|ventilateurs?|climatis\w*|chaudieres?|cta|onduleurs?|portes?|rideaux?|stores?|batteries?|pdc|points? de charge|appareils?|baes|detecteurs?|cameras?|ecrans?)\b/]];
+function bmFamAuto(d){const t=bmN(d);
+  for(const [k,re] of BM_FAM_FORT)if(re.test(t))return k;
+  let best='autre',pos=1e9;BM_FAM_MOT.forEach(([k,re])=>{const m=t.match(re);if(m&&m.index<pos){pos=m.index;best=k}});return best}
+const bmFam=l=>BM_FAMN[l.f]?l.f:bmFamAuto(l.d);
+// état de chaque ligne : 'c' comptée dans le total HT · 's' sous-total (chapitre, récapitulatif) · 'h' hors total (option, variante, prix unitaire, « dont … »)
+const BM_SOUST=/^(chapitre|sous[- ]?total|total|recap\w*|montant)\b|\bp\.?$/;
+function bmEtats(L,total){
+  const n=L.length,t=L.map(l=>num(l.t)),E=L.map(l=>l.f==='hors'?'h':l.f==='st'?'s':BM_FAMN[l.f]?'c':'');
+  L.forEach((l,i)=>{if(E[i])return;const d=bmN(l.d);if(/^dont\b/.test(d))E[i]='h';else if(BM_SOUST.test(d))E[i]='s'});
+  // ligne égale à la somme des lignes juste au-dessus ou juste en dessous : sous-total
+  for(let i=0;i<n;i++){if(E[i]||!(t[i]>0))continue;
+    for(const dir of [-1,1]){let s=0,k=0;for(let j=i+dir;j>=0&&j<n;j+=dir){if(E[j]==='s')continue;s+=t[j];k++;if(s>t[i]+0.01)break;if(k>=2&&Math.abs(s-t[i])<=0.01){E[i]='s';break}}if(E[i])break}}
+  // les lignes s'additionnent jusqu'au total HT du devis : ce qui vient après est hors total
+  if(total>0){let s=0,fin=-1;for(let i=0;i<n;i++){if(E[i]===''||E[i]==='c'){s+=t[i];if(Math.abs(s-total)<=0.5){fin=i;break}}}
+    if(fin>=0)for(let i=fin+1;i<n;i++)if(E[i]==='')E[i]='h'}
+  return E.map(e=>e||'c')}
+function bmFamilles(RL){
+  const F=BM_FAM.map(([k,n])=>({k,n,c:{}})),H={},S={};
+  RL.forEach(r=>{const id=r.o.id,E=bmEtats(r.lignes,r.m||0);H[id]=[];S[id]=0;
+    r.lignes.forEach((l,i)=>{if(E[i]==='h'){H[id].push(l);return}if(E[i]!=='c')return;
+      const f=F.find(x=>x.k===bmFam(l)),c=f.c[id]||(f.c[id]={t:0,L:[]});c.t+=num(l.t);c.L.push(l);S[id]+=num(l.t)})});
+  return {F:F.filter(f=>Object.keys(f.c).length),H,S}}
 function vBench(el){
   const st=UI.bm||(UI.bm={open:'',f:'actifs',q:'',w:'tous',det:false,prog:''});
   const b=st.open&&D.Benchmarks.find(x=>x.id===st.open&&pjAcc(x).includes(me));
@@ -2521,20 +2547,28 @@ function vBenchDetail(el,b,st){
     const tbl=`<div class="tblwrap"><table class="btbl bmtbl"><thead><tr><th class="r">#</th><th>Entreprise</th><th class="r">Montant HT</th><th class="r">Écart au moins-disant</th>${b.budget!==''?'<th class="r">Écart au budget</th>':''}<th>Délai</th><th>Validité</th>
       ${prix?`<th class="r" title="Noté automatiquement : 10 × moins-disant ÷ montant">${esc(prix.n)} (${prix.p} %)</th>`:''}${crit.map(k=>`<th class="r">${esc(k.n)} (${k.p} %)</th>`).join('')}<th class="r">Note /10</th><th>Retenue</th></tr></thead><tbody>${rows}</tbody></table></div>
       <p class="hint">Clique sur une offre pour corriger ce qui a été lu, la noter${crit.length?' ('+esc(crit.map(k=>k.n).join(', '))+')':''} et voir ses lignes. ${prix?'Le prix est noté automatiquement (10 pour le moins-disant).':''}</p>`;
-    // comparatif poste par poste
+    // comparatif par famille de travaux
     const RL=c.R.filter(r=>r.lignes.length);let cmp='';
     if(RL.length){
-      const G=bmGroupes(RL), ent=RL.map(r=>`<th class="r">${esc(r.o.entreprise)}</th>`).join('');
-      const tr=G.map(g=>{const v=RL.map(r=>g.c[r.o.id]?g.c[r.o.id].t:null),ok=v.filter(x=>x!=null),mn=Math.min(...ok),mxx=Math.max(...ok),plus=ok.length>1&&mxx-mn>0.005;
-        return `<tr><td>${esc(g.d)}${ok.length<RL.length&&RL.length>1?`<small>absent chez ${esc(RL.filter(r=>!g.c[r.o.id]).map(r=>r.o.entreprise).join(', '))}</small>`:''}</td>
-          ${RL.map((r,i)=>{const l=g.c[r.o.id];if(!l)return '<td class="r bmabs">—</td>';const cl=plus&&l.t===mn?'best':plus&&l.t===mxx?'worst':'';
-            return `<td class="r ${cl}">${eur(l.t,1)}${l.q!==''&&l.pu!==''?`<small>${bmF1(l.q)}${l.u?' '+esc(l.u):''} × ${eur(+l.pu,1)}</small>`:''}</td>`}).join('')}
-          <td class="r">${plus?pc((mxx-mn)/mn):''}</td></tr>`}).join('');
-      const tot=RL.map(r=>{const s=r.lignes.reduce((a,l)=>a+(+l.t||0),0),d=r.m!=null?r.m-s:0;return `<td class="r"><b>${eur(s,1)}</b>${Math.abs(d)>0.5?`<small title="Différence avec le total HT du devis (remise, ligne non lue…)">écart total ${d>0?'+':''}${eur(d,1)}</small>`:''}</td>`}).join('');
-      cmp=`<details class="bmdet" ${st.det?'open':''} ontoggle="UI.bm.det=this.open"><summary>📋 Comparatif poste par poste <small>(${G.length} poste${G.length>1?'s':''} rapprochés à partir des lignes lues dans ${RL.length} devis)</small></summary>
-        <div class="tblwrap"><table class="btbl bmtbl bmcmp"><thead><tr><th>Poste</th>${ent}<th class="r">Écart</th></tr></thead><tbody>${tr}</tbody>
-        <tfoot><tr><td><b>Total des lignes</b></td>${tot}<td></td></tr></tfoot></table></div>
-        <p class="hint">Les lignes qui se ressemblent sont rapprochées automatiquement. En vert le moins cher, en rouge le plus cher. Une ligne mal lue se corrige dans l'offre.</p></details>`}
+      const X=bmFamilles(RL), multi=RL.length>1, fo=st.fo||(st.fo={}), ent=RL.map(r=>`<th class="r">${esc(r.o.entreprise)}</th>`).join('');
+      const lg=l=>`<li><span>${esc(l.d)}${l.q!==''&&l.pu!==''?` <i>${bmF1(+l.q)}${l.u?' '+esc(l.u):''} × ${eur(+l.pu,1)}</i>`:''}</span><b>${eur(num(l.t),1)}</b></li>`;
+      const tr=X.F.map(f=>{const ok=RL.filter(r=>f.c[r.o.id]).map(r=>f.c[r.o.id].t),mn=Math.min(...ok),mxx=Math.max(...ok),plus=ok.length>1&&mxx-mn>0.005;
+        return `<tr class="bmfam ${fo[f.k]?'on':''}" onclick="UI.bm.fo['${f.k}']=!UI.bm.fo['${f.k}'];this.classList.toggle('on');this.nextElementSibling.hidden=!UI.bm.fo['${f.k}']"><td><b>${esc(f.n)}</b></td>
+          ${RL.map(r=>{const x=f.c[r.o.id];if(!x)return `<td class="r bmabs">—${multi?'<small>non chiffré à part</small>':''}</td>`;const cl=plus&&x.t===mn?'best':plus&&x.t===mxx?'worst':'';
+            return `<td class="r ${cl}">${eur(x.t,1)}<small>${X.S[r.o.id]?pctTxt(x.t/X.S[r.o.id])+' de l\'offre · ':''}${x.L.length} ligne${x.L.length>1?'s':''}</small></td>`}).join('')}
+          ${multi?`<td class="r">${plus?'+'+eur(mxx-mn)+'<small>'+pc((mxx-mn)/mn)+'</small>':''}</td>`:''}</tr>
+          <tr class="bmfl" ${fo[f.k]?'':'hidden'}><td></td>${RL.map(r=>`<td>${f.c[r.o.id]?`<ul>${f.c[r.o.id].L.map(lg).join('')}</ul>`:''}</td>`).join('')}${multi?'<td></td>':''}</tr>`}).join('');
+      const tot=RL.map(r=>{const s=X.S[r.o.id],d=r.m!=null?r.m-s:0;return `<td class="r"><b>${eur(s,1)}</b>${Math.abs(d)>0.5?`<small class="negt" title="Différence avec le total HT du devis (remise, ligne non lue, option comptée à tort…) : corrige les lignes dans l'offre">écart avec le total HT ${d>0?'+':''}${eur(d,1)}</small>`:'<small>= total HT du devis ✓</small>'}</td>`}).join('');
+      // d'où vient l'écart avec le moins-disant
+      const ref=RL[0], ou=multi&&ref.m>0?RL.slice(1).filter(r=>r.m>0).map(r=>{const D=X.F.map(f=>({n:f.n.replace(/ \(.*/,''),d:(f.c[r.o.id]?f.c[r.o.id].t:0)-(f.c[ref.o.id]?f.c[ref.o.id].t:0)})).filter(x=>Math.abs(x.d)>=1).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,5);
+        return D.length?`<li><b>${esc(r.o.entreprise)}</b> par rapport à ${esc(ref.o.entreprise)} (${r.m-ref.m>=0?'+':'−'}${eur(Math.abs(r.m-ref.m))}) : ${D.map(x=>`${esc(x.n)} <b class="${x.d>0?'negt':'post'}">${x.d>0?'+':'−'}${eur(Math.abs(x.d))}</b>`).join(' · ')}</li>`:''}).join(''):'';
+      const hors=RL.filter(r=>X.H[r.o.id].length).map(r=>`<div><b>${esc(r.o.entreprise)}</b> <small>${X.H[r.o.id].length} ligne${X.H[r.o.id].length>1?'s':''}</small><ul>${X.H[r.o.id].map(lg).join('')}</ul></div>`).join('');
+      cmp=`<details class="bmdet" ${st.det?'open':''} ontoggle="UI.bm.det=this.open"><summary>📋 Comparatif par famille de travaux <small>(lignes des devis regroupées par nature : clique sur une famille pour voir ses lignes)</small></summary>
+        ${ou?`<ul class="bmou">${ou}</ul>`:''}
+        <div class="tblwrap"><table class="btbl bmtbl bmcmp"><thead><tr><th>Famille de travaux</th>${ent}${multi?'<th class="r">Écart</th>':''}</tr></thead><tbody>${tr}</tbody>
+        <tfoot><tr><td><b>Total des lignes comptées</b></td>${tot}${multi?'<td></td>':''}</tr></tfoot></table></div>
+        ${hors?`<details class="bmhors"><summary>Hors total : options, variantes, prix unitaires <small>(lignes lues mais non comptées dans le total HT)</small></summary><div class="bmhg">${hors}</div></details>`:''}
+        <p class="hint">Chaque ligne est rangée automatiquement dans une famille ; les sous-totaux de chapitre et ce qui dépasse le total HT (options, variantes, prix unitaires) ne sont pas comptés. Une ligne mal rangée se corrige dans l'offre (colonne « Famille »). Un poste « non chiffré à part » peut être inclus dans une autre famille chez cette entreprise. En vert le moins cher, en rouge le plus cher.</p></details>`}
     body=kp+tbl+cmp;
   } else body='<p class="empty">Aucun devis pour l\'instant : glisse-les dans le cadre ci-dessus.</p>';
   el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.bm.open='';render()">← Benchmarks</button><h2>⚖️ ${esc(b.titre)}</h2>
@@ -2626,25 +2660,27 @@ function bmOffre(oid,bid){
   const notes=crit.length?`<div class="coms"><h3>Notation (sur 10)</h3><div class="bmnotes">${crit.map((c,i)=>`<label class="fl"><span>${esc(c.n)} · ${c.p} %</span><input type="number" min="0" max="10" step="0.5" inputmode="decimal" data-c="${esc(c.n)}" class="bmsc" value="${S[c.n]??''}"></label>`).join('')}</div>
     <p class="hint">Le prix est noté automatiquement d'après le moins-disant. Critères et pondérations : dans la fiche du benchmark.</p></div>`:'';
   const fic=o.fichier?`<p class="hint">📎 <button class="link" type="button" onclick="bmVoir('${o.id}')">${esc(o.fichierNom||'Voir le devis')}</button>${o.fichierTaille?' · '+Math.max(1,Math.round(+o.fichierTaille/1024))+' Ko':''} · <button class="link" type="button" id="bmrelire" onclick="bmRelire('${o.id}')" title="Relit le fichier et remplace les champs et les lignes ci-dessous (rien n'est enregistré avant « Enregistrer »)">🔄 Relire le devis</button></p>`:'';
-  const extra=`${fic}${notes}<div class="coms"><h3>Lignes du devis</h3><p class="hint">Lues automatiquement dans le devis : corrige, supprime ou ajoute des lignes (elles servent au comparatif poste par poste).</p>
+  const extra=`${fic}${notes}<div class="coms"><h3>Lignes du devis</h3><p class="hint">Lues automatiquement dans le devis : corrige, supprime ou ajoute des lignes. La colonne « Famille » range chaque ligne dans le comparatif (automatique par défaut) ; choisis « Hors total » pour une option ou une variante.</p>
     <div id="bmlines"></div><button class="btn" type="button" onclick="UI.bmL.push({d:'',q:'',u:'',pu:'',t:''});bmLRender(1)">+ Ligne</button></div>`;
   openForm('BenchOffres',o,oid?'🧾 '+o.entreprise:'Nouvelle offre',{fields:FORMS.BenchOffres,extra,
     validate:x=>x.montant!==''&&!isPureNum(x.montant)?'Montant : saisis un nombre (ex. 12 680,00)':'',
     collect:x=>{bmLSync();const sc={};document.querySelectorAll('.bmsc').forEach(i=>{if(i.value!=='')sc[i.dataset.c]=i.value.replace(',','.')});x.scores=JSON.stringify(sc);
-      x.lignes=JSON.stringify(UI.bmL.filter(l=>String(l.d).trim()||l.t!=='').map(l=>({d:String(l.d).trim(),q:l.q===''?'':num(l.q),u:String(l.u||'').trim(),pu:l.pu===''?'':num(l.pu),t:l.t===''?'':num(l.t)})));
+      x.lignes=JSON.stringify(UI.bmL.filter(l=>String(l.d).trim()||l.t!=='').map(l=>({d:String(l.d).trim(),q:l.q===''?'':num(l.q),u:String(l.u||'').trim(),pu:l.pu===''?'':num(l.pu),t:l.t===''?'':num(l.t),...(l.f?{f:l.f}:{})})));
       x.lecture=x.montant===''?'manuel':''}, // offre ouverte et enregistrée = lecture vérifiée
     after:()=>bmLRender()});
 }
-function bmLSync(){const t=$('#bmlines');if(!t)return;t.querySelectorAll('tr[data-i]').forEach(tr=>{const l=UI.bmL[+tr.dataset.i];if(!l)return;tr.querySelectorAll('input').forEach(i=>{const k=i.dataset.k;l[k]=k==='d'||k==='u'?i.value:i.value.trim()===''?'':i.value.trim()})})}
+function bmLSync(){const t=$('#bmlines');if(!t)return;t.querySelectorAll('tr[data-i]').forEach(tr=>{const l=UI.bmL[+tr.dataset.i];if(!l)return;tr.querySelectorAll('input,select').forEach(i=>{const k=i.dataset.k;l[k]=k==='d'||k==='u'||k==='f'?i.value:i.value.trim()===''?'':i.value.trim()})})}
 function bmLRender(focusLast){
   const t=$('#bmlines');if(!t)return;
-  const L=UI.bmL,s=L.reduce((a,l)=>a+num(l.t),0),v=x=>x===''||x==null?'':String(x).replace('.',',');
-  t.innerHTML=L.length?`<div class="tblwrap"><table class="bmlt"><thead><tr><th>Désignation</th><th>Qté</th><th>U</th><th>PU HT</th><th>Total HT</th><th></th></tr></thead><tbody>
+  const L=UI.bmL,v=x=>x===''||x==null?'':String(x).replace('.',','),mt=$('#f_montant'),E0=bmEtats(L.map(l=>({...l,f:''})),mt?num(mt.value):0),E=bmEtats(L,mt?num(mt.value):0),s=L.reduce((a,l,i)=>a+(E[i]==='c'?num(l.t):0),0);
+  const famSel=(l,i)=>`<select data-k="f" class="${E[i]!=='c'?'bmoff':''}"><option value="">Auto : ${esc(E0[i]==='h'?'hors total':E0[i]==='s'?'sous-total':BM_FAMN[bmFamAuto(l.d)].replace(/ \(.*/,''))}</option>${BM_FAM.map(([k,n])=>`<option value="${k}" ${l.f===k?'selected':''}>${esc(n.replace(/ \(.*/,''))}</option>`).join('')}<option value="hors" ${l.f==='hors'?'selected':''}>Hors total (option, variante)</option><option value="st" ${l.f==='st'?'selected':''}>Sous-total (ignoré)</option></select>`;
+  t.innerHTML=L.length?`<div class="tblwrap"><table class="bmlt"><thead><tr><th>Désignation</th><th>Qté</th><th>U</th><th>PU HT</th><th>Total HT</th><th>Famille</th><th></th></tr></thead><tbody>
     ${L.map((l,i)=>`<tr data-i="${i}"><td><input data-k="d" value="${esc(l.d)}"></td><td><input data-k="q" inputmode="decimal" value="${esc(v(l.q))}"></td><td><input data-k="u" value="${esc(l.u||'')}"></td>
-      <td><input data-k="pu" inputmode="decimal" value="${esc(v(l.pu))}"></td><td><input data-k="t" inputmode="decimal" value="${esc(v(l.t))}"></td><td><button class="x" type="button" title="Supprimer la ligne" onclick="bmLSync();UI.bmL.splice(${i},1);bmLRender()">✕</button></td></tr>`).join('')}
-    </tbody><tfoot><tr><td colspan="4" class="r">Total des lignes</td><td class="r"><b id="bmlsum">${eur(s,1)}</b></td><td></td></tr></tfoot></table></div>`:'<p class="empty">Aucune ligne lue.</p>';
+      <td><input data-k="pu" inputmode="decimal" value="${esc(v(l.pu))}"></td><td><input data-k="t" inputmode="decimal" value="${esc(v(l.t))}"></td><td>${famSel(l,i)}</td><td><button class="x" type="button" title="Supprimer la ligne" onclick="bmLSync();UI.bmL.splice(${i},1);bmLRender()">✕</button></td></tr>`).join('')}
+    </tbody><tfoot><tr><td colspan="4" class="r">Total des lignes comptées</td><td class="r"><b id="bmlsum">${eur(s,1)}</b></td><td colspan="2"></td></tr></tfoot></table></div>`:'<p class="empty">Aucune ligne lue.</p>';
   t.oninput=e=>{bmLSync();const i=e.target,tr=i.closest('tr[data-i]');if(tr&&(i.dataset.k==='q'||i.dataset.k==='pu')){const l=UI.bmL[+tr.dataset.i];if(l.q!==''&&l.pu!==''){l.t=Math.round(num(l.q)*num(l.pu)*100)/100;tr.querySelector('[data-k=t]').value=v(l.t)}}
-    const e2=$('#bmlsum');if(e2)e2.textContent=eur(UI.bmL.reduce((a,l)=>a+num(l.t),0),1)};
+    const e2=$('#bmlsum'),m2=$('#f_montant'),E2=bmEtats(UI.bmL,m2?num(m2.value):0);if(e2)e2.textContent=eur(UI.bmL.reduce((a,l,i)=>a+(E2[i]==='c'?num(l.t):0),0),1)};
+  t.onchange=e=>{if(e.target.dataset.k==='f'){bmLSync();bmLRender()}};
   if(focusLast){const ins=t.querySelectorAll('tr[data-i] input[data-k=d]');if(ins.length)ins[ins.length-1].focus()}
 }
 async function bmExport(bid){
@@ -2653,12 +2689,13 @@ async function bmExport(bid){
     const syn=c.R.map(r=>{const o={'Rang prix':r.rp||'','Entreprise':r.o.entreprise,'N° devis':r.o.numero,'Date':r.o.date,'Montant HT':r2(r.m),'Écart au moins-disant':r2(r.ec),'Écart %':r.ecp==null?'':r2(r.ecp*100)};
       if(b.budget!=='')o['Écart au budget %']=r.vb==null?'':r2(r.vb*100);o['Délai']=r.o.delai;o['Validité']=r.o.validite;
       c.C.forEach((k,i)=>o[k.n+' ('+k.p+' %)']=r.notes[i]==null?'':r2(r.notes[i]));o['Note /10']=r.note==null?'':r2(r.note);o['Rang note']=r.rn||'';o['Retenue']=b.retenu===r.o.id?'oui':'';o['Commentaire']=r.o.commentaire;o['Fichier']=r.o.fichierNom;return o});
-    const RL=c.R.filter(r=>r.lignes.length),G=bmGroupes(RL);
-    const cmp=G.map(g=>{const o={'Poste':g.d};RL.forEach(r=>{const l=g.c[r.o.id];o[r.o.entreprise+' (HT)']=l?r2(+l.t):''});return o});
-    const lig=c.R.flatMap(r=>r.lignes.map(l=>({'Entreprise':r.o.entreprise,'Désignation':l.d,'Qté':l.q,'Unité':l.u,'PU HT':l.pu,'Total HT':l.t})));
+    const RL=c.R.filter(r=>r.lignes.length),X=bmFamilles(RL);
+    const cmp=X.F.map(f=>{const o={'Famille de travaux':f.n};RL.forEach(r=>{o[r.o.entreprise+' (HT)']=f.c[r.o.id]?r2(f.c[r.o.id].t):''});return o});
+    if(cmp.length){const o={'Famille de travaux':'Total des lignes comptées'};RL.forEach(r=>o[r.o.entreprise+' (HT)']=r2(X.S[r.o.id]));cmp.push(o)}
+    const lig=c.R.flatMap(r=>{const E=bmEtats(r.lignes,r.m||0);return r.lignes.map((l,i)=>({'Entreprise':r.o.entreprise,'Désignation':l.d,'Qté':l.q,'Unité':l.u,'PU HT':l.pu,'Total HT':l.t,'Famille':E[i]==='c'?BM_FAMN[bmFam(l)]:'','Comptée dans le total':E[i]==='c'?'oui':E[i]==='s'?'non (sous-total)':'non (option, variante, prix unitaire)'}))});
     const wb=XLSX.utils.book_new(), add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(50,Math.max(10,k.length+2,...rows.map(x=>String(x[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
     add([{'Consultation':b.titre,'Objet':b.objet,'Statut':b.statut,'Budget HT':b.budget===''?'':r2(num(b.budget)),'Remise des offres':b.dateLimite,'Critères':b.criteres,'Offre retenue':c.ret?c.ret.o.entreprise:'','Note':b.note}],'Consultation');
-    add(syn,'Synthèse des offres'); if(cmp.length)add(cmp,'Comparatif par poste'); if(lig.length)add(lig,'Lignes des devis');
+    add(syn,'Synthèse des offres'); if(cmp.length)add(cmp,'Comparatif par famille'); if(lig.length)add(lig,'Lignes des devis');
     XLSX.writeFile(wb,`Benchmark - ${b.titre.replace(/[\\/:*?"<>|]/g,' ').slice(0,60)} - ${today()}.xlsx`);
   }catch(e){toast(e.message,1)}
 }
