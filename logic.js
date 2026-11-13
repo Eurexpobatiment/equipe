@@ -27,11 +27,17 @@ export const SCHEMA = {
   // Suivi financier de projets : visibles par leur propriétaire (proprio) et les membres avec qui il les partage (partage)
   // + champ acces (liste : propriétaire + partage), ajouté à l'enregistrement, qui sert aux règles Firebase
   Projets:      ['id', 'titre', 'entreprise', 'ligne', 'budget', 'statut', 'dateDebut', 'dateFin', 'note', 'proprio', 'partage', 'creeLe', 'majLe', 'majPar'],
-  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'montant', 'libelle', 'proprio', 'creePar', 'creeLe', 'majPar']
+  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'montant', 'libelle', 'proprio', 'creePar', 'creeLe', 'majPar'],
+  // Benchmark de devis : même partage que les projets (proprio / partage / acces)
+  // criteres : « Prix 60 ; Technique 30 ; Délai 10 » · lignes : JSON [{d,q,u,pu,t}] lues dans le devis · scores : JSON {critère: note sur 10}
+  Benchmarks:   ['id', 'titre', 'objet', 'budget', 'statut', 'retenu', 'criteres', 'dateLimite', 'note', 'proprio', 'partage', 'creeLe', 'majLe', 'majPar'],
+  BenchOffres:  ['id', 'benchId', 'entreprise', 'numero', 'date', 'montant', 'delai', 'validite', 'lignes', 'scores', 'commentaire', 'lecture',
+                 'fichier', 'fichierNom', 'fichierTaille', 'proprio', 'creePar', 'creeLe', 'majPar']
 };
+export const ST_BENCH = ['En consultation', 'En analyse', 'Attribué', 'Abandonné'];
 export const NAT_PROJET = ['Devis', 'BDC', 'Facture', 'Avoir'];
 // Collections créées dans Firebase (absentes de l'ancien Google Sheet) : jamais touchées par la reprise / mise à jour depuis le Sheet
-export const HORS_SHEET = ['Clefs', 'ClefsPrets', 'Documents', 'Projets', 'ProjetMvts'];
+export const HORS_SHEET = ['Clefs', 'ClefsPrets', 'Documents', 'Projets', 'ProjetMvts', 'Benchmarks', 'BenchOffres'];
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -51,6 +57,25 @@ export function list_(s) { return String(s || '').split(',').map(x => x.trim()).
 export const estPerso_ = t => !!t && t.prive === 'oui';
 // Qui a accès à un projet : son propriétaire + les membres avec qui il est partagé
 export const accesProjet_ = p => [...new Set([p.proprio].concat(list_(p.partage)).filter(Boolean))];
+
+// Partage choisi par le propriétaire (projets, benchmarks) : membres actifs de l'équipe, sans lui-même
+function partage_(o, cur, user, opts) {
+  const noms = opts.equipe ? opts.equipe.filter(e => e.actif !== 'non').map(e => e.nom) : null;
+  const avant = cur ? list_(cur.partage) : [];
+  const p = [...new Set(list_(o.partage))].filter(n => n !== user);
+  const inconnus = noms ? p.filter(n => noms.indexOf(n) < 0 && avant.indexOf(n) < 0) : [];
+  if (inconnus.length) throw new Error('Pas dans l\'équipe : ' + inconnus.join(', '));
+  if (p.length > 25) throw new Error('25 personnes au plus');
+  return p.join(', ');
+}
+// Critères de notation d'un benchmark : « Prix 60 ; Technique 30 ; Délai 10 »
+export function criteres_(s) {
+  return String(s || '').split(/[;\n]+/).map(x => x.trim()).filter(Boolean).map(x => {
+    const m = x.match(/^(.*?)[\s:=]*(\d+(?:[.,]\d+)?)\s*%?$/);
+    if (!m || !m[1].trim()) throw new Error('Critère invalide : « ' + x + ' » (ex. Prix 60 ; Technique 30 ; Délai 10)');
+    return { n: m[1].trim().slice(0, 40), p: Number(m[2].replace(',', '.')) };
+  });
+}
 
 export function money_(v, label) {
   const s = String(v === null || v === undefined ? '' : v).replace(/[\s  €]/g, '').replace(',', '.');
@@ -96,7 +121,7 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
   if (!user) throw new Error('Connexion nécessaire');
   const o = cur ? Object.assign({}, cur) : {};
   SCHEMA[name].forEach(k => {
-    if (k in item && k !== 'id') o[k] = clean_(item[k], name === 'Memos' && k === 'texte' ? 30000 : LONG_FIELDS.indexOf(k) >= 0 ? 5000 : 300);
+    if (k in item && k !== 'id') o[k] = clean_(item[k], name === 'Memos' && k === 'texte' ? 30000 : k === 'lignes' ? 400000 : LONG_FIELDS.indexOf(k) >= 0 ? 5000 : k === 'scores' || k === 'criteres' ? 2000 : 300);
   });
   o.id = cur ? cur.id : (item.id && opts.keepId ? String(item.id) : newId());
   const now = now_();
@@ -271,15 +296,8 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (!o.titre) throw new Error('Nom du projet obligatoire');
       if (cur && accesProjet_(cur).indexOf(user) < 0) throw new Error('Projet introuvable (supprimé ?)');
       o.proprio = cur ? cur.proprio : user;
-      if (o.proprio === user) { // seul le propriétaire choisit avec qui il partage
-        const noms = opts.equipe ? opts.equipe.filter(e => e.actif !== 'non').map(e => e.nom) : null;
-        const avant = cur ? list_(cur.partage) : [];
-        const p = [...new Set(list_(o.partage))].filter(n => n !== user);
-        const inconnus = noms ? p.filter(n => noms.indexOf(n) < 0 && avant.indexOf(n) < 0) : [];
-        if (inconnus.length) throw new Error('Pas dans l\'équipe : ' + inconnus.join(', '));
-        if (p.length > 25) throw new Error('25 personnes au plus');
-        o.partage = p.join(', ');
-      } else o.partage = cur.partage || '';
+      if (o.proprio === user) o.partage = partage_(o, cur, user, opts); // seul le propriétaire choisit avec qui il partage
+      else o.partage = cur.partage || '';
       if (o.budget !== '' && o.budget !== undefined) o.budget = money_(o.budget, 'Budget');
       ['dateDebut', 'dateFin'].forEach(k => { if (o[k] && !RE_DATE.test(o[k])) throw new Error('Date invalide : ' + o[k]); });
       if (o.dateDebut && o.dateFin && o.dateFin < o.dateDebut) throw new Error('La date de fin est avant la date de début');
@@ -304,6 +322,51 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       o.__acces = accesProjet_(pj);
       break;
     }
+    case 'Benchmarks': {
+      if (!o.titre) throw new Error('Nom du benchmark obligatoire');
+      if (cur && accesProjet_(cur).indexOf(user) < 0) throw new Error('Benchmark introuvable (supprimé ?)');
+      o.proprio = cur ? cur.proprio : user;
+      if (o.proprio === user) o.partage = partage_(o, cur, user, opts);
+      else o.partage = cur.partage || '';
+      if (o.budget !== '' && o.budget !== undefined) o.budget = money_(o.budget, 'Budget');
+      if (o.dateLimite && !RE_DATE.test(o.dateLimite)) throw new Error('Date invalide : ' + o.dateLimite);
+      if (!o.criteres) o.criteres = 'Prix 60 ; Technique 30 ; Délai 10';
+      const cr = criteres_(o.criteres);
+      if (cr.length > 8) throw new Error('8 critères au plus');
+      if (!cr.some(c => c.p > 0)) throw new Error('Au moins un critère avec une pondération');
+      o.criteres = cr.map(c => c.n + ' ' + c.p).join(' ; ');
+      if (ST_BENCH.indexOf(o.statut) < 0) o.statut = 'En consultation';
+      if (!cur) o.creeLe = now;
+      o.majLe = now; o.majPar = user;
+      break;
+    }
+    case 'BenchOffres': {
+      if (!o.benchId) throw new Error('Benchmark inconnu');
+      const bm = (opts.benchmarks || []).filter(x => x.id === String(o.benchId))[0];
+      if (!bm || accesProjet_(bm).indexOf(user) < 0) throw new Error('Benchmark introuvable (supprimé ?)');
+      if (cur && cur.benchId !== bm.id) throw new Error('Offre introuvable (supprimée ?)');
+      o.proprio = bm.proprio; // l'offre suit son benchmark (l'auteur est dans creePar)
+      if (!o.entreprise) throw new Error('Entreprise obligatoire');
+      if (o.montant !== '' && o.montant !== undefined) {
+        o.montant = money_(o.montant, 'Montant');
+        if (Number(o.montant) < 0) throw new Error('Montant positif');
+      }
+      if (o.date && !RE_DATE.test(o.date)) throw new Error('Date du devis invalide : ' + o.date);
+      let L = [];
+      try { L = JSON.parse(o.lignes || '[]'); } catch (e) { throw new Error('Lignes du devis illisibles'); }
+      if (!Array.isArray(L) || L.length > 600) throw new Error('600 lignes au plus par devis');
+      o.lignes = JSON.stringify(L.map(l => ({ d: clean_(l && l.d, 300), q: l && l.q != null && l.q !== '' && isFinite(l.q) ? Number(l.q) : '', u: clean_(l && l.u, 12),
+        pu: l && l.pu != null && l.pu !== '' && isFinite(l.pu) ? Number(l.pu) : '', t: l && isFinite(l.t) && l.t !== '' && l.t != null ? Math.round(Number(l.t) * 100) / 100 : '' })).filter(l => l.d || l.t !== ''));
+      let S = {};
+      try { S = JSON.parse(o.scores || '{}'); } catch (e) { throw new Error('Notes illisibles'); }
+      const S2 = {};
+      Object.keys(S || {}).slice(0, 10).forEach(k => { const v = Number(S[k]); if (S[k] !== '' && S[k] !== null && isFinite(v)) { if (v < 0 || v > 10) throw new Error('Note sur 10 : ' + k); S2[clean_(k, 40)] = Math.round(v * 10) / 10; } });
+      o.scores = JSON.stringify(S2);
+      if (!cur) { o.creeLe = now; o.creePar = user; }
+      o.majPar = user;
+      o.__acces = accesProjet_(bm);
+      break;
+    }
     default: // EDL
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       o.majPar = user;
@@ -312,7 +375,8 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
   const out = {};
   SCHEMA[name].forEach(k => { out[k] = o[k] === undefined || o[k] === null ? '' : String(o[k]); });
   if (name === 'Projets') out.acces = accesProjet_(out);
-  if (name === 'ProjetMvts') out.acces = o.__acces;
+  if (name === 'ProjetMvts' || name === 'BenchOffres') out.acces = o.__acces;
+  if (name === 'Benchmarks') out.acces = accesProjet_(out);
   return out;
 }
 
@@ -346,6 +410,8 @@ export function summary_(name, o) {
     case 'Documents': return o.titre + ' · ' + o.categorie + (o.espaces ? ' · ' + o.espaces : '') + ' · ' + o.source;
     case 'Projets': return 'Projet de ' + o.proprio + (o.partage ? ' (partagé)' : '');
     case 'ProjetMvts': return 'Ligne de projet de ' + o.proprio;
+    case 'Benchmarks': return 'Benchmark de ' + o.proprio + (o.partage ? ' (partagé)' : '');
+    case 'BenchOffres': return 'Offre de benchmark de ' + o.proprio;
     case 'Chantiers': return o.titre + ' · ' + o.espace + ' · ' + o.dateDebut + ' → ' + o.dateFin + ' · ' + o.statut;
   }
   return '';

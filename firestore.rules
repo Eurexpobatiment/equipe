@@ -84,6 +84,34 @@ service cloud.firestore {
       allow delete: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.get('acces', []));
     }
 
+    // Benchmarks de devis : mêmes droits que les projets (propriétaire + membres du partage, champ acces)
+    match /Benchmarks/{id} {
+      allow read: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.acces);
+      allow create: if member() && small() && request.resource.data.proprio == myNom() && request.resource.data.majPar == myNom()
+                    && request.resource.data.acces is list && request.resource.data.acces.size() <= 30 && myNom() in request.resource.data.acces;
+      allow update: if member() && small() && request.resource.data.majPar == myNom() && request.resource.data.proprio == resource.data.proprio
+                    && ((resource.data.proprio == myNom()
+                         && request.resource.data.acces is list && request.resource.data.acces.size() <= 30 && myNom() in request.resource.data.acces)
+                        || (resource.data.proprio != myNom() && myNom() in resource.data.acces
+                         && request.resource.data.get('partage', '') == resource.data.get('partage', '')
+                         && request.resource.data.acces == resource.data.acces));
+      allow delete: if member() && resource.data.proprio == myNom();
+    }
+    // Offres (devis déposés) d'un benchmark : suivent leur benchmark (même proprio, même acces)
+    function bmOk(m) {
+      let p = getAfter(/databases/$(db)/documents/Benchmarks/$(m.benchId)).data;
+      return m.proprio == p.proprio && (p.proprio == myNom() || myNom() in p.get('acces', []))
+             && m.get('acces', [p.proprio]) == p.get('acces', [p.proprio]);
+    }
+    match /BenchOffres/{id} {
+      allow read: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.acces);
+      allow create: if member() && small() && request.resource.data.majPar == myNom() && bmOk(request.resource.data);
+      allow update: if member() && small() && (resource.data.proprio == myNom() || myNom() in resource.data.get('acces', []))
+                    && bmOk(request.resource.data)
+                    && (request.resource.data.majPar == myNom() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acces']));
+      allow delete: if member() && (resource.data.proprio == myNom() || myNom() in resource.data.get('acces', []));
+    }
+
     // Équipe et droits d'accès : modifiables par les responsables seulement
     match /Equipe/{id} {
       allow read: if member();

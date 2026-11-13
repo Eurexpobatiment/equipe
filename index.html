@@ -398,6 +398,18 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .cltbl tr.clko td{background:#fde4e5}
 .clin{border:1px solid #d5d9e2;border-radius:6px;padding:5px 7px;font-size:14px;max-width:100%}
 .clres{max-height:260px;overflow:auto;margin-top:6px}
+.bmdrop{padding:18px 14px;font-size:14px;cursor:pointer;transition:background .15s,border-color .15s}.bmdrop small{display:block;margin-top:4px}
+.bmdrop.on,.bmdrop:hover{border-color:var(--blue);background:#eef4fb}.bmprog{margin-top:8px;color:var(--txt);cursor:default}.bmwarn{color:#9a5a00;margin-top:4px;font-size:13px;text-align:left;display:inline-block}
+.bmtbl:not(.bmcmp) td:nth-child(2){min-width:170px}.bmtbl td.bmdl{min-width:110px;max-width:170px;font-size:13px}
+.bmtbl td small{display:block;color:var(--muted);font-size:12px}.bmtbl .bmmt .pbar{margin-top:4px;min-width:70px}.bmtbl tr.bmret td{background:#fff8e1}
+.bmstar{border:0;background:none;font-size:20px;cursor:pointer;color:#c3cad8;line-height:1}.bmstar.on{color:#e0a100}
+.bmfic{font-size:14px;padding:0 2px}.bmnn{color:var(--warn);font-size:12px}.etat.bmw{background:#fff1dc;color:#9a5a00;display:inline-block;margin-top:3px}
+.bmcmp td.best{background:#e4f5ea;color:#1e7a45;font-weight:600}.bmcmp td.worst{background:#fde4e5;color:#b3202c}.bmcmp td.bmabs{color:#c3cad8}.bmcmp tbody tr{cursor:default}.bmcmp tfoot td{padding:8px 10px;border-top:2px solid var(--line)}
+.bmdet{margin-top:18px}.bmdet summary{cursor:pointer;font-weight:600;color:var(--navy);margin-bottom:10px}.bmdet summary small{font-weight:400;color:var(--muted)}
+.bmnotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.bmnotes input{width:100%}
+.bmlt{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}.bmlt th{font-size:11.5px;color:var(--muted);text-align:left;padding:4px}.bmlt td{padding:2px}
+.bmlt input{width:100%;border:1px solid #d5d9e2;border-radius:6px;padding:5px 6px;font-size:13px}.bmlt td:nth-child(2),.bmlt td:nth-child(3){width:58px}.bmlt td:nth-child(4),.bmlt td:nth-child(5){width:100px}
+.bmlt .x{border:0;background:none;color:var(--muted);cursor:pointer}
 .cldrop{border:2px dashed #c3cad8;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin:0 0 12px}
 .cldrop .link{font-size:13px}
 #cldropban{position:fixed;inset:0;z-index:9999;background:rgba(20,33,61,.55);display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -661,6 +673,23 @@ const FORMS = {
     {k:'dateFin',l:'Fin prévue',t:'date'},
     {k:'note',l:'Note',t:'textarea'},
     {k:'partage',l:'🤝 Partager avec (ils verront le projet et pourront y saisir devis, BDC, factures)',t:'people',notMe:1,full:1}],
+  Benchmarks: [
+    {k:'titre',l:'Consultation (ex. Remplacement éclairage hall 5)',req:1,full:1},
+    {k:'objet',l:'Objet / périmètre',t:'textarea'},
+    {k:'budget',l:'Budget ou estimation (€ HT)',t:'money'},
+    {k:'dateLimite',l:'Remise des offres',t:'date'},
+    {k:'statut',l:'Statut',t:'select',o:['En consultation','En analyse','Attribué','Abandonné'],def:'En consultation'},
+    {k:'criteres',l:'Critères de notation et pondérations (le prix est noté automatiquement)',def:'Prix 60 ; Technique 30 ; Délai 10',full:1},
+    {k:'note',l:'Note',t:'textarea'},
+    {k:'partage',l:'🤝 Partager avec (ils verront le benchmark et pourront y déposer et noter des devis)',t:'people',notMe:1,full:1}],
+  BenchOffres: [
+    {k:'entreprise',l:'Entreprise',t:'dl',dl:'dl-presta',req:1},
+    {k:'montant',l:'Montant total (€ HT)',t:'money'},
+    {k:'numero',l:'N° du devis'},
+    {k:'date',l:'Date du devis',t:'date'},
+    {k:'delai',l:'Délai de réalisation'},
+    {k:'validite',l:'Validité de l\'offre'},
+    {k:'commentaire',l:'Commentaire (points forts, réserves, variantes…)',t:'textarea'}],
   Chantiers: [
     {k:'titre',l:'Chantier / travaux',req:1,full:1},
     {k:'espace',l:'Espace(s) — plusieurs choix possibles',t:'multi',o:()=>ESPACES(),req:1,full:1},
@@ -728,6 +757,7 @@ const TABS = [
   {id:'Conso',l:'⚡ Consommations halls',g:'Suivi technique'},
   {id:'Budget',l:'💶 Budget',g:'Gestion'},
   {id:'Projets',l:'📊 Suivi projets',g:'Gestion'}, // chacun y voit ses projets et ceux qu'on partage avec lui
+  {id:'Bench',l:'⚖️ Benchmark devis',g:'Gestion'}, // comparaison des devis d'une consultation (mêmes droits que les projets)
   {id:'Equipe',l:'👥 Équipe',g:'Gestion'}];
 const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur téléphone
 /* Icônes au trait du menu (remplacent les emojis) */
@@ -747,6 +777,7 @@ const ICO_P={
   Conso:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   Budget:'<path d="M17 7a5 5 0 1 0 0 10M4 10h9M4 14h9"/>',
   Projets:'<path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/>',
+  Bench:'<path d="M12 3v18M7 21h10M5 7h14"/><path d="m5 7-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>',
   Equipe:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
   Menu:'<path d="M4 7h16M4 12h16M4 17h10"/>'};
 const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO_P[id]}</svg>`:'';
@@ -755,10 +786,10 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '22'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '23'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
-let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
@@ -844,6 +875,7 @@ async function delItem(sheet,id){
   if(sheet==='Taches') D.Commentaires=D.Commentaires.filter(c=>c.tacheId!==id);
   if(sheet==='BudgetLignes') D.BudgetMvts=D.BudgetMvts.filter(m=>m.ligneId!==id);
   if(sheet==='Projets') D.ProjetMvts=D.ProjetMvts.filter(m=>m.projetId!==id);
+  if(sheet==='Benchmarks') D.BenchOffres=D.BenchOffres.filter(m=>m.benchId!==id);
   render();
 }
 function nacConflict(o){
@@ -1008,7 +1040,7 @@ function render(){
   const el=$('#view');
   if(APPS[tab])return vApp(tab,el);
   el.hidden=false;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);document.body.style.overflow='';
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Surete:vSurete,Equipe:vEquipe,Budget:vBudget,Projets:vProjets,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
+  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Surete:vSurete,Equipe:vEquipe,Budget:vBudget,Projets:vProjets,Bench:vBench,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
   hallsDatalist(); budgetDatalists();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
@@ -1087,6 +1119,7 @@ function openForm(sheet,item,title,opt={}){
   $('#fsave').onclick=async()=>{
     const o={...it};
     F.forEach(f=>{let v=f.t==='people'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).join(', '):f.t==='multi'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList($('#f_'+f.k).querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', '):$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
+    if(opt.collect)opt.collect(o); // champs hors formulaire (lignes, notes…)
     const miss=F.filter(f=>f.req&&!o[f.k]);
     if(miss.length) return ferr('À renseigner : '+miss.map(f=>f.l).join(', '));
     if(opt.validate){const m=opt.validate(o);if(m)return ferr(m)}
@@ -2380,6 +2413,351 @@ async function pjExport(){
   }catch(e){toast(e.message,1)}
 }
 
+/* ================== ⚖️ BENCHMARK DE DEVIS ==================
+   Un benchmark = une consultation (ex. « Remplacement éclairage hall 5 »). On y glisse les devis des entreprises (PDF, Excel) :
+   l'appli lit entreprise, n°, date, total HT, délai, validité et les lignes chiffrées, garde le fichier (Firebase Storage),
+   puis compare les offres : écarts au moins-disant et au budget, notation pondérée (prix noté automatiquement), comparatif poste par poste.
+   Mêmes droits que le suivi de projets : visible par son créateur et les membres avec qui il le partage. */
+const BM_ST={'En consultation':'#3a6ea5','En analyse':'#e09a2b','Attribué':'#2a9d5c','Abandonné':'#9aa3b2'};
+const BM_ACC='.pdf,.xlsx,.xlsm,.xls,.ods,.csv,.png,.jpg,.jpeg,.docx,.doc,.msg,.eml';
+const bmMine=()=>D.Benchmarks.filter(b=>pjAcc(b).includes(me));
+const bmOffres=id=>D.BenchOffres.filter(o=>o.benchId===id);
+const bmJ=(s,d)=>{try{const v=JSON.parse(s||'');return v==null?d:v}catch(e){return d}};
+const bmCrit=b=>String(b.criteres||'Prix 60 ; Technique 30 ; Délai 10').split(/[;\n]+/).map(x=>x.trim()).filter(Boolean).map(x=>{const m=x.match(/^(.*?)[\s:=]*(\d+(?:[.,]\d+)?)\s*%?$/);return m?{n:m[1].trim(),p:+m[2].replace(',','.')}:null}).filter(c=>c&&c.n);
+const bmPrix=c=>/^prix|^co[uû]t|^montant|^tarif/i.test(c.n);
+const bmShare=b=>b.proprio!==me?`🤝 partagé par ${b.proprio}`:(b.partage?`🤝 partagé avec ${espList(b.partage).join(', ')}`:'');
+const bmF1=n=>(Math.round(n*10)/10).toLocaleString('fr-FR');
+function bmCalc(b){
+  const O=bmOffres(b.id), C=bmCrit(b), P=O.filter(o=>o.montant!==''&&num(o.montant)>0), mins=P.map(o=>num(o.montant));
+  const min=mins.length?Math.min(...mins):0, max=mins.length?Math.max(...mins):0, bud=num(b.budget);
+  const R=O.map(o=>{const m=o.montant===''?null:num(o.montant), S=bmJ(o.scores,{});let tot=0,pt=0,manque=[];
+    const notes=C.map(c=>{let v=bmPrix(c)?(m>0&&min>0?10*min/m:null):(S[c.n]!=null&&S[c.n]!==''?+S[c.n]:null);if(v==null){manque.push(c.n);return null}tot+=v*c.p;pt+=c.p;return v});
+    return {o,m,ec:m>0&&min?m-min:null,ecp:m>0&&min?(m-min)/min:null,vb:m>0&&bud?(m-bud)/bud:null,notes,note:pt?tot/pt:null,partiel:manque.length>0&&pt>0,manque,lignes:bmJ(o.lignes,[])}});
+  R.sort((a,b)=>(a.m==null)-(b.m==null)||(a.m||0)-(b.m||0)||a.o.entreprise.localeCompare(b.o.entreprise,'fr'));
+  R.forEach((r,i)=>r.rp=r.m>0?i+1:null);
+  [...R].filter(r=>r.note!=null).sort((a,b)=>b.note-a.note).forEach((r,i)=>r.rn=i+1);
+  const complet=R.length&&R.every(r=>r.note!=null&&!r.partiel), best=complet?R.find(r=>r.rn===1)||null:null, ret=R.find(r=>r.o.id===b.retenu)||null;
+  return {R,C,min,max,bud,best,ret,n:O.length,moins:R.find(r=>r.rp===1)||null};
+}
+// Comparatif poste par poste : on rapproche les lignes des devis qui se ressemblent (mots communs)
+const BM_STOP=new Set('de la le les des du et en a au aux pour sur avec y compris l d un une par dans ou selon type yc compris fourniture'.split(' '));
+const bmMots=d=>new Set(bmN(d).replace(/^\s*[0-9]+([.)][0-9]+)*[.)]?\s+/,'').replace(/(\d)[.,](\d)/g,'$1$2').replace(/(\d+)\s*(mm|cm|m|m2|m3|ml|w|kw|kva|v|a|t|kg|l)\b/g,'$1$2').replace(/[^a-z0-9]+/g,' ').split(' ').filter(w=>w.length>1&&!BM_STOP.has(w)).map(w=>w.length>4?w.replace(/s$/,''):w));
+const bmSim=(a,b)=>{if(!a.size||!b.size)return 0;let n=0;a.forEach(w=>{if(b.has(w))n++});return 2*n/(a.size+b.size)};
+function bmGroupes(R){
+  const G=[];
+  R.forEach(r=>r.lignes.forEach(l=>{const w=bmMots(l.d);let g=null,bs=0;
+    G.forEach(x=>{if(x.c[r.o.id])return;const s=Math.max(...x.w.map(y=>bmSim(w,y)));if(s>bs){bs=s;g=x}});
+    if(!g||bs<0.5){g={d:l.d,w:[],c:{}};G.push(g)}
+    g.w.push(w);g.c[r.o.id]={...l}}));
+  return G;
+}
+function vBench(el){
+  const st=UI.bm||(UI.bm={open:'',f:'actifs',q:'',w:'tous',det:false,prog:''});
+  const b=st.open&&D.Benchmarks.find(x=>x.id===st.open&&pjAcc(x).includes(me));
+  if(b) return vBenchDetail(el,b,st);
+  st.open='';
+  const all=bmMine(), act=x=>!['Attribué','Abandonné'].includes(x.statut), nPart=all.filter(x=>x.proprio!==me).length, q=st.q.trim().toLowerCase();
+  let L=all.filter(x=>st.f==='tous'||(st.f==='actifs'?act(x):!act(x)));
+  if(st.w==='miens')L=L.filter(x=>x.proprio===me); else if(st.w==='partages')L=L.filter(x=>x.proprio!==me);
+  if(q)L=L.filter(x=>[x.titre,x.objet,x.note].join(' ').toLowerCase().includes(q)||bmOffres(x.id).some(o=>[o.entreprise,o.numero].join(' ').toLowerCase().includes(q)));
+  L.sort((a,c)=>Object.keys(BM_ST).indexOf(a.statut)-Object.keys(BM_ST).indexOf(c.statut)||(c.majLe||'').localeCompare(a.majLe||''));
+  const filt=[['actifs','En cours'],['clos','Attribués / abandonnés'],['tous','Tous']].map(([k,l])=>`<button class="${st.f===k?'on':''}" onclick="UI.bm.f='${k}';render()">${l}</button>`).join('');
+  const filtW=nPart||st.w!=='tous'?`<div class="seg-ctl">${[['tous','Tous'],['miens','Mes benchmarks'],['partages',`Partagés avec moi (${nPart})`]].map(([k,l])=>`<button class="${st.w===k?'on':''}" onclick="UI.bm.w='${k}';render()">${l}</button>`).join('')}</div>`:'';
+  const row=x=>{const c=bmCalc(x);return `<tr class="pjrow" onclick="bmOpen('${x.id}')">
+    <td><b>${esc(x.titre)}</b><small>${esc([x.objet&&x.objet.slice(0,90),x.dateLimite&&('remise '+fD(x.dateLimite,{day:'2-digit',month:'2-digit',year:'2-digit'})),bmShare(x)].filter(Boolean).join(' · '))}</small></td>
+    <td><span class="etat pjst" style="background:${BM_ST[x.statut]||'#64748b'};color:#fff">${esc(x.statut||'')}</span></td>
+    <td class="r">${c.n||'—'}</td><td class="r">${x.budget===''?'—':eur(c.bud)}</td>
+    <td>${c.moins?`${esc(c.moins.o.entreprise)}<small>${eur(c.min)}</small>`:'—'}</td>
+    <td>${c.best&&c.n>1?`${esc(c.best.o.entreprise)}<small>${bmF1(c.best.note)}/10</small>`:c.n>1?'<small>à noter</small>':'—'}</td>
+    <td class="r">${c.n>1&&c.min?pctTxt((c.max-c.min)/c.min):'—'}</td>
+    <td>${c.ret?`★ ${esc(c.ret.o.entreprise)}`:'—'}</td></tr>`};
+  el.innerHTML=`<div class="bar"><h2>Benchmark de devis</h2><span class="sp"></span><button class="btn pri" onclick="bmNew()">+ Benchmark</button></div>
+    <p class="hint">Crée un benchmark par consultation, puis glisse-y les devis reçus (PDF ou Excel) : l'appli lit les montants et compare les offres. 🔒 Visible par toi et les membres avec qui tu le partages (🤝 dans la fiche).</p>
+    ${bmWarn()}
+    <div class="bar"><div class="seg-ctl">${filt}</div>${filtW}<input class="search" type="search" placeholder="Rechercher (consultation, entreprise, n° de devis…)" value="${esc(st.q)}" oninput="UI.bm.q=this.value;bRefreshTable()"></div>
+    ${L.length?`<div class="tblwrap"><table class="btbl"><thead><tr><th>Consultation</th><th>Statut</th><th class="r">Offres</th><th class="r">Budget</th><th>Moins-disant</th><th>Mieux-disant</th><th class="r">Écart des prix</th><th>Retenue</th></tr></thead><tbody>${L.map(row).join('')}</tbody></table></div>`
+      :`<p class="empty">${all.length?'Aucun benchmark ici.':'Aucun benchmark pour l\'instant : crée le premier, puis glisse-y les devis.'}</p>`}`;
+}
+const bmWarn=()=>globalThis.BENCH_ERR?`<div class="docwarn">⚠️ Règles Firebase à mettre à jour pour les benchmarks (${esc(globalThis.BENCH_ERR)}).<br>Publie les nouvelles règles : console Firebase › Firestore Database › Règles (fichier firestore.rules), et Storage › Règles (fichier storage.rules).</div>`:'';
+const bmVal=o=>o.budget!==''&&!isPureNum(o.budget)?'Budget : saisis un nombre (ex. 15000 ou 1 234,56)':'';
+function bmNew(){openForm('Benchmarks',{},'Nouveau benchmark',{validate:bmVal,extra:'<p class="hint">Une fois enregistré, glisse les devis des entreprises dans le benchmark.</p>',onSaved:r=>bmOpen(r.id)})}
+function bmOpen(id){UI.bm.open=id;UI.bm.prog='';render();window.scrollTo(0,0)}
+function bmFiche(id){
+  const b=D.Benchmarks.find(x=>x.id===id);if(!b)return;
+  const own=b.proprio===me, F=own?FORMS.Benchmarks:FORMS.Benchmarks.filter(f=>f.k!=='partage');
+  const info=own?'':`<p class="hint">🤝 Benchmark de <b>${esc(b.proprio)}</b>. Tu peux le modifier et y déposer des devis ; seul ${esc(b.proprio)} peut changer le partage ou le supprimer.</p>`;
+  openForm('Benchmarks',b,'⚖️ '+b.titre,{fields:F,noDel:!own,validate:o=>{const m=bmVal(o);if(m)return m;try{if(!bmCritOk(o.criteres))return 'Critères : ex. Prix 60 ; Technique 30 ; Délai 10'}catch(e){return e.message}return ''},extra:info});
+}
+const bmCritOk=s=>!String(s||'').trim()||String(s).split(/[;\n]+/).map(x=>x.trim()).filter(Boolean).every(x=>/^(.*?\S)[\s:=]*\d+(?:[.,]\d+)?\s*%?$/.test(x));
+function vBenchDetail(el,b,st){
+  const c=bmCalc(b), own=b.proprio===me, crit=c.C.filter(x=>!bmPrix(x)), prix=c.C.find(bmPrix);
+  const infos=[b.objet&&esc(b.objet),b.budget!==''&&('Budget '+eur(c.bud)),b.dateLimite&&('Remise des offres le '+esc(fD(b.dateLimite,{day:'numeric',month:'long',year:'numeric'}))),'Notation : '+esc(c.C.map(x=>x.n+' '+x.p+' %').join(' · ')),esc(bmShare(b))].filter(Boolean).join(' · ');
+  const drop=`<div class="cldrop bmdrop" id="bmdrop" onclick="if(event.target.tagName!=='BUTTON')$('#bmfile').click()">
+      <b>📥 Glisse ici les devis des entreprises</b> (PDF, Excel… plusieurs à la fois) <button class="link" type="button" onclick="$('#bmfile').click()">ou choisis les fichiers</button>
+      <small>Entreprise, n°, date, total HT, délai et lignes chiffrées sont lus automatiquement : vérifie-les dans chaque offre.</small>
+      <input type="file" id="bmfile" multiple hidden accept="${BM_ACC}" onchange="if(this.files.length)bmFiles([...this.files]);this.value=''">
+      ${st.prog?`<div class="bmprog">${st.prog}</div>`:''}</div>`;
+  let body='';
+  if(c.n){
+    const mx=c.max||1, pc=v=>v==null?'—':(v>0?'+':'')+Math.round(v*1000)/10+' %';
+    const kp=`<div class="kpis"><div class="kpi"><span>Offres reçues</span><b>${c.n}</b></div>
+      <div class="kpi"><span>Moins-disant</span><b>${c.min?eur(c.min):'—'}</b><small>${c.moins?esc(c.moins.o.entreprise):''}</small></div>
+      <div class="kpi"><span>Mieux-disant</span><b>${c.best?bmF1(c.best.note)+' / 10':'—'}</b><small>${c.best?esc(c.best.o.entreprise):'note toutes les offres'}</small></div>
+      <div class="kpi"><span>Écart plus / moins-disant</span><b>${c.n>1&&c.min?eur(c.max-c.min):'—'}</b><small>${c.n>1&&c.min?pc((c.max-c.min)/c.min):''}</small></div>
+      ${b.budget!==''?`<div class="kpi ${c.min>c.bud?'neg':''}"><span>Moins-disant / budget</span><b>${c.min?pc((c.min-c.bud)/c.bud):'—'}</b><small>budget ${eur(c.bud)}</small></div>`:''}
+      ${c.ret?`<div class="kpi"><span>Offre retenue</span><b>★ ${esc(c.ret.o.entreprise)}</b><small>${c.ret.m!=null?eur(c.ret.m):''}</small></div>`:''}</div>`;
+    const lect={auto:'',calc:'<span class="etat bmw" title="Pas de « Total HT » trouvé : somme des lignes lues">total = somme des lignes</span>',manuel:'<span class="etat bmw">montant à saisir</span>'};
+    const rows=c.R.map(r=>{const o=r.o,ret=b.retenu===o.id;return `<tr class="pjrow ${ret?'bmret':''}" onclick="bmOffre('${o.id}')">
+      <td class="r">${r.rp||''}</td>
+      <td><b>${esc(o.entreprise)}</b>${o.fichier?` <button class="link bmfic" title="Voir le devis : ${esc(o.fichierNom)}" onclick="event.stopPropagation();bmVoir('${o.id}')">📎</button>`:''}<small>${esc([o.numero&&'n° '+o.numero,o.date&&fD(o.date,{day:'2-digit',month:'2-digit',year:'2-digit'}),r.lignes.length&&r.lignes.length+' ligne'+(r.lignes.length>1?'s':'')].filter(Boolean).join(' · '))}</small>${lect[o.lecture]||''}</td>
+      <td class="r bmmt"><b>${r.m!=null?eur(r.m,1):'—'}</b>${r.m>0?`<span class="pbar"><i style="width:${Math.max(4,r.m/mx*100)}%;background:${r.rp===1?'var(--ok)':'var(--blue)'}"></i></span>`:''}</td>
+      <td class="r ${r.ec>0.005?'negt':''}">${r.ec==null?'—':r.ec<0.005?'<span class="etat ok">moins-disant</span>':'+'+eur(r.ec)+'<small>'+pc(r.ecp)+'</small>'}</td>
+      ${b.budget!==''?`<td class="r ${r.vb>0?'negt':''}">${pc(r.vb)}</td>`:''}
+      <td class="bmdl">${esc(o.delai||'—')}</td><td class="bmdl">${esc(o.validite||'—')}</td>
+      ${prix?`<td class="r">${r.notes[c.C.indexOf(prix)]==null?'—':bmF1(r.notes[c.C.indexOf(prix)])}</td>`:''}
+      ${crit.map(k=>{const v=r.notes[c.C.indexOf(k)];return `<td class="r">${v==null?'<span class="bmnn">à noter</span>':bmF1(v)}</td>`}).join('')}
+      <td class="r"><b>${r.note==null?'—':bmF1(r.note)}</b>${r.partiel?'<small title="Notation incomplète : '+esc(r.manque.join(', '))+'">partielle</small>':''}${c.best===r&&c.n>1?'<small>🏆 mieux-disant</small>':''}</td>
+      <td><button class="bmstar ${ret?'on':''}" title="${ret?'Offre retenue (cliquer pour annuler)':'Retenir cette offre'}" onclick="event.stopPropagation();bmRetenir('${b.id}','${o.id}')">${ret?'★':'☆'}</button></td></tr>`}).join('');
+    const tbl=`<div class="tblwrap"><table class="btbl bmtbl"><thead><tr><th class="r">#</th><th>Entreprise</th><th class="r">Montant HT</th><th class="r">Écart au moins-disant</th>${b.budget!==''?'<th class="r">Écart au budget</th>':''}<th>Délai</th><th>Validité</th>
+      ${prix?`<th class="r" title="Noté automatiquement : 10 × moins-disant ÷ montant">${esc(prix.n)} (${prix.p} %)</th>`:''}${crit.map(k=>`<th class="r">${esc(k.n)} (${k.p} %)</th>`).join('')}<th class="r">Note /10</th><th>Retenue</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="hint">Clique sur une offre pour corriger ce qui a été lu, la noter${crit.length?' ('+esc(crit.map(k=>k.n).join(', '))+')':''} et voir ses lignes. ${prix?'Le prix est noté automatiquement (10 pour le moins-disant).':''}</p>`;
+    // comparatif poste par poste
+    const RL=c.R.filter(r=>r.lignes.length);let cmp='';
+    if(RL.length){
+      const G=bmGroupes(RL), ent=RL.map(r=>`<th class="r">${esc(r.o.entreprise)}</th>`).join('');
+      const tr=G.map(g=>{const v=RL.map(r=>g.c[r.o.id]?g.c[r.o.id].t:null),ok=v.filter(x=>x!=null),mn=Math.min(...ok),mxx=Math.max(...ok),plus=ok.length>1&&mxx-mn>0.005;
+        return `<tr><td>${esc(g.d)}${ok.length<RL.length&&RL.length>1?`<small>absent chez ${esc(RL.filter(r=>!g.c[r.o.id]).map(r=>r.o.entreprise).join(', '))}</small>`:''}</td>
+          ${RL.map((r,i)=>{const l=g.c[r.o.id];if(!l)return '<td class="r bmabs">—</td>';const cl=plus&&l.t===mn?'best':plus&&l.t===mxx?'worst':'';
+            return `<td class="r ${cl}">${eur(l.t,1)}${l.q!==''&&l.pu!==''?`<small>${bmF1(l.q)}${l.u?' '+esc(l.u):''} × ${eur(+l.pu,1)}</small>`:''}</td>`}).join('')}
+          <td class="r">${plus?pc((mxx-mn)/mn):''}</td></tr>`}).join('');
+      const tot=RL.map(r=>{const s=r.lignes.reduce((a,l)=>a+(+l.t||0),0),d=r.m!=null?r.m-s:0;return `<td class="r"><b>${eur(s,1)}</b>${Math.abs(d)>0.5?`<small title="Différence avec le total HT du devis (remise, ligne non lue…)">écart total ${d>0?'+':''}${eur(d,1)}</small>`:''}</td>`}).join('');
+      cmp=`<details class="bmdet" ${st.det?'open':''} ontoggle="UI.bm.det=this.open"><summary>📋 Comparatif poste par poste <small>(${G.length} poste${G.length>1?'s':''} rapprochés à partir des lignes lues dans ${RL.length} devis)</small></summary>
+        <div class="tblwrap"><table class="btbl bmtbl bmcmp"><thead><tr><th>Poste</th>${ent}<th class="r">Écart</th></tr></thead><tbody>${tr}</tbody>
+        <tfoot><tr><td><b>Total des lignes</b></td>${tot}<td></td></tr></tfoot></table></div>
+        <p class="hint">Les lignes qui se ressemblent sont rapprochées automatiquement. En vert le moins cher, en rouge le plus cher. Une ligne mal lue se corrige dans l'offre.</p></details>`}
+    body=kp+tbl+cmp;
+  } else body='<p class="empty">Aucun devis pour l\'instant : glisse-les dans le cadre ci-dessus.</p>';
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.bm.open='';render()">← Benchmarks</button><h2>⚖️ ${esc(b.titre)}</h2>
+      <span class="etat pjst" style="background:${BM_ST[b.statut]||'#64748b'};color:#fff">${esc(b.statut||'')}</span><span class="sp"></span>
+      ${c.n?`<button class="btn" onclick="bmExport('${b.id}')">⬇️ Export Excel</button>`:''}<button class="btn" onclick="bmFiche('${b.id}')">✏️ Fiche</button><button class="btn" onclick="bmOffreNew('${b.id}')">+ Offre à la main</button></div>
+    <p class="hint">${infos}</p>${bmWarn()}${drop}${body}`;
+}
+async function bmRetenir(bid,oid){
+  const b=D.Benchmarks.find(x=>x.id===bid);if(!b)return;
+  const r=b.retenu===oid?'':oid;
+  try{await saveItem('Benchmarks',{...b,retenu:r});toast(r?'Offre retenue ★':'Choix annulé')}catch(e){toast(e.message,1)}
+}
+/* --- dépôt des devis --- */
+function bmConnus(){const s=new Set();[D.SAP.map(x=>x.societe),D.BudgetLignes.map(x=>x.prestataire),D.Chantiers.map(x=>x.entreprise),D.Projets.map(x=>x.entreprise),D.BenchOffres.map(x=>x.entreprise)].flat().forEach(n=>espList(n).forEach(x=>x.length>=3&&s.add(x)));return [...s]}
+const bmIgn=()=>{const b=D.Benchmarks.find(x=>x.id===UI.bm.open);return b?b.titre:''}; // mots du titre : pas le nom de l'entreprise
+async function bmLire(f){
+  const n=f.name.toLowerCase();
+  if(/\.pdf$/.test(n)){
+    if(!window.pdfjsLib){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';s.onload=res;s.onerror=()=>rej(new Error('Lecture PDF indisponible (pas de connexion ?)'));document.head.appendChild(s)});
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'}
+    const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let L;
+    try{L=await chpPdfLignes(pdf)}catch(e){return {scan:1}}
+    return bmAnalyse(L.map(l=>l.split(' | ')),f.name,bmConnus(),bmIgn())}
+  if(/\.(xlsx|xlsm|xls|ods|csv)$/.test(n)){
+    await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{cellDates:false});let best=null;
+    wb.SheetNames.forEach(sn=>{const ws=wb.Sheets[sn];if(!ws||!ws['!ref'])return;const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}).slice(0,3000);
+      const a=bmAnalyse(rows,f.name,bmConnus(),bmIgn());const sc=(a.src==='auto'?1000:0)+a.lignes.length;if(!best||sc>best.sc)best={...a,sc}});
+    return best||{}}
+  return {}; // image, Word, mail : fichier gardé, montant à saisir
+}
+async function bmFiles(files){
+  const bid=UI.bm.open,b=D.Benchmarks.find(x=>x.id===bid);if(!b)return toast('Ouvre d\'abord un benchmark',1);
+  if(UI.bm.busy)return toast('Lecture en cours, patiente…',1);
+  UI.bm.busy=1;let ok=0;const warn=[];const prog=m=>{UI.bm.prog=m;const p=$('#bmdrop');if(p){let d=p.querySelector('.bmprog');if(!d){d=document.createElement('div');d.className='bmprog';p.appendChild(d)}d.innerHTML=m}};
+  try{for(const [i,f] of files.entries()){
+    const pre=files.length>1?`(${i+1}/${files.length}) `:'';
+    if(f.size>25*1024*1024){warn.push(f.name+' : fichier trop lourd (25 Mo maximum)');continue}
+    prog(`⏳ ${pre}Lecture de <b>${esc(f.name)}</b>…`);
+    let r={};try{r=await bmLire(f)}catch(e){warn.push(f.name+' : '+e.message)}
+    let fid='';
+    if(FBM&&FB&&FB.devisOk&&FB.devisOk()){prog(`⏳ ${pre}Enregistrement du fichier <b>${esc(f.name)}</b>…`);try{fid=await FB.envoyerDevis(bid,f)}catch(e){warn.push(f.name+' : fichier non gardé ('+e.message+')')}}
+    const ent=r.entreprise||f.name.replace(/\.[a-z0-9]{2,5}$/i,'').slice(0,60)||'Entreprise ?';
+    try{await saveItem('BenchOffres',{benchId:bid,entreprise:ent,numero:r.numero||'',date:r.date||'',montant:r.total!=null?String(Math.round(r.total*100)/100):'',delai:r.delai||'',validite:r.validite||'',
+        lignes:JSON.stringify(r.lignes||[]),scores:'{}',commentaire:'',lecture:r.total!=null?(r.src||'auto'):'manuel',fichier:fid,fichierNom:f.name.slice(0,200),fichierTaille:String(f.size)});ok++;
+      if(r.scan)warn.push(f.name+' : PDF scanné (image), montant à saisir à la main');
+      else if(r.total==null)warn.push(f.name+' : montant non trouvé, à saisir');}
+    catch(e){warn.push(f.name+' : '+e.message)}}}
+  finally{UI.bm.busy=0}
+  UI.bm.prog=(ok?`✅ ${ok} devis ajouté${ok>1?'s':''} : vérifie les montants lus.`:'')+(warn.length?`<div class="bmwarn">⚠️ ${warn.map(esc).join('<br>⚠️ ')}</div>`:'');
+  render();
+}
+// glisser-déposer n'importe où dans la page quand un benchmark est ouvert
+(()=>{let n=0;const zone=()=>$('#bmdrop')&&!$('.ov'),isF=e=>[...(e.dataTransfer&&e.dataTransfer.types||[])].some(t=>t==='Files'||t==='application/x-moz-file');
+  const ban=on=>{const z=$('#bmdrop');if(z)z.classList.toggle('on',!!on)};
+  window.addEventListener('dragenter',e=>{if(!isF(e))return;n++;if(zone())ban(1)});
+  window.addEventListener('dragleave',e=>{if(!isF(e))return;if(--n<=0){n=0;ban(0)}});
+  window.addEventListener('drop',e=>{n=0;ban(0);if(!zone()||!(e.dataTransfer&&e.dataTransfer.files.length))return;e.preventDefault();bmFiles([...e.dataTransfer.files])});
+})();
+async function bmVoir(oid){
+  const o=D.BenchOffres.find(x=>x.id===oid);if(!o||!o.fichier)return toast('Pas de fichier pour cette offre',1);
+  if(!FB||!FB.lireDevis)return toast('Fichier indisponible',1);
+  const vue=/\.(pdf|png|jpe?g|gif|webp)$/i.test(o.fichierNom||''),w=vue?window.open('','_blank'):null;
+  if(w)w.document.write('<p style="font:15px sans-serif;padding:20px">Ouverture du devis…</p>');
+  try{const blob=await FB.lireDevis(o.benchId,o.fichier),typ=/\.pdf$/i.test(o.fichierNom)?'application/pdf':blob.type,u=URL.createObjectURL(new Blob([blob],{type:typ}));
+    if(w)w.location.href=u;else{const a=document.createElement('a');a.href=u;a.download=o.fichierNom||'devis';document.body.appendChild(a);a.click();a.remove()}
+    setTimeout(()=>URL.revokeObjectURL(u),120000)}
+  catch(e){if(w)w.close();toast(e.message,1)}
+}
+/* --- fiche d'une offre : correction de la lecture, notes, lignes --- */
+function bmOffreNew(bid){bmOffre('',bid)}
+function bmOffre(oid,bid){
+  const o=oid?D.BenchOffres.find(x=>x.id===oid):{benchId:bid,lignes:'[]',scores:'{}',lecture:'manuel'};if(!o)return;
+  const b=D.Benchmarks.find(x=>x.id===o.benchId);if(!b)return;
+  const crit=bmCrit(b).filter(c=>!bmPrix(c)),S=bmJ(o.scores,{});
+  UI.bmL=bmJ(o.lignes,[]).map(l=>({...l}));
+  const notes=crit.length?`<div class="coms"><h3>Notation (sur 10)</h3><div class="bmnotes">${crit.map((c,i)=>`<label class="fl"><span>${esc(c.n)} · ${c.p} %</span><input type="number" min="0" max="10" step="0.5" inputmode="decimal" data-c="${esc(c.n)}" class="bmsc" value="${S[c.n]??''}"></label>`).join('')}</div>
+    <p class="hint">Le prix est noté automatiquement d'après le moins-disant. Critères et pondérations : dans la fiche du benchmark.</p></div>`:'';
+  const fic=o.fichier?`<p class="hint">📎 <button class="link" type="button" onclick="bmVoir('${o.id}')">${esc(o.fichierNom||'Voir le devis')}</button>${o.fichierTaille?' · '+Math.max(1,Math.round(+o.fichierTaille/1024))+' Ko':''}</p>`:'';
+  const extra=`${fic}${notes}<div class="coms"><h3>Lignes du devis</h3><p class="hint">Lues automatiquement dans le devis : corrige, supprime ou ajoute des lignes (elles servent au comparatif poste par poste).</p>
+    <div id="bmlines"></div><button class="btn" type="button" onclick="UI.bmL.push({d:'',q:'',u:'',pu:'',t:''});bmLRender(1)">+ Ligne</button></div>`;
+  openForm('BenchOffres',o,oid?'🧾 '+o.entreprise:'Nouvelle offre',{fields:FORMS.BenchOffres,extra,
+    validate:x=>x.montant!==''&&!isPureNum(x.montant)?'Montant : saisis un nombre (ex. 12 680,00)':'',
+    collect:x=>{bmLSync();const sc={};document.querySelectorAll('.bmsc').forEach(i=>{if(i.value!=='')sc[i.dataset.c]=i.value.replace(',','.')});x.scores=JSON.stringify(sc);
+      x.lignes=JSON.stringify(UI.bmL.filter(l=>String(l.d).trim()||l.t!=='').map(l=>({d:String(l.d).trim(),q:l.q===''?'':num(l.q),u:String(l.u||'').trim(),pu:l.pu===''?'':num(l.pu),t:l.t===''?'':num(l.t)})));
+      x.lecture=x.montant===''?'manuel':''}, // offre ouverte et enregistrée = lecture vérifiée
+    after:()=>bmLRender()});
+}
+function bmLSync(){const t=$('#bmlines');if(!t)return;t.querySelectorAll('tr[data-i]').forEach(tr=>{const l=UI.bmL[+tr.dataset.i];if(!l)return;tr.querySelectorAll('input').forEach(i=>{const k=i.dataset.k;l[k]=k==='d'||k==='u'?i.value:i.value.trim()===''?'':i.value.trim()})})}
+function bmLRender(focusLast){
+  const t=$('#bmlines');if(!t)return;
+  const L=UI.bmL,s=L.reduce((a,l)=>a+num(l.t),0),v=x=>x===''||x==null?'':String(x).replace('.',',');
+  t.innerHTML=L.length?`<div class="tblwrap"><table class="bmlt"><thead><tr><th>Désignation</th><th>Qté</th><th>U</th><th>PU HT</th><th>Total HT</th><th></th></tr></thead><tbody>
+    ${L.map((l,i)=>`<tr data-i="${i}"><td><input data-k="d" value="${esc(l.d)}"></td><td><input data-k="q" inputmode="decimal" value="${esc(v(l.q))}"></td><td><input data-k="u" value="${esc(l.u||'')}"></td>
+      <td><input data-k="pu" inputmode="decimal" value="${esc(v(l.pu))}"></td><td><input data-k="t" inputmode="decimal" value="${esc(v(l.t))}"></td><td><button class="x" type="button" title="Supprimer la ligne" onclick="bmLSync();UI.bmL.splice(${i},1);bmLRender()">✕</button></td></tr>`).join('')}
+    </tbody><tfoot><tr><td colspan="4" class="r">Total des lignes</td><td class="r"><b id="bmlsum">${eur(s,1)}</b></td><td></td></tr></tfoot></table></div>`:'<p class="empty">Aucune ligne lue.</p>';
+  t.oninput=e=>{bmLSync();const i=e.target,tr=i.closest('tr[data-i]');if(tr&&(i.dataset.k==='q'||i.dataset.k==='pu')){const l=UI.bmL[+tr.dataset.i];if(l.q!==''&&l.pu!==''){l.t=Math.round(num(l.q)*num(l.pu)*100)/100;tr.querySelector('[data-k=t]').value=v(l.t)}}
+    const e2=$('#bmlsum');if(e2)e2.textContent=eur(UI.bmL.reduce((a,l)=>a+num(l.t),0),1)};
+  if(focusLast){const ins=t.querySelectorAll('tr[data-i] input[data-k=d]');if(ins.length)ins[ins.length-1].focus()}
+}
+async function bmExport(bid){
+  try{await loadXLSX();
+    const b=D.Benchmarks.find(x=>x.id===bid);if(!b)return;const c=bmCalc(b),r2=n=>n==null?'':Math.round(n*100)/100;
+    const syn=c.R.map(r=>{const o={'Rang prix':r.rp||'','Entreprise':r.o.entreprise,'N° devis':r.o.numero,'Date':r.o.date,'Montant HT':r2(r.m),'Écart au moins-disant':r2(r.ec),'Écart %':r.ecp==null?'':r2(r.ecp*100)};
+      if(b.budget!=='')o['Écart au budget %']=r.vb==null?'':r2(r.vb*100);o['Délai']=r.o.delai;o['Validité']=r.o.validite;
+      c.C.forEach((k,i)=>o[k.n+' ('+k.p+' %)']=r.notes[i]==null?'':r2(r.notes[i]));o['Note /10']=r.note==null?'':r2(r.note);o['Rang note']=r.rn||'';o['Retenue']=b.retenu===r.o.id?'oui':'';o['Commentaire']=r.o.commentaire;o['Fichier']=r.o.fichierNom;return o});
+    const RL=c.R.filter(r=>r.lignes.length),G=bmGroupes(RL);
+    const cmp=G.map(g=>{const o={'Poste':g.d};RL.forEach(r=>{const l=g.c[r.o.id];o[r.o.entreprise+' (HT)']=l?r2(+l.t):''});return o});
+    const lig=c.R.flatMap(r=>r.lignes.map(l=>({'Entreprise':r.o.entreprise,'Désignation':l.d,'Qté':l.q,'Unité':l.u,'PU HT':l.pu,'Total HT':l.t})));
+    const wb=XLSX.utils.book_new(), add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(50,Math.max(10,k.length+2,...rows.map(x=>String(x[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
+    add([{'Consultation':b.titre,'Objet':b.objet,'Statut':b.statut,'Budget HT':b.budget===''?'':r2(num(b.budget)),'Remise des offres':b.dateLimite,'Critères':b.criteres,'Offre retenue':c.ret?c.ret.o.entreprise:'','Note':b.note}],'Consultation');
+    add(syn,'Synthèse des offres'); if(cmp.length)add(cmp,'Comparatif par poste'); if(lig.length)add(lig,'Lignes des devis');
+    XLSX.writeFile(wb,`Benchmark - ${b.titre.replace(/[\\/:*?"<>|]/g,' ').slice(0,60)} - ${today()}.xlsx`);
+  }catch(e){toast(e.message,1)}
+}
+
+/* Lecture d'un devis (PDF texte, Excel, CSV) : entreprise, n°, date, total HT, délai, validité et lignes chiffrées.
+   Entrée : lignes du document, chacune = liste de cellules (texte ou nombre). Tout est à vérifier par l'utilisateur. */
+const bmN=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[  ]/g,' ').replace(/\s+/g,' ').trim();
+// « 1 234,56 € » / « 1.234,56 » / « 1234.56 » → nombre (null si ce n'est pas un nombre seul)
+function bmNum(v){
+  if(typeof v==='number')return isFinite(v)?v:null;
+  let s=String(v??'').replace(/[  ]/g,' ').replace(/\s*(€|eur(os?)?|e)\s*(h\.?t\.?)?\s*$/i,'').replace(/^\s*€\s*/,'').trim();
+  if(!/^-?\d[\d .,']*$/.test(s)||/[ .,']$/.test(s))return null;
+  if(/\d \d/.test(s)&&!/^-?\d{1,3}( \d{3})+([.,]\d+)?$/.test(s))return null; // « 2 150,00 » oui, « 12 5 » non
+  s=s.replace(/[ ']/g,'');
+  const lc=s.lastIndexOf(','),ld=s.lastIndexOf('.');
+  if(lc>=0&&ld>=0)s=lc>ld?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');
+  else if(lc>=0)s=(s.match(/,/g).length>1)?s.replace(/,/g,''):s.replace(',','.');
+  else if(ld>=0&&(s.match(/\./g).length>1||/^-?\d{1,3}\.\d{3}$/.test(s)))s=s.replace(/\./g,'');
+  const n=Number(s);return isFinite(n)?n:null}
+const BM_UNIT=/^(u|un|unite|unites|ens|ensemble|f|ft|fft|forfait|m|ml|m2|m²|m3|m³|h|hr|heure|heures|j|jour|jours|kg|t|l|pce|pc|pcs|piece|pieces|lot|nb|qte)\.?$/i;
+const BM_EXCL=/\b(sous[- ]?total|total|t\.?v\.?a|ttc|net a payer|acompte|report|a reporter|page \d|capital|siret|siren|r\.?c\.?s|naf|ape|iban|bic|tel|fax|telephone|portable|code postal|escompte|penalites?|montant (ht|h\.t)|base ht|remises?|rabais|ristourne)\b/;
+// une ligne de cellules → {texte, nums:[…], unite} (les cellules « 2 u » ou « 150,00 € HT » sont séparées)
+function bmCells(row){const T=[],N=[];let u='';
+  (row||[]).forEach(c=>{if(c==null||c==='')return;if(typeof c==='number'){N.push(c);return}
+    const s=String(c).replace(/[  ]/g,' ').trim();if(!s)return;const n=bmNum(s);if(n!=null){N.push(n);return}
+    if(BM_UNIT.test(bmN(s))&&T.length){u=s;return}
+    if(/^\d+([.,]\d+)?\s*%$/.test(s))return; // taux de TVA / remise
+    let m=s.match(/^(-?\d+(?:[.,]\d+)?)\s+([a-zA-Z²³]{1,8}\.?)$/);if(m&&BM_UNIT.test(bmN(m[2]))){N.push(bmNum(m[1]));u=m[2];return}
+    // texte suivi de montants (cellules collées dans le PDF) : « Dépose luminaires 4 85,00 340,00 »
+    const tok=s.split(' ');let k=tok.length,tail=[];
+    while(k>0){const t=tok[k-1];const two=k>1?tok[k-2]+' '+t:null;
+      if(two&&/^\d{1,3} \d{3}([.,]\d+)?$/.test(two)){tail.unshift(bmNum(two));k-=2;continue}
+      const n=bmNum(t);if(n!=null){tail.unshift(n);k--;continue}
+      if(BM_UNIT.test(bmN(t))&&tail.length){u=t;k--;continue}
+      if(/^(€|eur|ht|h\.t\.?)$/i.test(t)){k--;continue}
+      break}
+    if(tail.length&&k>0&&N.length===0){T.push(tok.slice(0,k).join(' '));N.push(...tail)}else if(N.length){T.push(s)}else T.push(s)});
+  return {texte:T.join(' ').replace(/\s+/g,' ').trim(),nums:N,u}}
+// lignes chiffrées : désignation + (qté, PU,) total
+function bmLignes(rows){const L=[];let prevTxt='';
+  rows.forEach(r=>{const c=bmCells(r),t=c.texte,n=c.nums.filter(x=>x!=null);const nt=bmN(t);
+    if(!n.length){prevTxt=t&&/[a-z]{3}/i.test(t)&&t.length<200&&!BM_EXCL.test(nt)?t:'';return}
+    if(BM_EXCL.test(nt)||/^(designation|libelle|description|quantite|prix)/.test(nt)){prevTxt='';return}
+    let d=t.replace(/^\s*([0-9]+([.)][0-9]+)*[.)]?|[a-z][.)])\s+/i,'').trim();
+    if(!/[a-zA-Zéèàù]{3}/.test(d)){if(prevTxt&&n.length>=2)d=prevTxt;else{prevTxt='';return}}
+    if(/\b\d{2}[\/.]\d{2}[\/.]\d{2,4}\b/.test(d)&&n.length<2){prevTxt='';return}
+    let q='',pu='',tot=n[n.length-1];
+    if(n.length>=3){const [a,b]=[n[n.length-3],n[n.length-2]];if(Math.abs(a*b-tot)<=Math.max(0.02*Math.abs(tot),0.06)){q=a;pu=b}
+      else{const [x,y]=[n[n.length-2],n[n.length-1]];const z=n[n.length-3]; // qté | PU | total HT | TVA éventuelle
+        if(n.length>=4&&Math.abs(n[n.length-4]*n[n.length-3]-n[n.length-2])<=Math.max(0.02*Math.abs(n[n.length-2]),0.06)){q=n[n.length-4];pu=n[n.length-3];tot=n[n.length-2]}
+        else if(Math.abs(z*x-y)>0.02*Math.abs(y)){q='';pu=x}}}
+    else if(n.length===2){const [a,b]=n;if(Math.abs(a-b)<0.005){q=1;pu=a}else if(a>0&&Math.abs(Math.round(a)-a)<1e-9&&a<=10000&&b>a&&Math.abs(b/a-Math.round(b/a*100)/100)<1e-9){q=a;pu=Math.round(b/a*100)/100}else{pu=a}}
+    else{const raw=(r||[]).map(x=>typeof x==='number'?'1.00':String(x)).join(' ');if(!/\d[.,]\d{2}\b|€/.test(raw)){prevTxt='';return}}
+    if(!(tot>0)||tot>1e8){prevTxt='';return}
+    L.push({d:d.slice(0,300),q,u:c.u||'',pu,t:Math.round(tot*100)/100});prevTxt=''});
+  return L}
+const BM_MOIS={janvier:1,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,aout:8,septembre:9,octobre:10,novembre:11,decembre:12};
+function bmDate(s){s=bmN(s);let m=s.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/);
+  if(m){let y=+m[3];if(y<100)y+=2000;const mo=+m[2],d=+m[1];if(mo>=1&&mo<=12&&d>=1&&d<=31&&y>2000&&y<2100)return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
+  m=s.match(/\b(\d{1,2})(?:er)? (janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre) (20\d{2})\b/);
+  if(m)return m[3]+'-'+String(BM_MOIS[m[2]]).padStart(2,'0')+'-'+String(+m[1]).padStart(2,'0');return ''}
+const BM_CLIENT=/gl[ -]?events|eurexpo|lyon events|chassieu/i;
+// nom de l'entreprise : prestataires connus d'abord, puis forme juridique, nom du fichier, domaine de l'adresse mail
+function bmEntreprise(txt,fname,connus,ign){
+  const T=txt.slice(0,80),all=bmN(T.join(' \n ')),fn=bmN(fname);
+  const k=(connus||[]).filter(n=>n&&bmN(n).length>=3&&!BM_CLIENT.test(n)).map(n=>({n,c:bmN(n)})).sort((a,b)=>b.c.length-a.c.length)
+    .find(x=>new RegExp('(^|[^a-z0-9])'+x.c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])').test(fn+' \n '+all));
+  if(k)return k.n;
+  for(const l of T){const m=String(l).replace(/\s*\|\s*/g,' ').match(/(?:^|\s)((?:[A-Z0-9][\wÀ-ÿ&'’.\-]*\s){0,4}[A-Z0-9][\wÀ-ÿ&'’.\-]*)\s+(SAS|SARL|SA|EURL|SASU|SNC|SCOP|SE)\b/);
+    if(m&&!BM_CLIENT.test(m[1])&&!/^(societe|capital|au|la|le)$/i.test(m[1].trim())){const n=m[1].replace(/^(soci[ée]t[ée]|ste|ets|entreprise)\s+/i,'').trim();if(n.length>=2)return n}}
+  const ig=new Set(bmN(ign||'').split(/[^a-z0-9]+/).filter(w=>w.length>2));
+  const f0=String(fname||'').replace(/\.[a-z0-9]{2,5}$/i,'').replace(/[_\-.]+/g,' ').replace(/\b(devis|dev|offre|proposition|commerciale|cotation|chiffrage|v\d+|rev\s?\w|ind\s?\w|version|n°?|no|du|le|de|pour|eurexpo|gl events?|lyon)\b/gi,' ')
+    .replace(/\b\d+[\d\/]*\b/g,' ').replace(/\s+/g,' ').trim();
+  const f=f0.split(' ').filter(w=>!ig.has(bmN(w))).join(' ');
+  // 1er mot du nom de fichier présent en tête du devis : on reprend la ligne d'en-tête (« SPIE CityNetworks »)
+  const w1=bmN(f.split(' ')[0]||'');
+  if(w1.length>=3){const h=T.slice(0,8).map(l=>String(l).split(/\s*\|\s*/)[0].trim()).find(l=>l.length<=45&&new RegExp('(^|[^a-z0-9])'+w1.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])').test(bmN(l))&&!BM_CLIENT.test(l)&&!/devis|offre|proposition/i.test(l));if(h)return h}
+  if(/[a-z]{3}/i.test(f))return f.replace(/\b\w/g,c=>c.toUpperCase()).slice(0,60);
+  const d=[...all.matchAll(/@([a-z0-9\-]+)\.(fr|com|eu|net|org|biz)\b/g)].map(m=>m[1]).find(x=>!/gmail|gl-?events|eurexpo|outlook|hotmail|orange|wanadoo|free|yahoo|laposte|sfr/.test(x));
+  if(d)return d.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  return ''}
+function bmAnalyse(rows,fname,connus,ign){
+  rows=(rows||[]).filter(r=>r&&r.some(c=>c!=null&&String(c).trim()!==''));
+  const txt=rows.map(r=>r.map(c=>c==null?'':typeof c==='number'?String(c).replace('.',','):String(c)).filter(Boolean).join(' | '));
+  const out={entreprise:bmEntreprise(txt,fname,connus,ign),numero:'',date:'',total:null,delai:'',validite:'',lignes:[],src:''};
+  // n° du devis
+  for(const l of txt.slice(0,80)){const m=l.match(/\b(?:devis|proposition|offre|cotation|chiffrage)(?:\s+(?:commerciale|de prix))?\s*(?:n[°ºo]\.?|num[ée]ro|no\.?|#|r[ée]f(?:[ée]rence)?\.?)?\s*:?\s*([A-Z]{0,6}[\-\/ ]?\d[\w\-\/.]{1,28})/i)||l.match(/\bn[°º]\s*(?:de\s+)?(?:devis|offre)\s*:?\s*([A-Z0-9][\w\-\/.]{2,28})/i);
+    if(m&&/\d/.test(m[1])&&!/^\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}$/.test(m[1])){out.numero=m[1].replace(/[.\-\/]+$/,'').trim();break}}
+  // date : celle annoncée par « date / le / du », sinon la première trouvée
+  for(const l of txt.slice(0,80)){if(/\b(date|le|du|lyon,|fait a)\b/i.test(bmN(l))&&!/validit|livraison|naissance|echeance/i.test(bmN(l))){const d=bmDate(l);if(d){out.date=d;break}}}
+  if(!out.date)for(const l of txt.slice(0,60)){const d=bmDate(l);if(d){out.date=d;break}}
+  // total HT
+  const C=[];
+  rows.forEach((r,i)=>{const n=bmN(txt[i]).replace(/(\b\w)\.(?=\w\b|\w\.)/g,'$1').replace(/\b(h|t|c|a|v)\.(?=\s|$|\|)/g,'$1');
+    if(!/(total|montant|net|prix)\b.*\b(h\.? ?t\.?|hors tax)/.test(n)&&!/^(total|montant total)\b(?!.*(ttc|tva))/.test(n))return;
+    if(/\bttc\b|\btva\b/.test(n.replace(/hors tax\w*/,''))&&!/\bh\.? ?t\b/.test(n))return;
+    let nums=bmCells(r).nums;if(!nums.length&&rows[i+1]){const nx=bmCells(rows[i+1]);if(!nx.texte||nx.texte.length<4)nums=nx.nums}
+    if(!nums.length)return;
+    C.push({v:nums[nums.length-1]>0?nums[nums.length-1]:nums.find(x=>x>0),sous:/sous[- ]?total|total partiel|total lot|total chapitre|avant remise|brut/.test(n),net:/\bnet\b|apres remise|general|global/.test(n)})});
+  const ok=C.filter(c=>c.v>0&&!c.sous);
+  const nets=ok.filter(c=>c.net);
+  if(nets.length)out.total=nets[nets.length-1].v;else if(ok.length)out.total=Math.max(...ok.map(c=>c.v));
+  out.lignes=bmLignes(rows);
+  const somme=Math.round(out.lignes.reduce((a,l)=>a+l.t,0)*100)/100;
+  if(out.total!=null)out.src='auto';else if(somme>0){out.total=somme;out.src='calc'}else out.src='manuel';
+  // délai, validité
+  for(const l of txt){const n=bmN(l);
+    if(!out.delai){const m=String(l).replace(/\s*\|\s*/g,' ').match(/d[ée]lais?\s*(?:de\s+|d['’])?(?:r[ée]alisation|ex[ée]cution|intervention|livraison|travaux|mise en (?:oeuvre|œuvre))?\s*:?\s*([^.;]{2,60})/i);
+      if(m&&/\d|semaine|jour|mois|immediat|a convenir/i.test(bmN(m[1]))&&!/paiement|reglement|validite/.test(n))out.delai=m[1].trim().slice(0,60)}
+    if(!out.validite&&/validit/.test(n)){const m=n.match(/(\d+)\s*(jours?|mois|semaines?)/);const d=bmDate(l);out.validite=m?m[1]+' '+m[2]:d?d.split('-').reverse().join('/'):''}}
+  return out}
+
 /* ================== DRAPEAUX : STOCK & PAVOISEMENTS ================== */
 const DR_FORMATS=['200 x 300','100 x 150','140 x 220'];
 const DR_GROUPES=['Europe','Monde','Partenaires'];
@@ -2841,7 +3219,7 @@ function clLotForm(lot,L,h){
   const ban=on=>{let b=$('#cldropban');if(on&&!b){b=document.createElement('div');b.id='cldropban';b.innerHTML='<div>📥 Dépose le formulaire Excel de demande de clefs</div>';document.body.appendChild(b)}if(!on&&b)b.remove()};
   window.addEventListener('dragenter',e=>{if(!isF(e))return;n++;if(zone())ban(1)});
   window.addEventListener('dragleave',e=>{if(!isF(e))return;if(--n<=0){n=0;ban(0)}});
-  window.addEventListener('dragover',e=>{if(!isF(e))return;e.preventDefault();e.dataTransfer.dropEffect=zone()||$('#chpf')?'copy':'none'});
+  window.addEventListener('dragover',e=>{if(!isF(e))return;e.preventDefault();e.dataTransfer.dropEffect=zone()||$('#chpf')||$('#bmdrop')?'copy':'none'});
   window.addEventListener('drop',e=>{if(!isF(e)&&!(e.dataTransfer&&e.dataTransfer.files.length))return;e.preventDefault();n=0;ban(0); // jamais d'ouverture du fichier par le navigateur
     const f=e.dataTransfer.files[0];if(!f||!zone())return;if(!/\.(xlsx|xlsm|xls|csv)$/i.test(f.name))return toast('Dépose un fichier Excel (.xlsx)',1);
     if(!$('#clxf'))clNew();clXFile(f)});
@@ -3553,6 +3931,9 @@ function demoHandle(a,p){
   if(a==='importClefs'){if(DB.Clefs.length||DB.ClefsPrets.length)throw new Error('Les clefs sont déjà reprises : reprise refusée');DB.Clefs=p.data.clefs.map(x=>({...x}));DB.ClefsPrets=p.data.prets.map(x=>({...x,datePrepa:x.datePrepa||x.renduLe||'2025-01-01'}));return {clefs:DB.Clefs.length,prets:DB.ClefsPrets.length}}
   if(a==='saveClefsLot')return p.items.map(it=>{const o={...it};if(+o.rendu>0&&!o.renduLe)o.renduLe=today();if(+o.rendu>=+o.qte)o.statut='';if(!o.lot)o.lot=o.id;return demoHandle('save',{sheet:'ClefsPrets',user:p.user,item:o})});
   if(!DB.Projets){DB.Projets=[];DB.ProjetMvts=[]}
+  if(!DB.Benchmarks){DB.Benchmarks=[];DB.BenchOffres=[]}
+  if(a==='save'&&p.sheet==='Benchmarks'&&!p.item.id)p.item.proprio=p.user;
+  if(a==='save'&&p.sheet==='BenchOffres'&&!p.item.id){const bm=DB.Benchmarks.find(x=>x.id===p.item.benchId);p.item.proprio=bm?bm.proprio:p.user;p.item.creePar=p.user}
   if(a==='save'&&p.sheet==='Projets'&&!p.item.id)p.item.proprio=p.user;
   if(a==='save'&&p.sheet==='ProjetMvts'&&!p.item.id){const pj=DB.Projets.find(x=>x.id===p.item.projetId);p.item.proprio=pj?pj.proprio:p.user;p.item.creePar=p.user}
   const L=DB[p.sheet]; if(!L) throw new Error('Onglet inconnu');
@@ -3564,7 +3945,7 @@ function demoHandle(a,p){
     if(p.sheet==='Taches'){if(cur&&cur.prive==='oui')o.prive='oui';if(o.prive==='oui')o.assigne=o.creePar;if(!p.part)o.faitPar=cur?cur.faitPar||'':'';demoParts(o,cur,p.part);o.majLe=now} if(p.sheet!=='Equipe'&&p.sheet!=='Commentaires')o.majPar=p.user;
     if(cur)Object.assign(cur,o);else L.push(o); return o;
   }
-  if(a==='delete'){DB[p.sheet]=L.filter(x=>x.id!==p.id);if(p.sheet==='Taches')DB.Commentaires=DB.Commentaires.filter(c=>c.tacheId!==p.id);if(p.sheet==='BudgetLignes')DB.BudgetMvts=DB.BudgetMvts.filter(m=>m.ligneId!==p.id);if(p.sheet==='Projets')DB.ProjetMvts=DB.ProjetMvts.filter(m=>m.projetId!==p.id);return {id:p.id}}
+  if(a==='delete'){DB[p.sheet]=L.filter(x=>x.id!==p.id);if(p.sheet==='Taches')DB.Commentaires=DB.Commentaires.filter(c=>c.tacheId!==p.id);if(p.sheet==='BudgetLignes')DB.BudgetMvts=DB.BudgetMvts.filter(m=>m.ligneId!==p.id);if(p.sheet==='Projets')DB.ProjetMvts=DB.ProjetMvts.filter(m=>m.projetId!==p.id);if(p.sheet==='Benchmarks')DB.BenchOffres=DB.BenchOffres.filter(m=>m.benchId!==p.id);return {id:p.id}}
 }
 
 /* ---------- lien direct vers une tâche (mails de notification : …/equipe/#tache=ID) ---------- */

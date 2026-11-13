@@ -6,6 +6,8 @@ const V = '10.14.1';
 const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
 const A = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
 const F = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+// Storage : devis déposés dans les benchmarks (chargé à part : l'appli démarre même s'il manque)
+const S = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-storage.js`).catch(() => null);
 /* App Check (Fraud Defense / reCAPTCHA Enterprise) : prouve à Firebase que les requêtes viennent bien de nos pages.
    Sans réseau ou si le module ne se charge pas, l'appli continue normalement. */
 const AC_SITE = '6Le3lBguAAAAAGb774RgCJp5Gd_jfG38Tks9out3';
@@ -17,9 +19,9 @@ async function acJeton() {
   if (!acInst) return '';
   try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
 }
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=16';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=17';
 
-let app, auth, db, CFG;
+let app, auth, db, st, CFG;
 let me = '', meEmail = '', meAcc = null;
 const unsub = [];
 
@@ -32,6 +34,7 @@ export function init(cfg) {
   try {
     db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
   } catch (e) { db = F.getFirestore(app); } // navigation privée : pas de copie locale
+  try { if (S) st = S.getStorage(app); } catch (e) { st = null; }
 }
 
 /* ---------- Connexion ---------- */
@@ -46,7 +49,11 @@ const MSG = {
   'auth/too-many-requests': 'Trop d\'essais : patiente quelques minutes',
   'auth/network-request-failed': 'Pas de connexion internet',
   'permission-denied': 'Accès refusé (ton compte n\'a pas les droits pour cette action)',
-  'unavailable': 'Serveur injoignable (pas de connexion ?)'
+  'unavailable': 'Serveur injoignable (pas de connexion ?)',
+  'storage/unauthorized': 'Accès refusé au fichier (règles Storage à mettre à jour ?)',
+  'storage/retry-limit-exceeded': 'Envoi du fichier interrompu (connexion ?)',
+  'storage/quota-exceeded': 'Espace de stockage plein',
+  'storage/object-not-found': 'Fichier introuvable (supprimé ?)'
 };
 export const errMsg = e => MSG[e && e.code] || (e && e.message) || String(e);
 const wrap = p => p.catch(e => { throw new Error(errMsg(e)); });
@@ -114,6 +121,9 @@ export function onAuth(cb) {
 
 /* ---------- Données en direct ---------- */
 
+// Collections visibles par leur propriétaire et les membres avec qui il les partage
+const PARTAGES = ['Projets', 'ProjetMvts', 'Benchmarks', 'BenchOffres'];
+
 let gen = 0; // change à chaque arrêt : les nouveaux essais en attente sont alors abandonnés
 export function stop() { gen++; while (unsub.length) { try { unsub.pop()(); } catch (e) {} } }
 
@@ -124,7 +134,7 @@ export function start(D, onChange, onErr) {
   const merge = (name) => {
     let L = []; Object.keys(parts).filter(k => k.split('|')[0] === name).forEach(k => L.push(...parts[k]));
     // Projets : mes projets + ceux partagés avec moi (deux requêtes qui peuvent se recouper)
-    if (name === 'Projets' || name === 'ProjetMvts') { const vu = new Set(); L = L.filter(x => !vu.has(x.id) && vu.add(x.id)); }
+    if (PARTAGES.indexOf(name) >= 0) { const vu = new Set(); L = L.filter(x => !vu.has(x.id) && vu.add(x.id)); }
     // Documents : l'index des dossiers Teams est rangé dans la même collection (fiches à part)
     if (name === 'Documents') { D.DocsIndex = L.filter(x => x.kind === 'index'); D[name] = L.filter(x => x.kind !== 'index'); }
     else D[name] = L;
@@ -138,6 +148,7 @@ export function start(D, onChange, onErr) {
       parts[key] = s.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
       if (name === 'Documents') globalThis.DOCS_ERR = '';
       if (name === 'Projets') globalThis.PROJ_ERR = '';
+      if (name === 'Benchmarks') globalThis.BENCH_ERR = '';
       merge(name);
       if (first) { first = false; pending--; }
       if (!done && pending === 0) done = true;
@@ -149,6 +160,7 @@ export function start(D, onChange, onErr) {
       if (auth.currentUser && !auth.currentUser.isAnonymous) setTimeout(() => { if (g === gen && auth.currentUser) go(); }, Math.min(30000, 1500 * essais));
       if (essais < 3 || !first) return; // l'erreur n'est signalée qu'au premier chargement, après 3 essais
       // Documents : nouvelle collection, les règles Firebase peuvent ne pas être encore publiées → on le signale dans l'onglet seulement
+      if (name === 'Benchmarks' || name === 'BenchOffres') { globalThis.BENCH_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (name === 'Projets' || name === 'ProjetMvts') { globalThis.PROJ_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (name === 'Documents') { globalThis.DOCS_ERR = errMsg(e); if (first) { first = false; pending--; } if (!done && pending === 0) { done = true; onChange(true, true); } return; }
       if (first) { first = false; pending--; } onErr(errMsg(e)); if (!done && pending === 0) { done = true; onChange(true, true); }
@@ -163,8 +175,8 @@ export function start(D, onChange, onErr) {
     } else if (name === 'Commentaires') {
       sub(name, F.query(c, F.where('prive', '==', 'non')));
       sub(name, F.query(c, F.where('prive', '==', 'oui'), F.where('proprio', '==', me)));
-    } else if (name === 'Projets' || name === 'ProjetMvts') {
-      sub(name, F.query(c, F.where('proprio', '==', me)));              // mes projets
+    } else if (PARTAGES.indexOf(name) >= 0) {
+      sub(name, F.query(c, F.where('proprio', '==', me)));              // mes projets / benchmarks
       sub(name, F.query(c, F.where('acces', 'array-contains', me)));    // + ceux qu'on partage avec moi
     } else sub(name, c);
   });
@@ -195,7 +207,7 @@ async function notifier(o, nouveaux) {
 async function save(name, item, opts = {}) {
   const L = (D_ && D_[name]) || [];
   const cur = item.id ? L.find(x => x.id === String(item.id)) || null : null;
-  const o = prepare(name, item, me, cur, L, Object.assign({ taches: D_ && D_.Taches, projets: D_ && D_.Projets, equipe: D_ && D_.Equipe }, opts));
+  const o = prepare(name, item, me, cur, L, Object.assign({ taches: D_ && D_.Taches, projets: D_ && D_.Projets, benchmarks: D_ && D_.Benchmarks, equipe: D_ && D_.Equipe }, opts));
 
   if (name === 'Nacelle') { await saveNacelle(o); journal(cur ? 'modification' : 'ajout', name, o.id, summary_(name, o)); return o; }
 
@@ -205,11 +217,12 @@ async function save(name, item, opts = {}) {
     if (cur && cur.email && cur.email !== o.email) b.delete(ref('Acces', cur.email));
     if (o.email) b.set(ref('Acces', o.email), { nom: o.nom, role: o.role, actif: o.actif, equipeId: o.id });
     await wrap(b.commit()); // les droits d'accès : on attend la confirmation du serveur
-  } else if (name === 'Projets' && cur && String(accesProjet_(cur)) !== String(o.acces)) {
-    // partage modifié : les lignes du projet (devis, BDC…) suivent, dans la même écriture
+  } else if ((name === 'Projets' || name === 'Benchmarks') && cur && String(accesProjet_(cur)) !== String(o.acces)) {
+    // partage modifié : les lignes du projet (devis, BDC…) ou les offres du benchmark suivent, dans la même écriture
+    const [cn, ck] = name === 'Projets' ? ['ProjetMvts', 'projetId'] : ['BenchOffres', 'benchId'];
     const b = F.writeBatch(db);
-    b.set(ref('Projets', o.id), o);
-    (D_.ProjetMvts || []).filter(m => m.projetId === o.id).forEach(m => b.update(ref('ProjetMvts', m.id), { acces: o.acces }));
+    b.set(ref(name, o.id), o);
+    (D_[cn] || []).filter(m => m[ck] === o.id).forEach(m => b.update(ref(cn, m.id), { acces: o.acces }));
     bg(b.commit());
   } else {
     const w = F.setDoc(ref(name, o.id), o);
@@ -241,13 +254,42 @@ async function remove(name, id) {
   if (!cur) throw new Error('Élément introuvable (déjà supprimé ?)');
   if (name === 'Equipe') throw new Error('Pour retirer quelqu\'un, utilise « Retirer »');
   if (name === 'Projets' && cur.proprio !== me) throw new Error('Seul ' + cur.proprio + ' (qui a créé le projet) peut le supprimer');
+  if (name === 'Benchmarks' && cur.proprio !== me) throw new Error('Seul ' + cur.proprio + ' (qui a créé le benchmark) peut le supprimer');
+  // devis déposés : effacés de Storage avant la fiche (ensuite les règles ne permettraient plus d'y toucher)
+  if (name === 'Benchmarks') await Promise.all((D_.BenchOffres || []).filter(m => m.benchId === cur.id && m.fichier).map(m => effacerDevis(cur.id, m.fichier).catch(() => {})));
+  if (name === 'BenchOffres' && cur.fichier) await effacerDevis(cur.benchId, cur.fichier).catch(() => {});
   const b = F.writeBatch(db);
   b.delete(ref(name, cur.id));
-  const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'], Projets: ['ProjetMvts', 'projetId'] }[name];
+  const child = { Taches: ['Commentaires', 'tacheId'], BudgetLignes: ['BudgetMvts', 'ligneId'], Projets: ['ProjetMvts', 'projetId'], Benchmarks: ['BenchOffres', 'benchId'] }[name];
   if (child) (D_[child[0]] || []).filter(c => c[child[1]] === cur.id).forEach(c => b.delete(ref(child[0], c.id)));
   bg(b.commit());
   journal('suppression', name, cur.id, summary_(name, cur));
   return { id: cur.id };
+}
+
+/* Devis déposés dans un benchmark : Firebase Storage (bucket à Paris), benchmarks/{benchId}/{fid}
+ * Mêmes droits que le benchmark (règles storage.rules : propriétaire et membres du partage). */
+const devisRef = (bid, fid) => S.ref(st, `benchmarks/${bid}/${fid}`);
+export const devisOk = () => !!(S && st);
+export async function envoyerDevis(bid, file) {
+  if (!devisOk()) throw new Error('Stockage des fichiers indisponible');
+  if (!navigator.onLine) throw new Error('Pas de connexion : devis lu mais fichier non gardé');
+  const fid = newId() + newId().slice(0, 6);
+  const meta = { contentType: file.type || 'application/octet-stream', customMetadata: { nom: encodeURIComponent(String(file.name || 'devis').slice(0, 150)) } };
+  try { await S.uploadBytes(devisRef(bid, fid), file, meta); }
+  catch (e) { // fiche du benchmark tout juste créée : pas encore sur le serveur
+    if (e && e.code === 'storage/unauthorized') { await new Promise(r => setTimeout(r, 2500)); await wrap(S.uploadBytes(devisRef(bid, fid), file, meta)); }
+    else throw new Error(errMsg(e));
+  }
+  return fid;
+}
+export async function lireDevis(bid, fid) {
+  if (!devisOk()) throw new Error('Stockage des fichiers indisponible');
+  try { return await S.getBlob(devisRef(bid, fid)); } catch (e) { throw new Error(errMsg(e)); }
+}
+async function effacerDevis(bid, fid) {
+  if (!devisOk()) return;
+  try { await S.deleteObject(devisRef(bid, fid)); } catch (e) { if (!e || e.code !== 'storage/object-not-found') throw new Error(errMsg(e)); }
 }
 
 // Mise à jour qui part de la version du serveur (deux personnes peuvent cocher en même temps)
