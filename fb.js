@@ -287,6 +287,10 @@ export async function lireDevis(bid, fid) {
   if (!devisOk()) throw new Error('Stockage des fichiers indisponible');
   try { return await S.getBlob(devisRef(bid, fid)); } catch (e) { throw new Error(errMsg(e)); }
 }
+/* Charte des rapports (photo et logo de la page de garde), partagée avec l'appli Consommations : ConsoServeur/charte (lecture libre) */
+export async function lireCharte() {
+  try { const d = await F.getDoc(F.doc(db, 'ConsoServeur', 'charte')); return d.exists() ? d.data() : {}; } catch (e) { return {}; }
+}
 async function effacerDevis(bid, fid) {
   if (!devisOk()) return;
   try { await S.deleteObject(devisRef(bid, fid)); } catch (e) { if (!e || e.code !== 'storage/object-not-found') throw new Error(errMsg(e)); }

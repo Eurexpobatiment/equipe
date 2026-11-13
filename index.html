@@ -789,7 +789,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '23'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '24'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -2573,7 +2573,7 @@ function vBenchDetail(el,b,st){
   } else body='<p class="empty">Aucun devis pour l\'instant : glisse-les dans le cadre ci-dessus.</p>';
   el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.bm.open='';render()">← Benchmarks</button><h2>⚖️ ${esc(b.titre)}</h2>
       <span class="etat pjst" style="background:${BM_ST[b.statut]||'#64748b'};color:#fff">${esc(b.statut||'')}</span><span class="sp"></span>
-      ${c.n?`<button class="btn" onclick="bmExport('${b.id}')">⬇️ Export Excel</button>`:''}<button class="btn" onclick="bmFiche('${b.id}')">✏️ Fiche</button><button class="btn" onclick="bmOffreNew('${b.id}')">+ Offre à la main</button></div>
+      ${c.n?`<button class="btn" onclick="bmExport('${b.id}')">⬇️ Export Excel</button><button class="btn" title="Présentation PowerPoint du benchmark, à la trame des rapports" onclick="bmPptx('${b.id}')">📊 Présentation PowerPoint</button>`:''}<button class="btn" onclick="bmFiche('${b.id}')">✏️ Fiche</button><button class="btn" onclick="bmOffreNew('${b.id}')">+ Offre à la main</button></div>
     <p class="hint">${infos}</p>${bmWarn()}${drop}${body}`;
 }
 async function bmRetenir(bid,oid){
@@ -2697,6 +2697,181 @@ async function bmExport(bid){
     add([{'Consultation':b.titre,'Objet':b.objet,'Statut':b.statut,'Budget HT':b.budget===''?'':r2(num(b.budget)),'Remise des offres':b.dateLimite,'Critères':b.criteres,'Offre retenue':c.ret?c.ret.o.entreprise:'','Note':b.note}],'Consultation');
     add(syn,'Synthèse des offres'); if(cmp.length)add(cmp,'Comparatif par famille'); if(lig.length)add(lig,'Lignes des devis');
     XLSX.writeFile(wb,`Benchmark - ${b.titre.replace(/[\\/:*?"<>|]/g,' ').slice(0,60)} - ${today()}.xlsx`);
+  }catch(e){toast(e.message,1)}
+}
+/* ---- Export PowerPoint du benchmark : présentation à la trame des rapports (charte GL events Lyon des rapports PDF de l'appli
+   Consommations : page de garde, bande verte, titres vert foncé, tuiles de chiffres clés, tableaux à en-tête foncé, pied avec logo).
+   Photo et logo de la page de garde : ceux de la charte des rapports (Firebase ConsoServeur/charte), sinon le logo de l'appli. ---- */
+const BM_CH={vert:'00AB89',fonce:'004C46',texte:'334155',gris:'64748B',clair:'F4F4F2',ligne:'E2E8F0',pale:'E6F6F2',orange:'FBAE40',noir:'05211E',plus:'C2410C',moins:'0B7A5E'};
+const BM_SER=['00AB89','004C46','FBAE40','7FD5C4','F26B43','94A3B8','3A6EA5','B45309','64748B'];
+async function loadPptx(){if(window.PptxGenJS)return;toast('Préparation de la présentation…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
+async function bmImg(src){if(!src)return null;
+  try{let d=src;if(!/^data:/.test(src)){const bl=await (await fetch(src)).blob();d=await new Promise((ok,ko)=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=ko;f.readAsDataURL(bl)})}
+    const im=await new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=d});return {data:d,r:im.naturalHeight/im.naturalWidth}}catch(e){return null}}
+function bmPptxBuild(P,b,c,A){
+  const K=BM_CH,W=13.333,X0=.6,CW=12.2,FF='Arial';
+  const T=s=>String(s==null?'':s).replace(/ /g,' ').replace(/[\u{1F000}-\u{1FFFF}☀-➿️]/gu,'').replace(/\s+/g,' ').trim();
+  const cut=(s,n)=>{s=T(s);return s.length>n?s.slice(0,n-1).trimEnd()+'…':s};
+  const E=(n,d)=>T(eur(n,d)), pc=v=>v==null?'—':(v>0?'+':v<0?'−':'')+(Math.round(Math.abs(v)*1000)/10).toLocaleString('fr-FR')+' %';
+  const sg=(n,d)=>(n>=0?'+':'−')+E(Math.abs(n),d);
+  const jour=new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  const titre=T(b.titre)||'Benchmark', crit=c.C.filter(x=>!bmPrix(x)), prix=c.C.find(bmPrix), avecBud=b.budget!==''&&c.bud>0;
+  const p=new P();p.layout='LAYOUT_WIDE';p.title='Benchmark – '+titre;p.author=(typeof me==='string'&&me)||'Service Bâtiment';p.company='Eurexpo Lyon – GL events';p.theme={headFontFace:FF,bodyFontFace:FF};
+  p.defineSlideMaster({title:'PAGE',background:{color:'FFFFFF'},objects:[
+    {rect:{x:0,y:.28,w:.2,h:6.94,fill:{color:K.vert},line:{color:K.vert,width:0}}},
+    {line:{x:X0,y:6.86,w:CW,h:0,line:{color:K.ligne,width:.75}}},
+    {text:{text:cut('Benchmark des offres · '+titre,110)+' · Eurexpo Lyon, service Bâtiment · édité le '+jour,options:{x:X0,y:6.92,w:9.6,h:.3,fontSize:8,color:K.gris,fontFace:FF,margin:0,valign:'middle'}}},
+    ...(A.logo?[{image:{data:A.logo.data,x:10.75,y:6.95,w:1.5,h:1.5*A.logo.r}}]:[])],
+    slideNumber:{x:12.4,y:6.92,w:.4,h:.3,fontSize:8,color:K.gris,fontFace:FF,align:'right'}});
+  const page=(t,sub)=>{const s=p.addSlide({masterName:'PAGE'});
+    s.addText(t,{x:X0,y:.3,w:CW,h:.55,fontSize:24,bold:true,color:K.fonce,fontFace:FF,margin:0,valign:'middle'});
+    if(sub)s.addText(sub,{x:X0,y:.86,w:CW,h:.3,fontSize:12,bold:true,color:K.vert,fontFace:FF,margin:0,valign:'middle'});return s};
+  const bord=[{type:'none'},{type:'none'},{type:'solid',pt:.75,color:K.ligne},{type:'none'}];
+  const th=(t,al)=>({text:t,options:{bold:true,color:'FFFFFF',fill:{color:K.fonce},align:al||'right',valign:'middle',fontSize:9}});
+  const table=(s,rows,colW,y,fs,rowH)=>{const k=CW/colW.reduce((a,x)=>a+x,0);
+    s.addTable(rows,{x:X0,y,w:CW,colW:colW.map(x=>x*k),fontSize:fs,fontFace:FF,color:K.texte,border:bord,valign:'middle',margin:[3,6,3,6],rowH:rowH||.4})};
+  const note=(s,t,y)=>s.addText(t,{x:X0,y,w:CW,h:.5,fontSize:9,color:K.gris,fontFace:FF,margin:0,valign:'top'});
+
+  /* --- page de garde --- */
+  {const s=p.addSlide(),LW=5.47,RX=LW+.6,RW=W-RX-.55;
+    s.addShape('rect',{x:0,y:0,w:LW,h:7.5,fill:{color:K.clair},line:{color:K.clair,width:0}});
+    s.addShape('rect',{x:LW,y:0,w:W-LW,h:7.5,fill:{color:K.vert},line:{color:K.vert,width:0}});
+    if(A.logo)s.addImage({data:A.logo.data,x:.55,y:.6,w:2.45,h:2.45*A.logo.r});
+    s.addText('HOME OF\nEXCELLENCE',{x:.55,y:3,w:4.7,h:1.25,fontSize:32,color:'111827',charSpacing:.5,fontFace:FF,margin:0,valign:'top'});
+    s.addText('Édité le '+jour,{x:.55,y:6.75,w:4.7,h:.3,fontSize:9,italic:true,color:'1F2937',fontFace:FF,margin:0});
+    s.addText('CENTRE DE CONGRÈS DE LYON\nEUREXPO LYON\nLA SUCRIÈRE\nMATMUT STADIUM',{x:RX,y:.4,w:RW,h:.75,fontSize:8,color:K.noir,align:'right',fontFace:FF,margin:0,valign:'top'});
+    const py=1.45;let ph=2.9;
+    if(A.photo){const hn=RW*A.photo.r;if(hn<ph)ph=hn;
+      s.addShape('rect',{x:LW,y:py,w:W-LW-.55,h:ph,fill:{color:K.fonce},line:{color:K.fonce,width:0}});
+      s.addImage(hn>ph?{data:A.photo.data,x:RX,y:py,w:RW,h:hn,sizing:{type:'crop',x:0,y:(hn-ph)/2,w:RW,h:ph}}:{data:A.photo.data,x:RX,y:py,w:RW,h:ph});
+    }else{ph=1.6;s.addShape('rect',{x:LW,y:py,w:W-LW-.55,h:ph,fill:{color:K.fonce},line:{color:K.fonce,width:0}});
+      s.addText('EUREXPO LYON · SERVICE BÂTIMENT',{x:RX,y:py,w:RW-.3,h:ph,fontSize:14,bold:true,color:'FFFFFF',align:'right',valign:'middle',charSpacing:2,fontFace:FF,margin:0})}
+    const ty=py+ph+.45;
+    s.addText('Benchmark des offres',{x:RX,y:ty,w:RW,h:.6,fontSize:28,bold:true,color:K.noir,align:'right',fontFace:FF,margin:0,valign:'middle'});
+    s.addText(cut(titre,70),{x:RX,y:ty+.65,w:RW,h:.75,fontSize:18,bold:true,color:K.noir,align:'right',fontFace:FF,margin:0,valign:'top',fit:'shrink'});
+    const l=[b.objet&&cut(b.objet,120),c.n+' offre'+(c.n>1?'s':'')+' comparée'+(c.n>1?'s':'')+(b.statut?' · '+T(b.statut):'')].filter(Boolean);
+    s.addText(l.join('\n'),{x:RX,y:ty+1.45,w:RW,h:.7,fontSize:11,color:K.noir,align:'right',fontFace:FF,margin:0,valign:'top'})}
+
+  /* --- synthèse --- */
+  {const s=page('Synthèse de la consultation',cut([b.objet,b.dateLimite&&'remise des offres le '+fD(b.dateLimite,{day:'numeric',month:'long',year:'numeric'}),'notation : '+c.C.map(x=>x.n+' '+x.p+' %').join(' · ')].filter(Boolean).join(' · '),170));
+    const tu=[[String(c.n),'Offres reçues',''],[c.min?E(c.min):'—','Moins-disant',c.moins?T(c.moins.o.entreprise):''],
+      [c.best?bmF1(c.best.note)+' / 10':'—','Mieux-disant',c.best?T(c.best.o.entreprise):'notation à compléter'],
+      [c.n>1&&c.min?E(c.max-c.min):'—','Écart plus / moins-disant',c.n>1&&c.min?pc((c.max-c.min)/c.min):'']];
+    if(avecBud)tu.push([c.min?pc((c.min-c.bud)/c.bud):'—','Moins-disant / budget','budget '+E(c.bud)]);
+    if(c.ret)tu.push([cut(c.ret.o.entreprise,18),'Offre retenue',c.ret.m!=null?E(c.ret.m):'']);
+    const g=.18,tw=(CW-g*(tu.length-1))/tu.length;
+    tu.forEach((t,i)=>{const x=X0+i*(tw+g);
+      s.addShape('rect',{x,y:1.4,w:tw,h:1.2,fill:{color:K.clair},line:{color:K.clair,width:0}});
+      s.addShape('rect',{x,y:1.4,w:tw,h:.05,fill:{color:K.vert},line:{color:K.vert,width:0}});
+      s.addText(t[0],{x:x+.12,y:1.5,w:tw-.24,h:.5,fontSize:tu.length>5?17:20,bold:true,color:K.fonce,fontFace:FF,margin:0,valign:'middle',fit:'shrink'});
+      s.addText([{text:t[1],options:{color:K.gris,breakLine:!!t[2]}},...(t[2]?[{text:cut(t[2],34),options:{color:K.texte,bold:true}}]:[])],{x:x+.12,y:2,w:tw-.24,h:.52,fontSize:9,fontFace:FF,margin:0,valign:'top'})});
+    // ce qu'il faut retenir
+    const PX=c.R.filter(r=>r.m>0),L=[];
+    if(PX.length>1)L.push(`${c.n} offres reçues, de ${E(c.min)} à ${E(c.max)} HT.`);
+    if(c.moins)L.push(`Moins-disant : ${T(c.moins.o.entreprise)} à ${E(c.moins.m,1)} HT`+(avecBud?`, soit ${pc(c.moins.vb)} par rapport au budget de ${E(c.bud)}.`:'.'));
+    PX.slice(1,4).forEach(r=>L.push(`${T(r.o.entreprise)} : ${E(r.m,1)} HT, ${sg(r.ec)} (${pc(r.ecp)}) au-dessus du moins-disant`+(avecBud?`, ${pc(r.vb)} par rapport au budget.`:'.')));
+    if(PX.length>4)L.push(`${PX.length-4} autre${PX.length>5?'s':''} offre${PX.length>5?'s':''} : voir le comparatif page suivante.`);
+    const man=[...new Set(c.R.flatMap(r=>r.manque))];
+    if(c.best)L.push(`Mieux-disant d'après la notation : ${T(c.best.o.entreprise)} (${bmF1(c.best.note)} / 10).`);
+    else if(man.length)L.push(`Notation à compléter (${man.join(', ')}) : le mieux-disant n'est pas encore établi.`);
+    if(c.ret)L.push(`Offre retenue : ${T(c.ret.o.entreprise)}`+(c.ret.m!=null?` (${E(c.ret.m,1)} HT).`:'.'));
+    const sans=c.R.filter(r=>!(r.m>0)).length;if(sans)L.push(`${sans} offre${sans>1?'s':''} sans montant : à compléter.`);
+    const gra=PX.length>0, lw=gra?6.2:CW;
+    s.addShape('rect',{x:X0,y:2.9,w:lw,h:3.7,fill:{color:K.pale},line:{color:K.pale,width:0}});
+    s.addShape('rect',{x:X0,y:2.9,w:.06,h:3.7,fill:{color:K.vert},line:{color:K.vert,width:0}});
+    s.addText([{text:'À retenir',options:{bold:true,color:K.fonce,fontSize:14,breakLine:true}},...L.map(t=>({text:t,options:{bullet:{indent:12},breakLine:true,paraSpaceBefore:5}}))],
+      {x:X0+.25,y:3,w:lw-.45,h:3.5,fontSize:L.length>6?10.5:12,color:K.texte,fontFace:FF,margin:0,valign:'top'});
+    if(gra){const G=PX.slice(0,10);
+      s.addText('Montants HT des offres',{x:7.1,y:2.9,w:5.7,h:.3,fontSize:12,bold:true,color:K.fonce,fontFace:FF,margin:0});
+      s.addChart(p.ChartType.bar,[{name:'Montant HT',labels:G.map(r=>cut(r.o.entreprise,22)),values:G.map(r=>Math.round(r.m))}],
+        {x:7.0,y:3.2,w:5.8,h:Math.min(3.4,1+G.length*.6),barDir:'bar',chartColors:G.map(r=>r.rp===1?K.vert:K.fonce),catAxisOrientation:'maxMin',valAxisHidden:true,valGridLine:{style:'none'},
+         catAxisLabelFontSize:10,catAxisLabelColor:K.texte,catAxisLabelFontFace:FF,showValue:true,dataLabelFormatCode:'#,##0 €',dataLabelFontSize:10,dataLabelColor:K.texte,dataLabelPosition:'outEnd',
+         barGapWidthPct:60,showLegend:false,valAxisMinVal:0,valAxisMaxVal:Math.ceil(c.max*1.28)});
+      if(avecBud)s.addText('Budget : '+E(c.bud)+' HT',{x:7.1,y:6.3,w:5.7,h:.3,fontSize:10,color:K.gris,italic:true,fontFace:FF,margin:0})}}
+
+  /* --- comparatif des offres --- */
+  {const col=[['#',.45],['Entreprise',2.5,'left'],['Devis',1.6,'left'],['Montant HT',1.5],['Écart au moins-disant',1.75]];
+    if(avecBud)col.push(['Écart au budget',1.05]);
+    col.push(['Délai',1.9,'left'],['Validité',1.15,'left']);
+    if(prix)col.push([prix.n+' ('+prix.p+' %)',1.05]);crit.forEach(k=>col.push([cut(k.n,14)+' ('+k.p+' %)',1.2]));col.push(['Note /10',.85]);
+    const fs=col.length>10?9:10,N=8;
+    for(let i=0;i<c.R.length;i+=N){const R=c.R.slice(i,i+N),s=page('Comparatif des offres',c.R.length>N?`offres ${i+1} à ${i+R.length} sur ${c.R.length}, classées par montant`:'classées par montant HT croissant');
+      const rows=[col.map(k=>th(k[0],k[2]))].concat(R.map(r=>{const o=r.o,ret=b.retenu===o.id,f=ret?{fill:{color:K.pale}}:{},cell=(t,op)=>({text:t,options:{align:'right',...f,...op}});
+        const row=[cell(r.rp?String(r.rp):''),cell((ret?'★ ':'')+cut(o.entreprise,34),{align:'left',bold:true,color:K.fonce}),
+          cell([o.numero&&'n° '+cut(o.numero,16),o.date&&fD(o.date,{day:'2-digit',month:'2-digit',year:'2-digit'})].filter(Boolean).join('\n')||'—',{align:'left',fontSize:fs-1.5,color:K.gris}),
+          cell(r.m!=null?E(r.m,1):'—',{bold:true}),
+          r.ec==null?cell('—'):r.ec<.005?cell('moins-disant',{bold:true,color:K.moins}):cell(sg(r.ec)+'\n'+pc(r.ecp),{color:K.plus})];
+        if(avecBud)row.push(cell(pc(r.vb),{color:r.vb>0?K.plus:K.texte}));
+        row.push(cell(cut(o.delai,44)||'—',{align:'left',fontSize:fs-1}),cell(cut(o.validite,26)||'—',{align:'left',fontSize:fs-1}));
+        if(prix){const v=r.notes[c.C.indexOf(prix)];row.push(cell(v==null?'—':bmF1(v)))}
+        crit.forEach(k=>{const v=r.notes[c.C.indexOf(k)];row.push(v==null?cell('à noter',{italic:true,color:K.gris,fontSize:fs-1}):cell(bmF1(v)))});
+        row.push(cell(r.note==null?'—':bmF1(r.note)+(r.partiel?' *':''),{bold:true,color:K.fonce}));return row}));
+      table(s,rows,col.map(k=>k[1]),1.4,fs,.48);
+      note(s,[prix&&'Prix noté automatiquement : 10 × moins-disant ÷ montant.',c.R.some(r=>r.partiel)&&'* note partielle : tous les critères ne sont pas encore notés.',c.ret&&'★ offre retenue.'].filter(Boolean).join('  '),1.4+.5*(R.length+1)+.2)}}
+
+  /* --- comparatif par famille de travaux --- */
+  const RL=c.R.filter(r=>r.lignes.length).slice(0,6);
+  if(RL.length){const X=bmFamilles(RL),multi=RL.length>1,fs=RL.length>4?8.5:10,s=page('Comparatif par famille de travaux','lignes des devis regroupées par nature de travaux (montants HT)');
+    const rows=[[th('Famille de travaux','left'),...RL.map(r=>th(cut(r.o.entreprise,24))),...(multi?[th('Écart')]:[])]];
+    X.F.forEach(f=>{const ok=RL.filter(r=>f.c[r.o.id]).map(r=>f.c[r.o.id].t),mn=Math.min(...ok),mx=Math.max(...ok),plus=ok.length>1&&mx-mn>.005;
+      rows.push([{text:f.n,options:{align:'left',bold:true,color:K.fonce}},
+        ...RL.map(r=>{const x=f.c[r.o.id];if(!x)return {text:'—',options:{align:'right',color:K.gris}};
+          return {text:[{text:E(x.t,1),options:{bold:plus&&(x.t===mn||x.t===mx),color:plus&&x.t===mn?K.moins:plus&&x.t===mx?K.plus:K.texte}},...(X.S[r.o.id]?[{text:'   '+pctTxt(x.t/X.S[r.o.id]),options:{fontSize:fs-2,color:K.gris}}]:[])],options:{align:'right'}}}),
+        ...(multi?[{text:plus?sg(mx-mn)+'\n'+pc((mx-mn)/mn):'',options:{align:'right',fontSize:fs-1}}]:[])])});
+    const tf={bold:true,color:K.fonce,fill:{color:K.pale}};
+    rows.push([{text:'Total des lignes comptées',options:{align:'left',...tf}},...RL.map(r=>({text:E(X.S[r.o.id],1),options:{align:'right',...tf}})),...(multi?[{text:RL[0].m>0&&RL[RL.length-1].m>0?sg(Math.max(...RL.map(r=>X.S[r.o.id]))-Math.min(...RL.map(r=>X.S[r.o.id]))):'',options:{align:'right',...tf}}]:[])]);
+    const rh=rows.length>10?.36:.4;table(s,rows,[3.9,...RL.map(()=>8.3/(RL.length+(multi?.7:0))),...(multi?[8.3*.7/(RL.length+.7)]:[])],1.4,fs,rh);
+    const ecT=RL.filter(r=>r.m!=null&&Math.abs(r.m-X.S[r.o.id])>.5).map(r=>T(r.o.entreprise));
+    note(s,'En vert le moins cher, en rouge le plus cher ; % = part de la famille dans l\'offre. Sous-totaux, options, variantes et prix unitaires ne sont pas comptés. « — » : poste non chiffré à part, il peut être inclus dans une autre famille chez cette entreprise.'
+      +(ecT.length?' Total des lignes différent du total HT du devis pour : '+ecT.join(', ')+'.':''),1.4+rh*rows.length+.25);
+
+    /* répartition et origine des écarts */
+    const ref=RL[0],OU=multi&&ref.m>0?RL.slice(1).filter(r=>r.m>0).map(r=>({r,D:X.F.map(f=>({n:f.n.replace(/ \(.*/,''),d:(f.c[r.o.id]?f.c[r.o.id].t:0)-(f.c[ref.o.id]?f.c[ref.o.id].t:0)})).filter(x=>Math.abs(x.d)>=1).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d)).slice(0,RL.length>3?3:5)})).filter(x=>x.D.length):[];
+    const s2=page(OU.length?'Répartition des offres et origine des écarts':'Répartition des offres par famille de travaux','montants HT par famille de travaux'),cw=OU.length?7.1:CW;
+    s2.addChart(p.ChartType.bar,X.F.map(f=>({name:f.n.replace(/ \(.*/,''),labels:RL.map(r=>cut(r.o.entreprise,20)),values:RL.map(r=>f.c[r.o.id]?Math.round(f.c[r.o.id].t):0)})),
+      {x:X0-.1,y:1.35,w:cw,h:5.35,barDir:'col',barGrouping:'stacked',chartColors:BM_SER.slice(0,X.F.length),showLegend:true,legendPos:'b',legendFontSize:9,legendFontFace:FF,legendColor:K.texte,
+       catAxisLabelFontSize:11,catAxisLabelColor:K.texte,catAxisLabelFontFace:FF,valAxisLabelFontSize:9,valAxisLabelColor:K.gris,valAxisLabelFormatCode:'#,##0 €',valGridLine:{color:K.ligne,size:.5},barGapWidthPct:70});
+    if(OU.length){const R=[{text:'D\'où vient l\'écart avec le moins-disant',options:{bold:true,color:K.fonce,fontSize:14,breakLine:true}}];
+      OU.forEach(({r,D})=>{R.push({text:`${T(r.o.entreprise)} par rapport à ${T(ref.o.entreprise)} : ${sg(r.m-ref.m)}`,options:{bold:true,color:K.texte,breakLine:true,paraSpaceBefore:10}});
+        D.forEach(x=>{R.push({text:x.n+' : ',options:{bullet:{indent:12},paraSpaceBefore:3}});R.push({text:sg(x.d),options:{bold:true,color:x.d>0?K.plus:K.moins,breakLine:true}})})});
+      s2.addShape('rect',{x:7.9,y:1.4,w:4.9,h:5.2,fill:{color:K.pale},line:{color:K.pale,width:0}});
+      s2.addShape('rect',{x:7.9,y:1.4,w:.06,h:5.2,fill:{color:K.vert},line:{color:K.vert,width:0}});
+      s2.addText(R,{x:8.15,y:1.55,w:4.5,h:4.9,fontSize:OU.length>2?10:11.5,color:K.texte,fontFace:FF,margin:0,valign:'top',fit:'shrink'})}
+
+    /* hors total : options, variantes, prix unitaires */
+    const H=RL.flatMap(r=>X.H[r.o.id].map(l=>({e:r.o.entreprise,l}))),N=12,MAXH=N*2;
+    for(let i=0;i<Math.min(H.length,MAXH);i+=N){const part=H.slice(i,i+N),s3=page('Options, variantes et prix unitaires','lignes lues dans les devis mais non comptées dans le total HT');
+      const rows=[[th('Entreprise','left'),th('Désignation','left'),th('Quantité × prix unitaire'),th('Total HT')]].concat(part.map(({e,l})=>[{text:cut(e,26),options:{align:'left',bold:true,color:K.fonce}},{text:cut(l.d,95),options:{align:'left'}},
+        {text:l.q!==''&&l.pu!==''?T(bmF1(+l.q)+(l.u?' '+l.u:'')+' × '+eur(+l.pu,1)):'',options:{align:'right',color:K.gris}},{text:E(num(l.t),1),options:{align:'right',bold:true}}]));
+      table(s3,rows,[2.2,6.6,2,1.4],1.4,9.5,.38);
+      if(i+N>=MAXH&&H.length>MAXH)note(s3,`… et ${H.length-MAXH} autres lignes : voir l'export Excel du benchmark.`,1.4+.38*(part.length+1)+.2)}}
+
+  /* --- conclusion --- */
+  {const s=page('Conclusion',b.statut?'statut de la consultation : '+T(b.statut):''),r=c.ret||c.best||c.moins,man=[...new Set(c.R.flatMap(x=>x.manque))];
+    const lab=c.ret?'Offre retenue':c.best?'Proposition : offre mieux-disante':'Offre moins-disante';
+    if(r){const d=[r.m!=null&&E(r.m,1)+' HT',r.ec!=null&&(r.ec<.005?'moins-disant':sg(r.ec)+' ('+pc(r.ecp)+') par rapport au moins-disant'),avecBud&&r.vb!=null&&pc(r.vb)+' par rapport au budget',r.note!=null&&!r.partiel&&'note '+bmF1(r.note)+' / 10',r.o.delai&&'délai : '+cut(r.o.delai,50)].filter(Boolean);
+      s.addShape('rect',{x:X0,y:1.4,w:CW,h:1.55,fill:{color:K.fonce},line:{color:K.fonce,width:0}});
+      s.addText([{text:lab.toUpperCase(),options:{fontSize:10,color:'7FD5C4',bold:true,charSpacing:1.5,breakLine:true}},{text:cut(r.o.entreprise,60),options:{fontSize:26,bold:true,color:'FFFFFF',breakLine:true}},{text:d.join('  ·  '),options:{fontSize:12,color:'FFFFFF'}}],
+        {x:X0+.3,y:1.45,w:CW-.6,h:1.45,fontFace:FF,margin:0,valign:'middle'})}
+    const L=[];
+    if(!c.ret&&!c.best&&man.length)L.push(`Notation à compléter (${man.join(', ')}) avant de désigner le mieux-disant.`);
+    if(c.ret&&c.best&&c.ret!==c.best)L.push(`Le mieux-disant d'après la notation est ${T(c.best.o.entreprise)} (${bmF1(c.best.note)} / 10).`);
+    if(c.ret&&c.moins&&c.ret!==c.moins)L.push(`Le moins-disant est ${T(c.moins.o.entreprise)} (${E(c.moins.m,1)} HT).`);
+    if(avecBud&&r&&r.m!=null)L.push(r.m<=c.bud?`L'offre tient dans le budget de ${E(c.bud)} : reste ${E(c.bud-r.m)} HT.`:`L'offre dépasse le budget de ${E(c.bud)} de ${E(r.m-c.bud)} HT.`);
+    if(b.note)L.push(cut(b.note,420));
+    let y=r?3.2:1.45;
+    if(L.length){s.addText(L.map(t=>({text:t,options:{bullet:{indent:12},breakLine:true,paraSpaceBefore:5}})),{x:X0,y,w:CW,h:Math.min(1.6,.38*L.length+.25),fontSize:12,color:K.texte,fontFace:FF,margin:0,valign:'top',fit:'shrink'});y+=Math.min(1.6,.38*L.length+.25)+.15}
+    const CM=c.R.filter(x=>T(x.o.commentaire)).slice(0,5);
+    if(CM.length&&y<5.6){const mx=Math.floor((6.6-y)/.42)-1;
+      table(s,[[th('Entreprise','left'),th('Commentaire sur l\'offre','left')]].concat(CM.slice(0,Math.max(1,mx)).map(x=>[{text:cut(x.o.entreprise,30),options:{align:'left',bold:true,color:K.fonce}},{text:cut(x.o.commentaire,230),options:{align:'left'}}])),[2.6,9.6],y,10,.42)}}
+  return p;
+}
+async function bmPptx(bid){
+  try{const b=D.Benchmarks.find(x=>x.id===bid);if(!b)return;
+    const [ch]=await Promise.all([FB&&FB.lireCharte?FB.lireCharte().catch(()=>({})):{},loadPptx()]);
+    const [logo,photo]=await Promise.all([bmImg(ch.logo).then(x=>x||bmImg('logo.png')),bmImg(ch.photo)]);
+    await bmPptxBuild(window.PptxGenJS,b,bmCalc(b),{logo,photo}).writeFile({fileName:`Benchmark - ${b.titre.replace(/[\\/:*?"<>|]/g,' ').slice(0,60)} - ${today()}.pptx`});
+    toast('Présentation téléchargée');
   }catch(e){toast(e.message,1)}
 }
 
