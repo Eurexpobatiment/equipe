@@ -609,7 +609,8 @@ const FORMS = {
     {k:'salon',l:'Salon',t:'text'},
     {k:'responsable',l:'Responsable',t:'person'},
     {k:'statut',l:'Statut',t:'select',o:['Prévu','Fait','Annulé'],def:'Prévu'},
-    {k:'note',l:'Note',t:'textarea'}],
+    {k:'consigne',l:'Consigne prestataire (figure sur l\'export prestataire)',t:'textarea'},
+    {k:'note',l:'Note interne',t:'textarea'}],
   Tribune: [
     {k:'mouvement',l:'Mouvement',t:'select',o:['À sortir','À rentrer','Déplacement','Autre'],def:'À sortir',full:1},
     {k:'date',l:'Date de début',t:'date',req:1},
@@ -621,7 +622,8 @@ const FORMS = {
     {k:'cloison',l:'Configuration (rangs, places…)',t:'text'},
     {k:'responsable',l:'Responsable',t:'person'},
     {k:'statut',l:'Statut',t:'select',o:['Prévu','Fait','Annulé'],def:'Prévu'},
-    {k:'note',l:'Note',t:'textarea'}],
+    {k:'consigne',l:'Consigne prestataire (figure sur l\'export prestataire)',t:'textarea'},
+    {k:'note',l:'Note interne',t:'textarea'}],
   Drapeaux: [
     {k:'nom',l:'Drapeau (pays, partenaire…)',req:1,full:1},
     {k:'format',l:'Format',t:'dl',dl:'dl-drformats',req:1},
@@ -792,7 +794,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '24'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '25'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -1458,7 +1460,7 @@ function editReg(id){const e=D.Regisseurs.find(x=>x.id===id);if(e)openForm('Regi
 const AG={
   Cloisons:{titre:'Cloisons & tribune',nouveau:'+ Cloison',form:'Mouvement de cloison',next:{'Prévu':'Fait'},
     line:x=>objOf(x)==='Tribune'?`🏟️ <b>Tribune</b> · <b>${esc(x.mouvement||'')}</b>${x.cloison?' · '+esc(x.cloison):''}${x.hall?' — '+esc(x.hall):''}`:clLine(x),
-    sub:x=>[agPeriode(x),x.salon&&'🎪 '+x.salon,x.responsable&&'👤 '+x.responsable,x.note&&'📝 '+x.note]},
+    sub:x=>[agPeriode(x),x.salon&&'🎪 '+x.salon,x.responsable&&'👤 '+x.responsable,x.consigne&&'📣 '+x.consigne,x.note&&'📝 '+x.note]},
   EDL:{titre:'États des lieux salons',nouveau:'+ Nouvel état des lieux',form:'État des lieux',next:{'Planifié':'Fait'},
     line:x=>`<b>${esc(x.salon||'')}</b> · ${esc(x.type||'')}`,
     sub:x=>[x.confirmation&&(x.confirmation==='Confirmé'?'✅ Confirmé':'⏳ En attente de confirmation'),x.halls&&'📍 '+x.halls,x.responsable&&'👤 '+x.responsable,x.coordinateur&&'🎯 Coordinateur : '+x.coordinateur,x.presenceClient&&'🤝 Client présent : '+x.presenceClient.toLowerCase(),x.note&&'📝 '+x.note]}
@@ -1474,13 +1476,13 @@ const agAfter=()=>{const a=$('#f_date'),b=$('#f_dateFin');if(a&&b)a.addEventList
 /* Ligne d'un mouvement : position (n° + nom), repère seulement s'il ajoute quelque chose, hall une seule fois */
 const clSansHall=v=>v.replace(/ · Halls? [^(]*/,' ').replace(/\s+/g,' ').trim();
 const clHalls=P=>{const s=[...new Set(P.flatMap(p=>((p.v.match(/ · Halls? ([^(]*)/)||[])[1]||'').trim().split(' / ')).filter(Boolean))];return s.length?(s.length>1?'Halls ':'Hall ')+s.join(' / '):''};
-function clLine(x){
+function clParts(x){
   const P=(x.position||'').split(' ; ').map(v=>CL_BY[v.trim()]).filter(Boolean);
   const n=clNorm(x.cloison), al=CL_ALIAS[n]||[];
   const dup=x.cloison&&P.length&&P.some(p=>{const k=clNorm(clSansHall(p.v).replace(/^[①②③]\s*/,'').replace(/ \(.*$/,'').replace(/côté.*$/,''));return k===n||k.replace(/[a-z]/g,'')===n.replace(/[a-z]/g,'')||al.includes(p.c+':'+p.p)});
-  const hall=x.hall||clHalls(P);
-  return `<b>${esc(x.mouvement||'')}</b>${P.length?' · '+esc(P.map(p=>clSansHall(p.v)).join(' + ')):''}${x.cloison&&!dup?' · '+esc(x.cloison):''}${hall?' — '+esc(hall):''}`;
+  return {P,nom:[P.map(p=>clSansHall(p.v)).join(' + '),x.cloison&&!dup?x.cloison:''].filter(Boolean).join(' · '),hall:x.hall||clHalls(P)};
 }
+function clLine(x){const o=clParts(x);return `<b>${esc(x.mouvement||'')}</b>${o.nom?' · '+esc(o.nom):''}${o.hall?' — '+esc(o.hall):''}`}
 /* Formulaire de mouvement : choix de la cloison et de sa position directement sur le plan */
 function clPickInit(){
   const sel=$('#f_position'); if(!sel) return;
@@ -1504,7 +1506,7 @@ function vAgenda(el,sheet){
   el.innerHTML=`<div class="bar"><h2>${A.titre}</h2>
     <div class="seg-ctl">${[['avenir','À venir'],['passes','Passés'],['tout','Tout'],['mois','📅 Mois']].map(([k,l])=>`<button class="${st.m===k?'on':''}" onclick="UI.ag['${sheet}'].m='${k}';render()">${l}</button>`).join('')}</div>
     <input class="search" type="search" placeholder="Rechercher (salon, hall…)" value="${esc(st.q)}" oninput="UI.ag['${sheet}'].q=this.value;agList('${sheet}')">
-    ${sheet==='Cloisons'?`<button class="btn pri" onclick="newAg('Cloisons','','Tribune')">+ Tribune</button>`:''}<button class="btn pri" onclick="newAg('${sheet}')">${A.nouveau}</button></div>
+    ${sheet==='Cloisons'?`<button class="btn" title="Bon de mouvements (PDF) à transmettre au prestataire" onclick="clxExport()">📤 Export prestataire</button><button class="btn pri" onclick="newAg('Cloisons','','Tribune')">+ Tribune</button>`:''}<button class="btn pri" onclick="newAg('${sheet}')">${A.nouveau}</button></div>
     ${sheet==='Cloisons'?trCarte()+`<div class="seg-ctl" style="margin-bottom:10px">${[['','Tout'],['Cloison','🧱 Cloisons'],['Tribune','🏟️ Tribune'],['Plan','🗺️ Plan des cloisons']].map(([k,l])=>`<button class="${st.o===k?'on':''}" onclick="UI.ag.Cloisons.o='${k}';render()">${l}</button>`).join('')}</div>`:''}
     <div id="aglist"></div>`;
   if(sheet==='Cloisons'&&st.o==='Plan'){ // plan interactif des cloisons mobiles (dossier cloisons/)
@@ -1609,6 +1611,159 @@ async function agNext(sheet,id,btn){
   const x=D[sheet].find(i=>i.id===id), n=x&&AG[sheet].next[x.statut]; if(!n){editAg(sheet,id);return}
   btn.disabled=true; btn.textContent='…';
   try{await saveItem(sheet,{...x,statut:n,responsable:x.responsable||me});toast('Marqué « '+n+' »')}catch(e){toast(e.message,1);render()}
+}
+
+/* ================== EXPORT PRESTATAIRE : bon de mouvements de cloisons ==================
+   Page à imprimer / enregistrer en PDF : récapitulatif des mouvements de la période, puis un plan par intervention
+   (cloisons à sortir en vert, à ranger en orange, repérées par le n° du récapitulatif).
+   Seule la « Consigne prestataire » d'un mouvement y figure ; la note reste interne (sauf case cochée).
+   Le tracé du plan est demandé à cloisons/index.html (message cloisonsGeoAsk) : une seule source pour les positions. */
+let CL_GEO=null;
+function clGeo(){
+  if(CL_GEO)return Promise.resolve(CL_GEO);
+  return new Promise(res=>{
+    const f=document.createElement('iframe');f.src='cloisons/?embed=1';f.setAttribute('aria-hidden','true');f.tabIndex=-1;
+    f.style.cssText='position:absolute;left:-9999px;top:0;width:10px;height:10px;border:0;visibility:hidden';
+    let done=false;
+    const fin=g=>{if(done)return;done=true;window.removeEventListener('message',on);f.remove();if(g)CL_GEO=g;res(g||null)};
+    const on=e=>{if(e.source!==f.contentWindow||!e.data)return;
+      if(e.data.cloisonsReady)try{f.contentWindow.postMessage({cloisonsGeoAsk:1},'*')}catch(_){}
+      if(e.data.cloisonsGeo)fin(e.data.cloisonsGeo)};
+    window.addEventListener('message',on);document.body.appendChild(f);setTimeout(()=>fin(null),8000)});
+}
+const CLX_ACT={'À sortir':['#1a8f4c','#e7f6ec'],'À ranger':['#d96c00','#fff1e0'],'À rentrer':['#d96c00','#fff1e0'],'Déplacement':['#00697E','#e3f3f6'],'Autre':['#5f6b6b','#eef0f0']};
+const clxOpts=()=>{let o={};try{o=JSON.parse(lsGet('equipe.clExport')||'{}')||{}}catch(e){}return o};
+/* Mouvements de la période (non annulés), numérotés dans l'ordre chronologique */
+function clxListe(o){
+  const key=x=>(x.date||'')+(x.heure||'00:00')+(x.mouvement==='À ranger'?'0':'1');
+  return D.Cloisons.filter(x=>x.statut!=='Annulé'&&x.date&&x.date<=o.au&&agFin(x)>=o.du&&(o.trib||objOf(x)==='Cloison'))
+    .sort((a,b)=>key(a).localeCompare(key(b))).map((x,i)=>({x,n:i+1,trib:objOf(x)==='Tribune',m:objOf(x)==='Tribune'?{P:[]}:clMatch(x)}));
+}
+function clxExport(){
+  const t=today(), p=clxOpts(), ms=monthStart(0), fin=d=>addDays(ymd(new Date(parseD(d).getFullYear(),parseD(d).getMonth()+1,1)),-1);
+  const R={j30:[t,addDays(t,30)],mois:[ms,fin(ms)],suiv:[addDays(fin(ms),1),fin(addDays(fin(ms),1))]};
+  modal(`<h2>Export prestataire</h2>
+    <p class="hint" style="margin-top:0">Bon de mouvements à transmettre au prestataire : récapitulatif des mouvements de la période, puis un plan par intervention. Il s'ouvre dans un nouvel onglet, prêt à être <b>enregistré en PDF</b> ou imprimé.</p>
+    <div class="form">
+      <label class="fl"><span>Du</span><input type="date" id="cx_du" value="${t}"></label>
+      <label class="fl"><span>Au (inclus)</span><input type="date" id="cx_au" value="${R.j30[1]}"></label>
+      <div class="fl full"><div class="seg-ctl" style="align-self:flex-start">${[['j30','30 jours'],['mois','Ce mois'],['suiv','Mois prochain']].map(([k,l])=>`<button type="button" data-cx="${k}">${l}</button>`).join('')}</div></div>
+      <label class="fl"><span>Destinataire (prestataire)</span><input type="text" id="cx_dest" value="${esc(p.dest||'')}" placeholder="ex. MSI"></label>
+      <label class="fl"><span>Contact Eurexpo</span><input type="text" id="cx_contact" value="${esc(p.contact||me||'')}" placeholder="Nom · téléphone"></label>
+      <div class="fl full" style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="width:auto;flex:none;margin:3px 0 0" id="cx_plans" ${p.plans===false?'':'checked'}> Joindre un plan par intervention</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="width:auto;flex:none;margin:3px 0 0" id="cx_trib" ${p.trib?'checked':''}> Inclure les mouvements de la tribune</label>
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="width:auto;flex:none;margin:3px 0 0" id="cx_notes" ${p.notes?'checked':''}> Reprendre aussi les notes internes (par défaut, seule la « Consigne prestataire » est transmise)</label>
+      </div>
+    </div>
+    <div class="err" id="cx_info" style="color:var(--muted)"></div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="cx_go">📤 Générer le bon</button></div>`);
+  const lire=()=>({du:$('#cx_du').value,au:$('#cx_au').value,dest:$('#cx_dest').value.trim(),contact:$('#cx_contact').value.trim(),plans:$('#cx_plans').checked,trib:$('#cx_trib').checked,notes:$('#cx_notes').checked});
+  const maj=()=>{const o=lire(),i=$('#cx_info'),b=$('#cx_go');
+    if(!o.du||!o.au||o.au<o.du){i.textContent='Période à corriger : la date de fin est avant la date de début.';b.disabled=true;return}
+    const L=clxListe(o),nc=L.filter(m=>!m.trib).length,nt=L.length-nc,nl=L.filter(m=>!m.trib&&!m.m.P.length).length;
+    i.textContent=L.length?`${nc} mouvement${nc>1?'s':''} de cloison${nc>1?'s':''}${nt?' et '+nt+' de tribune':''} sur la période`+(nl&&o.plans?` · ${nl} sans cloison reconnue sur le plan (listé${nl>1?'s':''} sans tracé)`:''):'Aucun mouvement sur cette période.';
+    b.disabled=!L.length};
+  document.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>{const r=R[b.dataset.cx];$('#cx_du').value=r[0];$('#cx_au').value=r[1];maj()});
+  ['cx_du','cx_au','cx_plans','cx_trib','cx_notes'].forEach(k=>$('#'+k).onchange=maj);
+  maj();
+  $('#cx_go').onclick=async()=>{
+    const o=lire(); lsSet('equipe.clExport',JSON.stringify({dest:o.dest,contact:o.contact,plans:o.plans,trib:o.trib,notes:o.notes}));
+    const w=window.open('','_blank'); if(!w)return toast('Fenêtre bloquée par le navigateur : autorise les fenêtres pour ce site',1);
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Préparation…</title><p style="font-family:Arial,sans-serif;margin:40px">Préparation du bon de mouvements…</p>');
+    closeModal();
+    const geo=o.plans?await clGeo():null;
+    if(o.plans&&!geo)toast('Plan indisponible : bon généré sans les plans (recharge la page puis réessaie)',1);
+    try{w.document.open();w.document.write(clxHtml(o,geo));w.document.close()}catch(e){toast('Export impossible : '+e.message,1)}
+  };
+}
+/* Plan d'une intervention : cloisons à sortir (vert), à ranger (orange), autres cloisons en place (gris foncé) */
+function clxPlan(G,geo){
+  const keys=(c,p)=>((geo.pos.find(q=>q.c===c&&q.p===p)||{}).keys)||[];
+  const t0=G.map(m=>m.x.date+'T'+(m.x.heure||'00:00')).sort()[0], avant=clEtat(t0).st;
+  const tr={}; // trait -> {a:'in'|'out', n:[n° des mouvements]}
+  const bouge=new Set(); // cloisons déplacées par l'intervention : seul ce que dit le planning est tracé, rien n'est déduit
+  const put=(k,a,n)=>{const o=tr[k]=tr[k]||{a,n:[]};if(a==='in')o.a='in';if(n&&!o.n.includes(n))o.n.push(n)};
+  G.forEach(m=>m.m.P.forEach(p=>{
+    if(m.x.mouvement==='À ranger'){keys(p.c,p.p).forEach(k=>put(k,'out',m.n));return}
+    keys(p.c,p.p).forEach(k=>put(k,'in',m.n)); bouge.add(p.c);
+  }));
+  const K=Object.keys(tr).filter(k=>geo.lines[k]); if(!K.length)return '';
+  const fixes=[...new Set(Object.entries(avant).filter(([c,p])=>p&&!bouge.has(c)).flatMap(([c,p])=>keys(c,p)))].filter(k=>!tr[k]&&geo.lines[k]);
+  // cadrage sur les cloisons concernées
+  const pts=K.flatMap(k=>geo.lines[k]), xs=pts.map(q=>q[0]), ys=pts.map(q=>q[1]), W=geo.w, H=geo.h, R=.44;
+  let w=Math.max(Math.max(...xs)-Math.min(...xs)+560,1000), h=w*R; const bh=Math.max(...ys)-Math.min(...ys)+340;
+  if(h<bh){h=bh;w=h/R} if(w>W){w=W;h=w*R} if(h>H){h=H;w=h/R}
+  const x0=Math.min(Math.max((Math.min(...xs)+Math.max(...xs))/2-w/2,0),W-w), y0=Math.min(Math.max((Math.min(...ys)+Math.max(...ys))/2-h/2,0),H-h), s=w/1000;
+  const d=k=>'M'+geo.lines[k].map(q=>q.join(',')).join(' L'), r=v=>Math.round(v*10)/10;
+  const mid=k=>{const P=geo.lines[k];let L=0;const S=P.slice(1).map((q,i)=>{const l=Math.hypot(q[0]-P[i][0],q[1]-P[i][1]);L+=l;return l});let u=L/2;
+    for(let i=0;i<S.length;i++){if(u<=S[i]){const f=S[i]?u/S[i]:0;return [P[i][0]+(P[i+1][0]-P[i][0])*f,P[i][1]+(P[i+1][1]-P[i][1])*f]}u-=S[i]}return P[0]};
+  const C_IN='#1a8f4c', C_OUT='#d96c00';
+  return `<svg class="plan" viewBox="${r(x0)} ${r(y0)} ${r(w)} ${r(h)}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Plan de l'intervention">
+    <rect x="${r(x0)}" y="${r(y0)}" width="${r(w)}" height="${r(h)}" fill="#fff"/>
+    <use href="#clxbg" opacity=".5"/>
+    ${fixes.map(k=>`<path d="${d(k)}" fill="none" stroke="#fff" stroke-width="${r(13*s)}" stroke-linecap="round"/><path d="${d(k)}" fill="none" stroke="#2d353b" stroke-width="${r(7*s)}" stroke-linecap="round"/>`).join('')}
+    ${geo.zones.filter(z=>z.x>x0+50*s&&z.x<x0+w-50*s&&z.y>y0+20*s&&z.y<y0+h-20*s).map(z=>`<g transform="translate(${z.x},${z.y})"><rect x="${r(-46*s)}" y="${r(-17*s)}" width="${r(92*s)}" height="${r(34*s)}" rx="${r(5*s)}" fill="#fff" stroke="#2d353b" stroke-width="${r(1.5*s)}"/><text y="${r(7*s)}" text-anchor="middle" font-size="${r(20*s)}" font-weight="700" font-family="Arial,sans-serif" fill="#111">${esc(z.n)}</text></g>`).join('')}
+    ${K.map(k=>{const o=tr[k],c=o.a==='in'?C_IN:C_OUT;
+      return `<path d="${d(k)}" fill="none" stroke="#fff" stroke-width="${r(22*s)}" stroke-linecap="round"/><path d="${d(k)}" fill="none" stroke="${c}" stroke-width="${r(13*s)}" stroke-linecap="round"${o.a==='out'?` stroke-dasharray="${r(26*s)} ${r(22*s)}"`:''}/>`}).join('')}
+    ${K.map(k=>{const o=tr[k],c=o.a==='in'?C_IN:C_OUT,[mx,my]=mid(k),lab=o.n.join('·'),rw=Math.max(23,13+lab.length*9)*s;
+      return `<g transform="translate(${r(mx)},${r(my)})"><rect x="${r(-rw)}" y="${r(-23*s)}" width="${r(2*rw)}" height="${r(46*s)}" rx="${r(23*s)}" fill="${c}" stroke="#fff" stroke-width="${r(4*s)}"/><text y="${r(9*s)}" text-anchor="middle" font-size="${r(26*s)}" font-weight="700" font-family="Arial,sans-serif" fill="#fff">${esc(lab)}</text></g>`}).join('')}
+  </svg>
+  <div class="leg"><span><i style="background:${C_IN}"></i>À sortir</span><span><i class="dash" style="--c:${C_OUT}"></i>À ranger</span>${fixes.length?'<span><i style="background:#2d353b;height:4px"></i>Autres cloisons en place (d\'après le planning)</span>':''}<span><b class="pn">n°</b>Repère du récapitulatif</span></div>`;
+}
+function clxHtml(o,geo){
+  const L=clxListe(o), base=location.href.replace(/[?#].*$/,'').replace(/[^/]*$/,''), dj={day:'2-digit',month:'2-digit',year:'numeric'};
+  const quand=x=>{const f=agFin(x),h=x.heure?' '+agH(x.heure):'',hf=x.heureFin?' '+agH(x.heureFin):'';
+    return f!==x.date?`du ${fD(x.date)}${h}<br>au ${fD(f)}${hf}`:fD(x.date)+(x.heure?`<br>${agH(x.heure)}${x.heureFin?' – '+agH(x.heureFin):''}`:x.heureFin?'<br>avant '+agH(x.heureFin):'')};
+  const nom=m=>m.trib?'Tribune dépliable'+(m.x.cloison?' · '+m.x.cloison:''):(clParts(m.x).nom||'Cloison à préciser');
+  const hall=m=>m.trib?(m.x.hall||''):clParts(m.x).hall;
+  const act=x=>{const c=CLX_ACT[x.mouvement]||CLX_ACT.Autre;return `<span class="act" style="background:${c[1]};color:${c[0]};border-color:${c[0]}">${esc(x.mouvement||'—')}</span>`};
+  const cons=x=>[x.consigne,o.notes&&x.note].filter(Boolean).map(s=>esc(s)).join('<br>');
+  const row=(m,court)=>`<tr${m.x.statut==='Fait'?' class="fait"':''}><td class="n"><b class="pn">${m.n}</b></td><td class="q">${quand(m.x)}</td><td>${act(m.x)}${m.x.statut==='Fait'?'<br><small>déjà fait</small>':''}</td>
+    <td><b>${esc(nom(m))}</b>${!m.trib&&!m.m.P.length&&geo?'<br><small>non localisée sur le plan</small>':''}</td><td>${esc(hall(m))}</td>${court?'':`<td>${esc(m.x.salon||'')}</td>`}<td class="c">${cons(m.x)?(m.x.consigne?'⚠️ ':'')+cons(m.x):''}</td></tr>`;
+  // une intervention = mouvements du même créneau pour le même salon
+  const G=[];L.forEach(m=>{const k=m.x.date+'|'+agFin(m.x)+'|'+(m.x.salon||'');let g=G.find(g=>g.k===k);if(!g)G.push(g={k,L:[]});g.L.push(m)});
+  const titreG=g=>{const x=g.L[0].x,f=agFin(x);return (f!==x.date?'Du '+fD(x.date,{weekday:'long',day:'numeric',month:'long'})+' au '+fD(f,{weekday:'long',day:'numeric',month:'long',year:'numeric'}):(s=>s.charAt(0).toUpperCase()+s.slice(1))(fD(x.date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})))};
+  const titre=`Mouvements de cloisons - Eurexpo - ${o.du} au ${o.au}`;
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(titre)}</title>
+<style>
+@page{size:A4;margin:12mm}
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#1c1c1c;margin:0 auto;padding:22px;font-size:12.5px;max-width:820px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #004B46;padding-bottom:10px}
+.top img{height:46px}.top h1{font-size:20px;margin:0 0 3px;color:#004B46;letter-spacing:.02em}.top .s{color:#4b5563}
+.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 24px;background:#f0f2f2;border-left:8px solid #3FB498;padding:10px 12px;margin:12px 0 4px}
+h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#004B46;margin:20px 0 8px;display:flex;align-items:center;gap:10px}
+h2{break-after:avoid}h2::before{content:'';width:24px;height:9px;background:#3FB498;flex:none}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid #c9d0d0;padding:6px 7px;text-align:left;vertical-align:top}
+th{background:#004B46;color:#fff;font-weight:600;font-size:11.5px}tr{break-inside:avoid}
+td.n{width:34px;text-align:center}td.q{white-space:nowrap}td.c{width:27%}tr.fait td{color:#7b8585}small{color:#6b7280}
+.pn{display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:11px;background:#004B46;color:#fff;text-align:center;font-size:12px;padding:0 5px}
+.act{display:inline-block;border:1px solid;border-radius:3px;padding:2px 7px;font-weight:700;white-space:nowrap}
+.itv{break-inside:avoid;border:1px solid #c9d0d0;margin:0 0 14px}.itv>h3{margin:0;background:#f0f2f2;padding:8px 10px;font-size:13.5px;border-bottom:1px solid #c9d0d0}
+.itv>h3 span{font-weight:400;color:#4b5563}.itv .in{padding:10px}.plan{display:block;width:100%;height:auto;border:1px solid #c9d0d0;margin-top:10px}
+.leg{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px;font-size:11.5px;color:#374151}.leg span{display:inline-flex;align-items:center;gap:6px}
+.leg i{display:inline-block;width:30px;height:6px;border-radius:3px}.leg i.dash{background:repeating-linear-gradient(90deg,var(--c) 0 8px,transparent 8px 13px)}.leg .pn{min-width:20px;height:20px;line-height:20px;font-size:11px}
+.note{color:#4b5563;font-size:11.5px;margin-top:14px;border-top:1px solid #c9d0d0;padding-top:8px}
+.tools{position:sticky;top:0;background:#fff;padding:8px 0;margin-bottom:8px;display:flex;gap:10px;align-items:center;border-bottom:1px solid #dde2e2;z-index:2}
+.tools button{background:#004B46;color:#fff;border:0;border-radius:2px;padding:9px 16px;font-size:14px;cursor:pointer}.tools span{color:#4b5563}
+@media print{.tools{display:none}body{padding:0;max-width:none}}
+</style></head><body>
+<div class="tools"><button onclick="print()">🖨️ Enregistrer en PDF / Imprimer</button><span>Dans la fenêtre d'impression, choisis « Enregistrer au format PDF » comme destination.</span></div>
+${geo?`<svg width="0" height="0" style="position:absolute"><defs><image id="clxbg" href="${geo.bg}" x="0" y="0" width="${geo.w}" height="${geo.h}"/></defs></svg>`:''}
+<div class="top"><img src="${base}logo.png" alt="GL events Lyon" onerror="this.remove()"><div><h1>Mouvements de cloisons mobiles${o.trib&&L.some(m=>m.trib)?' et tribune':''}</h1><div class="s">Eurexpo Lyon · Service Bâtiment</div></div></div>
+<div class="meta"><div><b>Période :</b> du ${fD(o.du,dj)} au ${fD(o.au,dj)}</div><div><b>Édité le :</b> ${fD(today(),dj)}</div>
+  ${o.dest?`<div><b>Destinataire :</b> ${esc(o.dest)}</div>`:''}${o.contact?`<div><b>Contact Eurexpo :</b> ${esc(o.contact)}</div>`:''}
+  <div><b>Mouvements :</b> ${L.length}</div></div>
+<h2>Récapitulatif</h2>
+<table><thead><tr><th>N°</th><th>Créneau</th><th>Action</th><th>Cloison / position</th><th>Hall</th><th>Salon</th><th>Consigne</th></tr></thead><tbody>${L.map(m=>row(m)).join('')}</tbody></table>
+${geo?`<h2>Détail par intervention</h2>
+${G.map(g=>{const plan=clxPlan(g.L.filter(m=>m.m.P.length),geo);
+  return `<div class="itv"><h3>${esc(titreG(g))}${g.L[0].x.salon?` <span>· ${esc(g.L[0].x.salon)}</span>`:''}</h3><div class="in">
+  <table><thead><tr><th>N°</th><th>Créneau</th><th>Action</th><th>Cloison / position</th><th>Hall</th><th>Consigne</th></tr></thead><tbody>${g.L.map(m=>row(m,1)).join('')}</tbody></table>
+  ${plan}</div></div>`}).join('')}`:''}
+<p class="note">« À sortir » : cloison à mettre en place à la position indiquée · « À ranger » : cloison à replier dans son rangement. Document établi d'après le planning du service Bâtiment à la date d'édition ; toute modification de date ou de configuration fera l'objet d'un nouvel envoi.</p>
+<script>window.addEventListener('load',function(){setTimeout(function(){try{print()}catch(e){}},500)})<\/script>
+</body></html>`;
 }
 
 /* ================== DEMANDES DE TRAVAUX (appli « travaux ») ================== */

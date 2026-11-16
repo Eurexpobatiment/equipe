@@ -481,7 +481,12 @@ function applyExt(){
 }
 window.addEventListener("message",e=>{ const m=e.data; if(!m) return;
   if(m.cloisonsState){ EXT=m; applyExt(); }
-  if(m.cloisonsSelect&&PICK) pickSet(m.cloisonsSelect); });
+  if(m.cloisonsSelect&&PICK) pickSet(m.cloisonsSelect);
+  // tracé du plan pour l'export prestataire de l'appli Équipe (bon de mouvements)
+  if(m.cloisonsGeoAsk&&e.source) try{ e.source.postMessage({cloisonsGeo:{bg:document.getElementById("bg").getAttribute("href"),w:VB.all[2],h:VB.all[3],
+    zones:Object.entries(Z).filter(([k,z])=>z.m2).map(([k,z])=>({n:zn(k),x:z.x,y:z.y})),
+    lines:Object.fromEntries(Object.entries(LINES).map(([k,L])=>[k,L.pts])),
+    pos:C.flatMap(c=>c.pos.map(p=>({c:c.id,p:p.id,keys:keysOf(c,p.id)})))}},"*"); }catch(_){} });
 preset("actuel");
 if(PICK) pickSet([]);
 if(document.body.classList.contains("embed")) try{ parent.postMessage({cloisonsReady:1},"*"); }catch(e){}
