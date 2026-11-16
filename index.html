@@ -295,6 +295,9 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .mvadd input,.mvadd select{border:1px solid #d5d9e2;border-radius:8px;padding:8px 9px;font-size:14px;width:100%;background:#fff}
 .mvadd .wide{grid-column:1/-1}
 .mvadd button{grid-column:1/-1}
+.pjbox{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}.pjbox h3{font-size:14px;margin:0 0 10px}.pjbox .mvt{margin:0}.pjbox .empty{margin:6px 0}
+.pjdet .mvadd{grid-template-columns:repeat(4,1fr)}.pjdet .mvadd .wide{grid-column:span 2}.pjdet .mvadd button{grid-column:auto}
+@media(max-width:720px){.pjdet .mvadd{grid-template-columns:1fr 1fr}.pjdet .mvadd .wide,.pjdet .mvadd button{grid-column:1/-1}}
 .inv .bt{flex:1}.sapn{font-variant-numeric:tabular-nums;color:var(--navy)}
 @media (max-width:820px){
   .kpis.dtks{grid-template-columns:repeat(3,1fr);gap:6px}.dtks .kpi{padding:6px 8px}.dtks .kpi b{font-size:17px}.dtks .kpi span{font-size:10px}
@@ -2329,6 +2332,8 @@ function pjCalc(p){
 }
 function vProjets(el){
   const st=UI.pj||(UI.pj={f:'actifs',q:'',w:'tous'}), q=st.q.trim().toLowerCase(); if(!st.w)st.w='tous';
+  const pd=st.open&&D.Projets.find(x=>x.id===st.open&&pjAcc(x).includes(me));
+  if(pd) return vProjetDetail(el,pd);
   const all=pjMine(), act=p=>!['Clôturé','Annulé'].includes(p.statut), nPart=all.filter(p=>p.proprio!==me).length;
   let L=all.filter(p=>st.f==='tous'||(st.f==='actifs'?act(p):!act(p)));
   if(st.w==='miens')L=L.filter(p=>p.proprio===me); else if(st.w==='partages')L=L.filter(p=>p.proprio!==me);
@@ -2345,7 +2350,7 @@ function vProjets(el){
     <td class="r ${c.resteEng<-0.005?'negt':''}">${p.budget===''?'—':eur(c.resteEng)}</td><td class="r ${c.resteFac<-0.005?'negt':''}">${eur(c.resteFac)}</td>
     <td class="pc">${p.budget===''?'':barHtml(c.pct)+`<small>${pctTxt(c.pct)}</small>`}</td></tr>`};
   el.innerHTML=`<div class="bar"><h2>Suivi financier de projets</h2><span class="sp"></span>${all.length?'<button class="btn" onclick="pjExport()">⬇️ Export Excel</button>':''}<button class="btn pri" onclick="pjNew()">+ Projet</button></div>
-    <p class="hint">🔒 Tes projets ne sont visibles que par toi… et par les membres de l'équipe avec qui tu choisis de les partager (🤝 dans la fiche du projet). Montants en € HT : devis reçus (pour info), engagé = BDC, facturé = factures − avoirs.</p>
+    <p class="hint">🔒 Tes projets ne sont visibles que par toi… et par les membres de l'équipe avec qui tu choisis de les partager (🤝 dans la fiche du projet). Clique sur un projet pour ouvrir ses devis, BDC et factures. Montants en € HT : devis reçus (pour info), engagé = BDC, facturé = factures − avoirs.</p>
     ${globalThis.PROJ_ERR?`<div class="docwarn">⚠️ Règles Firebase à mettre à jour pour le suivi de projets (${esc(globalThis.PROJ_ERR)}).<br>Publie les nouvelles règles : console Firebase › Firestore Database › Règles.</div>`:''}
     <div class="kpis"><div class="kpi"><span>Budget</span><b>${eur(s.bud)}</b></div><div class="kpi"><span>Engagé (BDC)</span><b>${eur(s.bdc)}</b></div>
       <div class="kpi"><span>Facturé</span><b>${eur(s.fac)}</b></div><div class="kpi ${rE<0?'neg':''}"><span>Reste à engager</span><b>${eur(rE)}</b></div>
@@ -2356,23 +2361,44 @@ function vProjets(el){
 }
 const pjVal=o=>o.budget!==''&&!isPureNum(o.budget)?'Budget : saisis un nombre (ex. 15000 ou 1 234,56)':'';
 function pjNew(){openForm('Projets',{},'Nouveau projet',{validate:pjVal,extra:'<p class="hint">Une fois le projet enregistré, tu pourras y saisir devis, BDC, factures et avoirs.</p>',onSaved:r=>pjOpen(r.id)})}
-function pjOpen(id){
+// Clic sur un projet : il s'ouvre directement sur ses devis, BDC, factures et avoirs (comme un benchmark) ; la fiche reste accessible par « ✏️ Fiche »
+const PM_IDS=['pm_date','pm_nat','pm_num','pm_fou','pm_lig','pm_mt','pm_lib'];
+function pjOpen(id){(UI.pj||(UI.pj={f:'actifs',q:'',w:'tous'})).open=id;UI.pjEd='';UI.pjVu='';render();window.scrollTo(0,0)}
+function pjFiche(id){
   const p=D.Projets.find(x=>x.id===id); if(!p) return;
-  const extra=`<div class="coms"><h3>Devis, BDC, factures et avoirs</h3><div id="pmsum"></div><div id="pmlist"></div>
-    <div class="mvadd"><input type="date" id="pm_date" value="${today()}"><select id="pm_nat">${NAT_PJ.map(n=>`<option ${n==='BDC'?'selected':''}>${n}</option>`).join('')}</select>
-      <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" class="wide2" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
-      <input id="pm_lig" class="wide2" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>`;
-  UI.pjEd='';
   const own=p.proprio===me, F=own?FORMS.Projets:FORMS.Projets.filter(f=>f.k!=='partage');
   const info=own?'':`<p class="hint">🤝 Projet de <b>${esc(p.proprio)}</b>, partagé avec ${esc(espList(p.partage).join(', '))}. Tu peux le modifier et y saisir des lignes ; seul ${esc(p.proprio)} peut changer le partage ou le supprimer.</p>`;
-  openForm('Projets',p,'📊 '+p.titre,{fields:F,noDel:!own,validate:pjVal,extra:info+extra,after:()=>{pjMvRender(id);$('#pm_add').onclick=()=>pjMvAdd(id);
-    $('#pm_nat').onchange=pjLg;pjLg()}});
+  openForm('Projets',p,'📊 '+p.titre,{fields:F,noDel:!own,validate:pjVal,extra:info});
+}
+function vProjetDetail(el,p){
+  // une mise à jour en direct ne doit pas effacer une saisie en cours
+  const keep=UI.pjVu===p.id&&$('#pm_add')?Object.fromEntries(PM_IDS.map(k=>[k,$('#'+k).value])):null;
+  UI.pjVu=p.id; if(!keep||!D.ProjetMvts.some(m=>m.id===UI.pjEd))UI.pjEd='';
+  const c=pjCalc(p), jj=d=>fD(d,{day:'2-digit',month:'2-digit',year:'2-digit'});
+  const infos=[p.entreprise&&'Entreprise(s) : <b>'+esc(p.entreprise)+'</b>',pjLignes(p.id).length&&'Ligne(s) budgétaire(s) : <b>'+esc(pjLignes(p.id).join(', '))+'</b>',
+    p.dateDebut&&'début '+jj(p.dateDebut),p.dateFin&&'fin prévue '+jj(p.dateFin),esc(pjShare(p)),p.note&&esc(p.note)].filter(Boolean).join(' · ');
+  el.innerHTML=`<div class="bar"><button class="btn" onclick="UI.pj.open='';render()">← Projets</button><h2>📊 ${esc(p.titre)}</h2>
+      <span class="etat pjst" style="background:${PJ_ST[p.statut]||'#64748b'};color:#fff">${esc(p.statut||'')}</span>${c.hors?'<span class="etat ko">Hors budget</span>':''}${c.surFac?'<span class="etat ko" title="Plus facturé que commandé">Factures &gt; BDC</span>':''}<span class="sp"></span>
+      <button class="btn" onclick="pjFiche('${p.id}')">✏️ Fiche</button></div>
+    ${infos?`<p class="hint">${infos}</p>`:''}
+    <div class="pjdet"><div id="pmsum"></div>
+      <div class="pjbox"><h3>Ajouter un devis, un BDC, une facture ou un avoir</h3>
+        <div class="mvadd"><input type="date" id="pm_date" value="${today()}"><select id="pm_nat">${NAT_PJ.map(n=>`<option ${n==='BDC'?'selected':''}>${n}</option>`).join('')}</select>
+          <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
+          <input id="pm_lig" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>
+      <div class="pjbox"><h3>Devis, BDC, factures et avoirs</h3><div id="pmlist"></div></div></div>`;
+  hallsDatalist(); budgetDatalists();
+  if(keep){PM_IDS.forEach(k=>$('#'+k).value=keep[k]); if(UI.pjEd){$('#pm_add').textContent='Enregistrer la modification';$('#pm_cancel').hidden=false}}
+  $('#pm_add').onclick=()=>pjMvAdd(p.id); $('#pm_nat').onchange=pjLg; const lg=$('#pm_lig').value; pjLg(); if(keep&&$('#pm_nat').value==='BDC')$('#pm_lig').value=lg;
+  pjMvRender(p.id);
 }
 function pjMvRender(id){
   const p=D.Projets.find(x=>x.id===id); if(!p||!$('#pmlist')) return;
   const c=pjCalc(p), sh=pjAcc(p).length>1, ms=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  $('#pmsum').innerHTML=`<div class="mvk"><span>Budget <b>${p.budget===''?'—':eur(c.bud,1)}</b></span><span>Devis <b>${eur(c.dev,1)}</b></span><span>Engagé <b>${eur(c.bdc,1)}</b></span><span>Facturé <b>${eur(c.fac,1)}</b></span>
-    <span class="${c.resteEng<-0.005?'negt':''}">Reste à engager <b>${p.budget===''?'—':eur(c.resteEng,1)}</b></span><span class="${c.resteFac<-0.005?'negt':''}">Reste à payer <b>${eur(c.resteFac,1)}</b></span></div>`;
+  $('#pmsum').innerHTML=`<div class="kpis"><div class="kpi"><span>Budget</span><b>${p.budget===''?'—':eur(c.bud,1)}</b></div><div class="kpi"><span>Devis reçus</span><b>${eur(c.dev,1)}</b></div>
+    <div class="kpi"><span>Engagé (BDC)</span><b>${eur(c.bdc,1)}</b></div><div class="kpi"><span>Facturé</span><b>${eur(c.fac,1)}</b></div>
+    <div class="kpi ${c.resteEng<-0.005?'neg':''}"><span>Reste à engager</span><b>${p.budget===''?'—':eur(c.resteEng,1)}</b></div><div class="kpi ${c.resteFac<-0.005?'neg':''}"><span>Reste à payer</span><b>${eur(c.resteFac,1)}</b></div>
+    ${p.budget===''?'':`<div class="kpi"><span>Engagé / budget</span><b>${pctTxt(c.pct)}</b>${barHtml(c.pct)}</div>`}</div>`;
   $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${m.ligne||sh?`<small>${esc([m.ligne&&'Ligne '+m.ligne,sh&&'par '+(m.creePar||m.majPar)].filter(Boolean).join(' · '))}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
 }
 function pjLg(){const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''}
