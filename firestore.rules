@@ -257,6 +257,17 @@ service cloud.firestore {
                     || tkEntreprise();
       allow delete: if member();
     }
+    // Page « Mes interventions » d'une entreprise (tickets/?e=clé) : la clé de l'entreprise (32 caractères tirés au hasard, gardée dans
+    // TicketsCfg/config que seules les équipes Eurexpo lisent) sert de secret. La fiche ne contient que le nom, le métier et la liste
+    // des clés des tickets de l'entreprise ; pas de « list » : sans la clé, impossible de trouver une fiche.
+    match /TicketsEnt/{cle} {
+      allow get: if true;            // par le lien de l'entreprise
+      allow create, update: if tkEquipe() && cle.matches('[0-9a-f]{32}')
+                            && request.resource.data.keys().hasOnly(['nom', 'metier', 'tickets', 'majLe'])
+                            && tkStr(request.resource.data, 'nom', 120) && tkStr(request.resource.data, 'metier', 80)
+                            && tkStr(request.resource.data, 'majLe', 40) && tkListe(request.resource.data, 'tickets', 5000);
+      allow delete: if member();
+    }
     // Liste des entreprises proposées (fiche « config », tenue par le Bâtiment) et numérotation TK-AAAA-NNNN (fiches « n-AAAA »)
     match /TicketsCfg/{id} {
       allow get: if tkEquipe();
