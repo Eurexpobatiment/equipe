@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#004b46">
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://api.fontshare.com"><link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600&amp;display=swap">
+<link rel="icon" href="../icons/icon.svg?v=2" type="image/svg+xml">
+<title>Ticketing · Eurexpo</title>
+<style>
+/* Ticketing – Eurexpo · même charte que l'appli Équipe (gl-lyonevents.com) */
+:root{--navy:#004B46;--navy2:#00393A;--accent:#D62839;--bg:#F0F2F2;--card:#fff;--line:#DDE2E2;--muted:#4B5563;--txt:#1C1C1C;
+--ok:#1F8A6E;--blue:#00697E;--mint:#3FB498;--grey:#9AA5A5;--warn:#B7791F}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Clash Grotesk","Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:15.5px;line-height:1.4;-webkit-text-size-adjust:100%;letter-spacing:.005em}
+button,input,select,textarea{font:inherit;color:inherit}
+header{background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:8px 16px;padding-top:max(8px,env(safe-area-inset-top));position:sticky;top:0;z-index:20}
+header img{height:34px;max-width:40vw;object-fit:contain}
+header h1{font-size:16px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1 small{display:block;font-size:11px;letter-spacing:.02em;text-transform:none;color:var(--muted)}
+body.embed header{display:none}
+main{max-width:980px;margin:0 auto;padding:16px 14px 90px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.bar h2{margin:0;flex:1;display:flex;align-items:center;gap:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:19px;min-width:0}
+.bar h2::before{content:'';flex:none;width:28px;height:10px;background:var(--mint)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:2px;padding:10px 14px;cursor:pointer;text-decoration:none;color:var(--txt);min-height:44px}
+.btn:hover{background:var(--bg)}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.pri:hover{background:var(--navy2)}
+.btn.wa{background:#1FA855;border-color:#1FA855;color:#fff;font-weight:600}
+.btn.wa:hover{background:#178a45}
+.btn.dan{color:var(--accent);border-color:#f0c2c7}
+.btn.big{width:100%;padding:14px;font-size:17px;font-weight:600}
+.btn.sm{min-height:34px;padding:5px 10px;font-size:14px}
+.btn[disabled]{opacity:.5;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:2px;padding:14px;margin-bottom:10px}
+.hint{color:var(--muted);font-size:13.5px}
+.err{background:#fdecee;color:#8a1c27;border:1px solid #f0c2c7;padding:10px 12px;border-radius:2px;margin-bottom:10px}
+.info{background:#e8f5f1;color:#0b4f3f;border:1px solid #bfe3d8;padding:10px 12px;border-radius:2px;margin-bottom:10px}
+label{display:block;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#3b4444;margin:14px 0 5px}
+label:first-child{margin-top:0}
+input[type=text],input[type=email],input[type=password],select,textarea{width:100%;border:1px solid #c9d0d0;border-radius:2px;padding:11px 12px;background:#fff;font-size:16px}
+textarea{min-height:96px;resize:vertical}
+input:focus,select:focus,textarea:focus,.btn:focus-visible{outline:2px solid var(--mint);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:9px 13px;cursor:pointer;min-height:42px}
+.seg button.on{background:var(--navy);color:#fff}
+.seg.prio button.on[data-v=Urgente]{background:var(--accent)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters select{width:auto;flex:1;min-width:150px;padding:9px 10px;font-size:15px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:#fff;border:1px solid var(--line);padding:8px 12px;border-radius:2px;flex:1;min-width:96px}
+.stat b{display:block;font-size:22px;font-weight:600;line-height:1.1}
+.stat span{font-size:12.5px;color:var(--muted)}
+.stat.al b{color:var(--accent)}
+.tk{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-left:5px solid var(--grey);border-radius:2px;padding:11px 12px;margin-bottom:8px;cursor:pointer}
+.tk:hover{background:#fafbfb}
+.tk.s-Nouveau{border-left-color:var(--accent)}.tk.s-Envoye{border-left-color:var(--warn)}.tk.s-Pris{border-left-color:var(--blue)}.tk.s-Termine{border-left-color:var(--ok)}
+.tk .l1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.tk .l2{font-weight:600;margin:3px 0 2px;font-size:16px}
+.tk .l3{color:#2d353b;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pill{display:inline-block;padding:2px 8px;border-radius:2px;font-size:12.5px;font-weight:600;background:#eef1f1;color:#2d353b;white-space:nowrap}
+.pill.Nouveau{background:#fdecee;color:#8a1c27}.pill.Envoye{background:#fdf3dc;color:#7a5200}.pill.Pris{background:#dff0f4;color:#00525f}.pill.Termine{background:#e1f3ec;color:#0b5f47}.pill.Annule{background:#eceeee;color:#555}
+.pill.urg{background:var(--accent);color:#fff}
+.late{color:var(--accent);font-weight:600}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+.kv dt{color:var(--muted);font-size:13.5px}.kv dd{margin:0;font-weight:500;word-break:break-word}
+.desc{white-space:pre-wrap;font-size:17px;margin:8px 0 0}
+.tl{list-style:none;margin:0;padding:0}
+.tl li{position:relative;padding:0 0 12px 22px;border-left:2px solid var(--line);margin-left:6px}
+.tl li:last-child{border-left-color:transparent;padding-bottom:0}
+.tl li::before{content:'';position:absolute;left:-7px;top:3px;width:12px;height:12px;border-radius:50%;background:var(--mint)}
+.tl small{display:block;color:var(--muted)}
+.photos{display:flex;gap:8px;flex-wrap:wrap}
+.photos a,.photos .ph{display:block;width:104px;height:104px;border:1px solid var(--line);background:#eef1f1 center/cover no-repeat;position:relative;border-radius:2px}
+.photos .ph button{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;border:0;background:var(--accent);color:#fff;cursor:pointer;line-height:1}
+.acts{display:flex;flex-direction:column;gap:8px}
+.acts2{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+h3{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#3b4444;margin:0 0 10px}
+/* Plan (déplacement, zoom, pastille) */
+.pz{position:relative;overflow:hidden;background:#fff;border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none;height:230px;cursor:grab}
+.pz.lock{touch-action:auto;cursor:pointer}.pz.lock .pzin{pointer-events:none}
+.pzin{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.pzin img{display:block;width:100%;height:100%;pointer-events:none}
+.pin{position:absolute;width:34px;height:44px;transform-origin:50% 100%;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.pin svg{display:block;width:100%;height:100%}
+.pzb{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+.pzb button{width:42px;height:42px;border:1px solid var(--line);background:#fff;font-size:22px;cursor:pointer;border-radius:2px}
+.pztag{position:absolute;left:8px;bottom:8px;background:rgba(0,75,70,.92);color:#fff;font-size:12.5px;padding:4px 8px;border-radius:2px;pointer-events:none}
+.ov{position:fixed;inset:0;background:#fff;z-index:50;display:flex;flex-direction:column}
+.ov .ovh{display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);padding-top:max(10px,env(safe-area-inset-top))}
+.ov .ovh b{flex:1;font-weight:500;letter-spacing:.06em;text-transform:uppercase}
+.ov .pz{flex:1;height:auto;border:0}
+.ov .ovf{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.ov .ovf .btn{flex:1}
+.dlg{position:fixed;inset:0;background:rgba(0,40,38,.45);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+.dlg>div{background:#fff;width:100%;max-width:560px;padding:16px;max-height:92vh;overflow:auto;border-radius:2px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+@media(min-width:620px){.dlg{align-items:center}}
+.cfgrow{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:2px;z-index:80;max-width:90vw}
+.center{text-align:center}
+@media(max-width:560px){header img{height:26px;max-width:36vw}header h1 small{display:none}.bar h2{font-size:17px;white-space:nowrap}.bar h2::before{width:18px}.stat{min-width:40%}}
+</style>
+</head>
+<body>
+<header><img src="../logo.png" alt="GL events Lyon"><h1>Ticketing<small>Eurexpo · service Bâtiment</small></h1><span id="who"></span></header>
+<main id="app"><p class="hint center">Chargement…</p></main>
+
+<script type="module">
+/* Ticketing – Eurexpo
+ * - Bâtiment (comptes de l'appli Équipe) et autres services (adresse de l'entreprise) : création et suivi des tickets.
+ * - Entreprises : ouverture du ticket par le lien du message WhatsApp (?t=clé), sans compte : « Pris en charge », « Terminé ».
+ * Données : Firestore (Tickets, TicketsCfg) et Storage (tickets/{clé}/{photo}) du projet equipe-batiment.
+ */
+const CONFIG = {
+  firebase: {
+    apiKey: 'AIzaSyARtP0RMkulG6c53-bnazwpGTspl0LgAhk', // clé publique (faite pour être dans la page)
+    authDomain: 'equipe-batiment.firebaseapp.com',
+    projectId: 'equipe-batiment',
+    storageBucket: 'equipe-batiment.firebasestorage.app',
+    messagingSenderId: '408022301135',
+    appId: '1:408022301135:web:69dee0a5fb479154657aba'
+  },
+  appCheckSite: '6Le3lBguAAAAAGb774RgCJp5Gd_jfG38Tks9out3',
+  domaine: /@gl-events\.com$/,
+  halls: ['Hall 1','Hall 2.1 AB','Hall 2.1 Ext','Hall 2.2','Hall 2.3','Hall 3.1','Hall 3.2','Hall 4.1','Hall 4.2','Hall 4.3','Hall 5.1','Hall 5.2','Hall 6.1','Hall 6.2','Hall 6.3','Hall 7',
+          'Galerie 2','Galerie 4','Galerie 6','Place des Lumières','Accueil','Parvis','Parkings','Voiries / extérieurs','Bureaux / administratif','Toitures','Locaux techniques','Sous-sol / galeries techniques'],
+  services: ['Bâtiment','Exploitation','Sécurité / sûreté','Commercial','Logistique','Restauration','Informatique','Autre'],
+  attenteMin: 30, attenteUrgentMin: 10, // au-delà, un ticket non pris en charge est signalé en rouge
+  planRatio: 3113 / 4400
+};
+const OUVERTS = ['Nouveau', 'Envoyé', 'Pris en charge'];
+const CLS = { 'Nouveau': 'Nouveau', 'Envoyé': 'Envoye', 'Pris en charge': 'Pris', 'Terminé': 'Termine', 'Annulé': 'Annule' };
+
+/* ---------- Petits outils ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const hex = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
+const now = () => new Date().toISOString();
+const fDate = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' à'); };
+const dur = ms => { const m = Math.max(0, Math.round(ms / 60000)); if (m < 60) return m + ' min'; const h = Math.floor(m / 60); if (h < 48) return h + ' h ' + String(m % 60).padStart(2, '0'); return Math.floor(h / 24) + ' j'; };
+const entre = (a, b) => (a && b) ? dur(new Date(b) - new Date(a)) : '';
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 3200); }
+const Q = new URLSearchParams(location.search);
+const EMBED = Q.has('embed') || window.top !== window.self; // affiché dans l'appli Équipe : sans en-tête
+if (EMBED) document.body.classList.add('embed');
+if (Q.get('t') && !/^[0-9a-f]{32}$/.test(Q.get('t'))) Q.delete('t'); // paramètre étranger (rechargement depuis l'appli Équipe)
+const BASE = location.origin + location.pathname.replace(/index\.html$/, '');
+const lien = cle => BASE + '?t=' + cle;
+
+/* ---------- Firebase ---------- */
+const V = '10.14.1';
+let A, F, S, auth, db, st, acOk = false;
+async function fbInit() {
+  const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  [A, F, S] = await Promise.all([
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-storage.js`)]);
+  const app = initializeApp(CONFIG.firebase);
+  // App Check : prouve à Firebase que les requêtes viennent bien de nos pages (obligatoire pour les photos)
+  try {
+    const AC = await Promise.race([import(`https://www.gstatic.com/firebasejs/${V}/firebase-app-check.js`), new Promise(r => setTimeout(() => r(null), 5000))]);
+    if (AC) { AC.initializeAppCheck(app, { provider: new AC.ReCaptchaEnterpriseProvider(CONFIG.appCheckSite), isTokenAutoRefreshEnabled: true }); acOk = true; }
+  } catch (e) { console.warn('App Check :', e); }
+  // Connexion partagée avec les autres applis eurexpobatiment.github.io (même rangement partout)
+  try { auth = A.initializeAuth(app, { persistence: [A.browserLocalPersistence, A.indexedDBLocalPersistence] }); } catch (e) { auth = A.getAuth(app); }
+  db = F.getFirestore(app);
+  st = S.getStorage(app);
+}
+const MSG = {
+  'auth/invalid-email': 'Adresse e-mail invalide', 'auth/invalid-credential': 'E-mail ou mot de passe incorrect', 'auth/wrong-password': 'E-mail ou mot de passe incorrect',
+  'auth/user-not-found': 'Aucun compte avec cette adresse : utiliser « Première connexion »', 'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse : se connecter (ou « Mot de passe oublié »)',
+  'auth/weak-password': 'Mot de passe trop court (6 caractères minimum)', 'auth/too-many-requests': 'Trop d\'essais : patienter quelques minutes', 'auth/network-request-failed': 'Pas de connexion internet',
+  'permission-denied': 'Accès refusé pour cette action', 'unavailable': 'Serveur injoignable (pas de connexion ?)', 'storage/unauthorized': 'Envoi de la photo refusé', 'storage/retry-limit-exceeded': 'Envoi de la photo interrompu (connexion ?)'
+};
+const errMsg = e => MSG[e && e.code] || (e && e.message) || String(e);
+
+/* ---------- État ---------- */
+let me = null;          // {email, nom, service, membre} si connecté avec droit de créer ; sinon null
+let authEtat = 'attente'; // attente | deconnecte | non-verifie | sans-acces | ok
+let cfg = { entreprises: [], salons: [] };
+let ouverts = [], histo = null, unsubOuverts = null, unsubTicket = null;
+let ui = { vue: 'ouverts', salon: '', entreprise: '' };
+const urlCache = {};
+
+async function photoUrl(cle, fid) {
+  const k = cle + '/' + fid;
+  if (!urlCache[k]) urlCache[k] = S.getDownloadURL(S.ref(st, 'tickets/' + k)).catch(() => '');
+  return urlCache[k];
+}
+// Réduit une photo de téléphone (≈ 4 Mo) à ≈ 300 Ko avant l'envoi
+async function reduire(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => null);
+  if (!bmp) return file;
+  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise(ok => c.toBlob(b => ok(b || file), 'image/jpeg', 0.72));
+}
+async function envoyerPhotos(cle, blobs) {
+  const ids = [];
+  for (const b of blobs) { const fid = hex(8); await S.uploadBytes(S.ref(st, `tickets/${cle}/${fid}`), b, { contentType: 'image/jpeg' }); ids.push(fid); }
+  return ids;
+}
+
+/* ---------- Plan : déplacement, zoom, pastille ---------- */
+const PIN = '<svg viewBox="0 0 34 44"><path d="M17 43C17 43 32 26 32 16A15 15 0 0 0 2 16C2 26 17 43 17 43Z" fill="#D62839" stroke="#fff" stroke-width="2"/><circle cx="17" cy="16" r="5.5" fill="#fff"/></svg>';
+function plan(host, o = {}) {
+  host.innerHTML = `<div class="pz${o.lock ? ' lock' : ''}"><div class="pzin"><img src="plan-s.webp" alt="Plan de masse d'Eurexpo" draggable="false"><div class="pin" hidden>${PIN}</div></div>
+    ${o.lock ? (o.tag ? `<div class="pztag">${esc(o.tag)}</div>` : '') : '<div class="pzb"><button type="button" data-z="1.6" aria-label="Zoom avant">+</button><button type="button" data-z="0.625" aria-label="Zoom arrière">−</button><button type="button" data-z="0" aria-label="Vue d\'ensemble">⤢</button></div>'}</div>`;
+  const vp = host.firstChild, inn = vp.firstChild, img = inn.firstChild, pin = inn.children[1], R = CONFIG.planRatio;
+  let s = 1, x = 0, y = 0, W = 0, H = 0, hd = false, px = o.px, py = o.py, pret = false;
+  const aPin = () => typeof px === 'number' && typeof py === 'number';
+  const smin = () => Math.min(1, H / (W * R));
+  function apply() {
+    const cw = W * s, ch = W * R * s;
+    x = cw <= W ? (W - cw) / 2 : Math.min(0, Math.max(W - cw, x));
+    y = ch <= H ? (H - ch) / 2 : Math.min(0, Math.max(H - ch, y));
+    inn.style.transform = `translate(${x}px,${y}px) scale(${s})`;
+    pin.style.transform = `translate(-50%,-100%) scale(${1 / s})`;
+    if (s > 2 && !hd) { hd = true; const i = new Image(); i.onload = () => { img.src = i.src; }; i.src = 'plan.webp'; }
+  }
+  function placer() { pin.hidden = !aPin(); if (aPin()) { pin.style.left = px * 100 + '%'; pin.style.top = py * 100 + '%'; } }
+  function centrer(z) { s = z; x = W / 2 - px * W * s; y = H / 2 - py * W * R * s; apply(); }
+  function size() {
+    const w = vp.clientWidth, h = vp.clientHeight; if (!w || !h) return;
+    const premier = !pret; W = w; H = h; inn.style.width = W + 'px'; inn.style.height = W * R + 'px'; pret = true;
+    if (premier) { if (aPin()) centrer(o.zoom || 5); else { s = smin(); apply(); } } else apply();
+  }
+  function zoomAt(cx, cy, f) { const ns = Math.min(16, Math.max(smin(), s * f)); x = cx - (cx - x) * ns / s; y = cy - (cy - y) * ns / s; s = ns; apply(); }
+  placer(); new ResizeObserver(size).observe(vp); requestAnimationFrame(size);
+  if (o.lock) return {};
+  const pts = new Map(); let d0 = 0, bouge = 0, depart = null;
+  const pos = e => { const r = vp.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  vp.addEventListener('pointerdown', e => { if (e.target.closest('.pzb')) return; vp.setPointerCapture(e.pointerId); pts.set(e.pointerId, pos(e)); if (pts.size === 1) { bouge = 0; depart = pos(e); } else depart = null; d0 = 0; });
+  vp.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return; const p = pos(e), a = pts.get(e.pointerId); pts.set(e.pointerId, p);
+    if (pts.size === 1) { x += p[0] - a[0]; y += p[1] - a[1]; bouge += Math.abs(p[0] - a[0]) + Math.abs(p[1] - a[1]); apply(); }
+    else if (pts.size === 2) { const [p1, p2] = [...pts.values()], d = Math.hypot(p1[0] - p2[0], p1[1] - p2[1]); if (d0) zoomAt((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2, d / d0); d0 = d; }
+  });
+  const fin = e => {
+    if (!pts.has(e.pointerId)) return; const p = pos(e); pts.delete(e.pointerId); d0 = 0;
+    if (e.type === 'pointerup' && depart && bouge < 10 && o.edit && !pts.size) {
+      const nx = (p[0] - x) / (W * s), ny = (p[1] - y) / (W * R * s);
+      if (nx >= 0 && nx <= 1 && ny >= 0 && ny <= 1) { px = +nx.toFixed(4); py = +ny.toFixed(4); placer(); apply(); o.onPick && o.onPick(px, py); }
+    }
+  };
+  vp.addEventListener('pointerup', fin); vp.addEventListener('pointercancel', fin);
+  vp.addEventListener('wheel', e => { e.preventDefault(); const p = pos(e); zoomAt(p[0], p[1], e.deltaY < 0 ? 1.25 : 0.8); }, { passive: false });
+  vp.querySelectorAll('.pzb button').forEach(b => b.onclick = () => { const f = +b.dataset.z; if (!f) { s = smin(); x = y = 0; apply(); } else zoomAt(W / 2, H / 2, f); });
+  return { get: () => (aPin() ? { px, py } : null) };
+}
+// Plan en plein écran : choisir (edit) ou consulter l'emplacement
+function planPleinEcran(o) {
+  return new Promise(ok => {
+    const ov = document.createElement('div'); ov.className = 'ov';
+    ov.innerHTML = `<div class="ovh"><b>${o.edit ? 'Toucher le plan pour placer la pastille' : 'Emplacement'}</b><button class="btn sm" data-x>Fermer</button></div><div style="flex:1;display:flex;min-height:0"></div>
+      ${o.edit ? '<div class="ovf"><button class="btn" data-clr>Retirer la pastille</button><button class="btn pri" data-ok>Valider</button></div>' : ''}`;
+    document.body.append(ov); const host = ov.children[1];
+    const p = plan(host, { px: o.px, py: o.py, edit: o.edit, zoom: o.edit ? 3 : 5 });
+    const close = v => { ov.remove(); ok(v); };
+    $('[data-x]', ov).onclick = () => close(undefined);
+    if (o.edit) { $('[data-ok]', ov).onclick = () => close(p.get()); $('[data-clr]', ov).onclick = () => close(null); }
+  });
+}
+
+/* ---------- Message WhatsApp ---------- */
+function message(t) {
+  const L = [];
+  const qui = [t.metier && t.metier.toUpperCase(), t.entreprise].filter(Boolean).join(' – ') || 'Ticket Eurexpo';
+  L.push((t.priorite === 'Urgente' ? '🔴 *URGENT* · ' : '🔧 ') + '*' + qui + '*');
+  L.push('📍 ' + [t.hall, t.emplacement].filter(Boolean).join(' · '));
+  L.push(t.description);
+  L.push('🎫 ' + t.numero + (t.salon ? ' · ' + t.salon : '') + ' · signalé par ' + t.creePar + (t.service ? ' (' + t.service + ')' : ''));
+  L.push('👉 Plan, photo et prise en charge : ' + lien(t.cle));
+  return L.filter(x => x && x.trim()).join('\n');
+}
+const waUrl = t => 'https://wa.me/?text=' + encodeURIComponent(message(t));
+async function marquerEnvoye(t) {
+  if (!me || t.statut !== 'Nouveau') return;
+  try { await F.updateDoc(F.doc(db, 'Tickets', t.cle), { statut: 'Envoyé', envoyeLe: now(), majLe: now(), majPar: me.nom }); } catch (e) { console.warn(e); }
+}
+// Partage avec la première photo jointe (téléphone) : WhatsApp reçoit la photo avec le message en légende
+async function partagerAvecPhoto(t) {
+  try {
+    const u = await photoUrl(t.cle, t.photos[0]); const b = await (await fetch(u)).blob();
+    const f = new File([b], t.numero + '.jpg', { type: 'image/jpeg' });
+    if (!navigator.canShare || !navigator.canShare({ files: [f] })) throw 0;
+    await navigator.share({ files: [f], text: message(t) }); marquerEnvoye(t);
+  } catch (e) { if (e && e.name === 'AbortError') return; window.open(waUrl(t), '_blank', 'noopener'); marquerEnvoye(t); }
+}
+
+/* ---------- Connexion ---------- */
+function ecouterConnexion() {
+  A.onAuthStateChanged(auth, async u => {
+    me = null; if (unsubOuverts) { unsubOuverts(); unsubOuverts = null; } ouverts = []; histo = null;
+    if (!u || u.isAnonymous) { authEtat = 'deconnecte'; return route(); }
+    const email = String(u.email || '').toLowerCase();
+    if (!u.emailVerified) { await u.reload().catch(() => {}); if (!auth.currentUser || !auth.currentUser.emailVerified) { authEtat = 'non-verifie'; return route(); } }
+    try { const r = await u.getIdTokenResult(); if (r.claims.email_verified !== true) await u.getIdToken(true); } catch (e) {}
+    let acc = null; try { const s = await F.getDoc(F.doc(db, 'Acces', email)); if (s.exists() && s.data().actif !== 'non') acc = s.data(); } catch (e) {}
+    if (!acc && !CONFIG.domaine.test(email)) { authEtat = 'sans-acces'; return route(); }
+    me = { email, membre: !!acc, nom: acc ? acc.nom : lsGet('tk.nom'), service: acc ? 'Bâtiment' : lsGet('tk.service') };
+    authEtat = 'ok';
+    try { const s = await F.getDoc(F.doc(db, 'TicketsCfg', 'config')); if (s.exists()) lireCfg(s.data()); } catch (e) {}
+    ecouterOuverts(); route();
+  });
+}
+function lireCfg(d) { try { cfg.entreprises = JSON.parse(d.entreprises || '[]'); } catch (e) {} try { cfg.salons = JSON.parse(d.salons || '[]'); } catch (e) {} }
+function ecouterOuverts() {
+  unsubOuverts = F.onSnapshot(F.query(F.collection(db, 'Tickets'), F.where('statut', 'in', OUVERTS)), s => {
+    ouverts = s.docs.map(d => d.data()); if (!Q.get('t') && !$('.ov') && !$('.dlg') && !$('#form')) vListe();
+  }, e => { $('#app').insertAdjacentHTML('afterbegin', `<div class="err">${esc(errMsg(e))}</div>`); });
+}
+function qui() {
+  const w = $('#who'); if (!w) return;
+  w.innerHTML = me ? `<button class="btn sm" id="out" title="${esc(me.email)}">Déconnexion</button>` : '';
+  if (me) $('#out').onclick = () => A.signOut(auth);
+}
+
+function vLogin(msg) {
+  $('#app').innerHTML = `<div class="card" style="max-width:440px;margin:24px auto">
+    <div class="bar"><h2>Connexion</h2></div>
+    ${msg ? `<div class="info">${esc(msg)}</div>` : ''}
+    <p class="hint">Avec l'adresse e-mail de l'entreprise (@gl-events.com). Même compte que les demandes de travaux et l'appli Équipe.</p>
+    <div id="e"></div>
+    <label for="em">E-mail</label><input id="em" type="email" autocomplete="username" inputmode="email">
+    <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password">
+    <div class="acts" style="margin-top:16px"><button class="btn pri big" id="go">Se connecter</button>
+    <button class="btn" id="new">Première connexion (créer mon mot de passe)</button><button class="btn" id="fg">Mot de passe oublié</button></div></div>`;
+  const E = t => { $('#e').innerHTML = t ? `<div class="err">${esc(t)}</div>` : ''; }, em = () => $('#em').value.trim(), pw = () => $('#pw').value;
+  const url = { url: BASE };
+  $('#go').onclick = () => A.signInWithEmailAndPassword(auth, em(), pw()).catch(e => E(errMsg(e)));
+  $('#pw').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
+  $('#new').onclick = async () => {
+    if (!CONFIG.domaine.test(em().toLowerCase())) return E('Première connexion réservée aux adresses @gl-events.com.');
+    try { const c = await A.createUserWithEmailAndPassword(auth, em(), pw()); await A.sendEmailVerification(c.user, url); } catch (e) { E(errMsg(e)); }
+  };
+  $('#fg').onclick = () => A.sendPasswordResetEmail(auth, em(), url).then(() => vLogin('Un e-mail pour choisir un nouveau mot de passe vient d\'être envoyé.')).catch(e => E(errMsg(e)));
+}
+function vNonVerifie() {
+  $('#app').innerHTML = `<div class="card" style="max-width:440px;margin:24px auto"><div class="bar"><h2>Adresse à vérifier</h2></div>
+    <p>Un e-mail vient d'être envoyé à <b>${esc(auth.currentUser.email)}</b>. Ouvrir le lien qu'il contient, puis revenir ici.</p>
+    <div class="acts"><button class="btn pri" id="ok">C'est fait</button><button class="btn" id="re">Renvoyer l'e-mail</button><button class="btn" id="out2">Changer de compte</button></div></div>`;
+  $('#ok').onclick = () => location.reload();
+  $('#re').onclick = () => A.sendEmailVerification(auth.currentUser, { url: BASE }).then(() => toast('E-mail renvoyé')).catch(e => toast(errMsg(e)));
+  $('#out2').onclick = () => A.signOut(auth);
+}
+
+/* ---------- Liste ---------- */
+const enRetard = t => (t.statut === 'Nouveau' || t.statut === 'Envoyé') && (Date.now() - new Date(t.creeLe)) / 60000 > (t.priorite === 'Urgente' ? CONFIG.attenteUrgentMin : CONFIG.attenteMin);
+function carte(t) {
+  const att = (t.statut === 'Nouveau' || t.statut === 'Envoyé') ? `<span class="${enRetard(t) ? 'late' : ''}">⏱ en attente depuis ${dur(Date.now() - new Date(t.creeLe))}</span>`
+    : t.statut === 'Pris en charge' ? `<span>pris en charge par ${esc(t.prisPar || '?')} · ${fDate(t.prisLe)}</span>`
+    : t.statut === 'Terminé' ? `<span>terminé ${fDate(t.finLe)}${t.finLe ? ' · traité en ' + entre(t.creeLe, t.finLe) : ''}</span>` : '';
+  return `<button class="tk s-${CLS[t.statut] || ''}" data-cle="${esc(t.cle)}">
+    <div class="l1"><span class="pill ${CLS[t.statut] || ''}">${esc(t.statut)}</span>${t.priorite === 'Urgente' ? '<span class="pill urg">Urgent</span>' : ''}<span>${esc(t.numero)}</span><span>${fDate(t.creeLe)}</span>${att}</div>
+    <div class="l2">${esc([t.hall, t.emplacement].filter(Boolean).join(' · ') || 'Sans localisation')}</div>
+    <div class="l3">${esc(t.description)}</div>
+    <div class="l1" style="margin-top:5px">${t.entreprise ? `<span>🏢 ${esc(t.entreprise)}</span>` : ''}${t.salon ? `<span>🎪 ${esc(t.salon)}</span>` : ''}<span>par ${esc(t.creePar || '')}</span>${(t.photos || []).length ? `<span>📷 ${t.photos.length}</span>` : ''}</div></button>`;
+}
+async function chargerHisto() {
+  const s = await F.getDocs(F.query(F.collection(db, 'Tickets'), F.orderBy('creeLe', 'desc'), F.limit(200)));
+  histo = s.docs.map(d => d.data());
+}
+function vListe() {
+  qui();
+  const src = ui.vue === 'ouverts' ? ouverts : (histo || []).filter(t => ui.vue === 'tous' || !OUVERTS.includes(t.statut));
+  const uniq = k => [...new Set([...ouverts, ...(histo || [])].map(t => t[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+  const L = src.filter(t => (!ui.salon || t.salon === ui.salon) && (!ui.entreprise || t.entreprise === ui.entreprise))
+    .sort((a, b) => ui.vue === 'ouverts' ? ((b.priorite === 'Urgente') - (a.priorite === 'Urgente') || OUVERTS.indexOf(a.statut) - OUVERTS.indexOf(b.statut) || a.creeLe.localeCompare(b.creeLe)) : b.creeLe.localeCompare(a.creeLe));
+  const nAtt = ouverts.filter(t => t.statut !== 'Pris en charge').length, nRet = ouverts.filter(enRetard).length;
+  const opt = (v, cur) => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`;
+  $('#app').innerHTML = `<div id="liste">
+    <div class="bar"><h2>Tickets</h2>${me.membre ? '<button class="btn sm" id="cfg">⚙️ Entreprises</button>' : ''}</div>
+    <button class="btn pri big" id="nv" style="margin-bottom:14px">＋ Signaler un problème</button>
+    <div class="stats"><div class="stat"><b>${ouverts.length}</b><span>ouverts</span></div><div class="stat"><b>${nAtt}</b><span>non pris en charge</span></div>
+      <div class="stat${nRet ? ' al' : ''}"><b>${nRet}</b><span>en attente depuis trop longtemps</span></div><div class="stat"><b>${ouverts.filter(t => t.priorite === 'Urgente').length}</b><span>urgents</span></div></div>
+    <div class="filters"><div class="seg" id="vue">${[['ouverts', 'Ouverts'], ['clos', 'Terminés'], ['tous', 'Tous']].map(([v, l]) => `<button data-v="${v}" class="${ui.vue === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <select id="fs" aria-label="Salon"><option value="">Tous les salons</option>${uniq('salon').map(v => opt(v, ui.salon)).join('')}</select>
+      <select id="fe" aria-label="Entreprise"><option value="">Toutes les entreprises</option>${uniq('entreprise').map(v => opt(v, ui.entreprise)).join('')}</select></div>
+    ${ui.vue !== 'ouverts' && !histo ? '<p class="hint center">Chargement…</p>' : L.length ? L.map(carte).join('') : `<div class="card center hint">${ui.vue === 'ouverts' ? 'Aucun ticket ouvert.' : 'Aucun ticket.'}</div>`}
+    ${ui.vue !== 'ouverts' && histo ? '<p class="hint center">200 derniers tickets.</p>' : ''}</div>`;
+  $('#nv').onclick = () => vForm();
+  if ($('#cfg')) $('#cfg').onclick = vCfg;
+  $('#vue').onclick = async e => { const b = e.target.closest('button'); if (!b) return; ui.vue = b.dataset.v; vListe(); if (ui.vue !== 'ouverts') { try { await chargerHisto(); } catch (er) { toast(errMsg(er)); histo = []; } vListe(); } };
+  $('#fs').onchange = e => { ui.salon = e.target.value; vListe(); };
+  $('#fe').onchange = e => { ui.entreprise = e.target.value; vListe(); };
+  $('#app').querySelectorAll('.tk').forEach(b => b.onclick = () => aller(b.dataset.cle));
+}
+function aller(cle) { history.pushState({}, '', cle ? '?t=' + cle : BASE); Q.delete('t'); if (cle) Q.set('t', cle); route(); }
+addEventListener('popstate', () => { const c = new URLSearchParams(location.search).get('t'); /^[0-9a-f]{32}$/.test(c || '') ? Q.set('t', c) : Q.delete('t'); route(); });
+
+/* ---------- Création / modification ---------- */
+function salonsProposes() {
+  const L = []; const j = new Date().toISOString().slice(0, 10), d = n => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  try { JSON.parse(lsGet('equipe.agenda') || '[]').forEach(e => { if (e && e.nom && e.d0 <= d(12) && (e.d1 || e.d0) >= d(-8)) L.push(e.nom); }); } catch (e) {}
+  return [...new Set([lsGet('tk.salon'), ...L, ...(cfg.salons || []), ...ouverts.map(t => t.salon), 'Hors salon'].filter(Boolean))];
+}
+async function identite() { // autres services : nom et service demandés une fois, gardés sur l'appareil
+  if (me.nom && me.service) return true;
+  const r = await dialogue('Qui signale ?', `<label for="dn">Nom et prénom</label><input id="dn" type="text" value="${esc(me.nom)}" autocomplete="name">
+    <label for="ds">Service</label><select id="ds">${CONFIG.services.map(s => `<option${s === me.service ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>`, 'Continuer',
+    d => { const n = $('#dn', d).value.trim(); return n ? { nom: n, service: $('#ds', d).value } : 'Indiquer un nom.'; });
+  if (!r) return false; me.nom = r.nom; me.service = r.service; lsSet('tk.nom', r.nom); lsSet('tk.service', r.service); return true;
+}
+async function vForm(t) {
+  if (!await identite()) return;
+  const neuf = !t, d = t || { priorite: 'Normale', salon: salonsProposes()[0] || '', hall: '', entreprise: '', metier: '', emplacement: '', description: '', photos: [] };
+  let pos = typeof d.px === 'number' ? { px: d.px, py: d.py } : null, nouvelles = [], prio = d.priorite;
+  const opts = (L, cur) => L.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
+  $('#app').innerHTML = `<form id="form" autocomplete="off">
+    <div class="bar"><h2>${neuf ? 'Signaler un problème' : 'Modifier ' + esc(d.numero)}</h2><button type="button" class="btn sm" id="ann">Annuler</button></div>
+    <div id="fe2"></div>
+    <div class="card">
+      <label for="fd">Problème constaté</label><textarea id="fd" maxlength="3000" placeholder="Ex. : prise de courant arrachée, fuite au plafond…" required>${esc(d.description)}</textarea>
+      <label>Photos</label><div class="photos" id="ph"></div>
+      <div class="acts2"><label class="btn" style="margin:0;text-transform:none;letter-spacing:0;font-size:inherit;font-weight:400;color:inherit">📷 Prendre une photo<input id="cam" type="file" accept="image/*" capture="environment" hidden></label>
+        <label class="btn" style="margin:0;text-transform:none;letter-spacing:0;font-size:inherit;font-weight:400;color:inherit">🖼️ Choisir<input id="gal" type="file" accept="image/*" multiple hidden></label></div>
+      <label>Priorité</label><div class="seg prio" id="pr">${['Normale', 'Urgente'].map(v => `<button type="button" data-v="${v}" class="${prio === v ? 'on' : ''}">${v}</button>`).join('')}</div>
+    </div>
+    <div class="card">
+      <div class="row"><div><label for="fh">Hall / lieu</label><select id="fh" required><option value="">Choisir…</option>${opts(CONFIG.halls, d.hall)}</select></div>
+      <div><label for="fl">Emplacement précis</label><input id="fl" type="text" maxlength="300" value="${esc(d.emplacement)}" placeholder="Ex. : allée C, stand B14, porte 4.01"></div></div>
+      <label>Pastille sur le plan</label><div id="pv"></div>
+      <div class="acts2"><button type="button" class="btn" id="pp">📍 Placer sur le plan</button></div>
+    </div>
+    <div class="card">
+      <div class="row"><div><label for="fen">Entreprise concernée</label><input id="fen" type="text" maxlength="120" list="len" value="${esc(d.entreprise)}" placeholder="Nom de l'entreprise"><datalist id="len">${cfg.entreprises.map(e => `<option value="${esc(e.nom)}">${esc(e.metier || '')}</option>`).join('')}</datalist></div>
+      <div><label for="fm">Métier / lot</label><input id="fm" type="text" maxlength="80" list="lme" value="${esc(d.metier)}" placeholder="Ex. : Électricité"><datalist id="lme">${[...new Set(cfg.entreprises.map(e => e.metier).filter(Boolean))].map(m => `<option value="${esc(m)}">`).join('')}</datalist></div></div>
+      <label for="fs2">Salon</label><input id="fs2" type="text" maxlength="160" list="lsa" value="${esc(d.salon)}" placeholder="Nom du salon"><datalist id="lsa">${salonsProposes().map(s => `<option value="${esc(s)}">`).join('')}</datalist>
+    </div>
+    <button class="btn pri big" id="sv">${neuf ? 'Créer le ticket' : 'Enregistrer'}</button></form>`;
+  const majPlan = () => { const h = $('#pv'); if (pos) { plan(h, { ...pos, lock: true, tag: 'Toucher pour agrandir' }); h.firstChild.onclick = choisir; } else h.innerHTML = '<p class="hint" style="margin:0">Aucune pastille : le ticket indiquera seulement le hall et l\'emplacement.</p>'; $('#pp').textContent = pos ? '📍 Déplacer la pastille' : '📍 Placer sur le plan'; };
+  const choisir = async () => { const r = await planPleinEcran({ ...(pos || {}), edit: true }); if (r !== undefined) { pos = r; majPlan(); } };
+  const majPhotos = async () => {
+    const anc = await Promise.all((d.photos || []).map(f => photoUrl(d.cle, f)));
+    $('#ph').innerHTML = anc.map(u => `<div class="ph" style="background-image:url('${esc(u)}')"></div>`).join('') + nouvelles.map((n, i) => `<div class="ph" style="background-image:url('${n.url}')"><button type="button" data-i="${i}" aria-label="Retirer la photo">×</button></div>`).join('') || '<span class="hint">Une photo aide l\'entreprise à trouver et comprendre le problème.</span>';
+    $('#ph').querySelectorAll('button').forEach(b => b.onclick = () => { nouvelles.splice(+b.dataset.i, 1); majPhotos(); });
+  };
+  const ajout = async e => { for (const f of e.target.files) { if ((d.photos || []).length + nouvelles.length >= 6) { toast('6 photos au maximum'); break; } const b = await reduire(f); nouvelles.push({ blob: b, url: URL.createObjectURL(b) }); } e.target.value = ''; majPhotos(); };
+  majPlan(); majPhotos();
+  $('#cam').onchange = ajout; $('#gal').onchange = ajout; $('#pp').onclick = choisir;
+  $('#pr').onclick = e => { const b = e.target.closest('button'); if (!b) return; prio = b.dataset.v; $('#pr').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
+  $('#fen').onchange = () => { const e = cfg.entreprises.find(x => x.nom === $('#fen').value.trim()); if (e && e.metier && !$('#fm').value) $('#fm').value = e.metier; };
+  $('#ann').onclick = () => t ? vTicket(t.cle) : vListe();
+  $('#form').onsubmit = async ev => {
+    ev.preventDefault(); const b = $('#sv'); b.disabled = true; b.textContent = 'Enregistrement…'; $('#fe2').innerHTML = '';
+    const v = { description: $('#fd').value.trim(), priorite: prio, hall: $('#fh').value, emplacement: $('#fl').value.trim(), entreprise: $('#fen').value.trim(), metier: $('#fm').value.trim(), salon: $('#fs2').value.trim(), majLe: now(), majPar: me.nom };
+    if (pos) { v.px = pos.px; v.py = pos.py; }
+    try {
+      let cle = t && t.cle;
+      if (neuf) {
+        cle = hex(16); const an = String(new Date().getFullYear()), cRef = F.doc(db, 'TicketsCfg', 'n-' + an), tRef = F.doc(db, 'Tickets', cle);
+        await F.runTransaction(db, async tx => {
+          const c = await tx.get(cRef), n = (c.exists() ? c.data().n : 0) + 1; tx.set(cRef, { n });
+          tx.set(tRef, { ...v, cle, seq: n, annee: an, numero: 'TK-' + an + '-' + String(n).padStart(4, '0'), compte: me.email, creePar: me.nom, service: me.service, creeLe: v.majLe, statut: 'Nouveau', photos: [] });
+        });
+        lsSet('tk.salon', v.salon);
+      } else { if (!pos) { v.px = F.deleteField(); v.py = F.deleteField(); } await F.updateDoc(F.doc(db, 'Tickets', cle), v); }
+      if (nouvelles.length) {
+        try { const ids = await envoyerPhotos(cle, nouvelles.map(n => n.blob)); await F.updateDoc(F.doc(db, 'Tickets', cle), { photos: [...(d.photos || []), ...ids] }); }
+        catch (e) { toast('Ticket enregistré, mais photos non envoyées : ' + errMsg(e)); }
+      }
+      aller(cle);
+    } catch (e) { $('#fe2').innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; b.disabled = false; b.textContent = neuf ? 'Créer le ticket' : 'Enregistrer'; scrollTo(0, 0); }
+  };
+  scrollTo(0, 0);
+}
+
+/* ---------- Boîte de dialogue ---------- */
+function dialogue(titre, html, okTxt, lire, cls = 'pri') {
+  return new Promise(ok => {
+    const d = document.createElement('div'); d.className = 'dlg';
+    d.innerHTML = `<div role="dialog" aria-modal="true"><h3>${esc(titre)}</h3><div class="de"></div>${html}<div class="acts2" style="margin-top:16px"><button class="btn" data-x style="flex:1">Annuler</button><button class="btn ${cls}" data-ok style="flex:2">${esc(okTxt)}</button></div></div>`;
+    document.body.append(d); const f = d.querySelector('input,textarea,select'); f && f.focus();
+    $('[data-x]', d).onclick = () => { d.remove(); ok(null); };
+    $('[data-ok]', d).onclick = async () => { const r = lire ? await lire(d) : true; if (typeof r === 'string') { $('.de', d).innerHTML = `<div class="err">${esc(r)}</div>`; return; } d.remove(); ok(r); };
+  });
+}
+
+/* ---------- Fiche d'un ticket (équipes Eurexpo et entreprises) ---------- */
+function vTicket(cle) {
+  qui();
+  if (unsubTicket) { unsubTicket(); unsubTicket = null; }
+  if (!/^[0-9a-f]{32}$/.test(cle)) { $('#app').innerHTML = '<div class="err">Lien de ticket invalide.</div>'; return; }
+  $('#app').innerHTML = '<p class="hint center">Chargement du ticket…</p>';
+  let premier = true;
+  unsubTicket = F.onSnapshot(F.doc(db, 'Tickets', cle), s => {
+    if ($('.dlg') || $('.ov') || $('#form')) return; // ne pas redessiner sous une saisie en cours
+    if (!s.exists()) { $('#app').innerHTML = `<div class="err">Ce ticket n'existe plus.</div>${me ? '<button class="btn" id="bk">← Tous les tickets</button>' : ''}`; if (me) $('#bk').onclick = () => aller(''); return; }
+    dessinerTicket(s.data(), premier); premier = false;
+  }, e => { $('#app').innerHTML = `<div class="err">${esc(errMsg(e))}</div>`; });
+}
+async function dessinerTicket(t, haut) {
+  const ouvert = OUVERTS.includes(t.statut), aPos = typeof t.px === 'number';
+  const aEnvoyer = !!me && ouvert && !t.envoyeLe; // pas encore parti sur WhatsApp : c'est la première chose à faire
+  const bWa = `<a class="btn wa big" id="wa" href="${esc(waUrl(t))}" target="_blank" rel="noopener">${t.envoyeLe ? 'Renvoyer sur WhatsApp' : 'Envoyer sur WhatsApp'}</a>`;
+  const bPhoto = (t.photos || []).length && navigator.share ? '<button class="btn" id="wap">Partager avec la photo…</button>' : '';
+  $('#app').innerHTML = `<div id="fiche">
+    <div class="bar">${me ? '<button class="btn sm" id="bk">← Tickets</button>' : ''}<h2>${esc(t.numero)}</h2><span class="pill ${CLS[t.statut] || ''}">${esc(t.statut)}</span>${t.priorite === 'Urgente' ? '<span class="pill urg">Urgent</span>' : ''}</div>
+    <div class="card">
+      <h3>${esc([t.metier, t.entreprise].filter(Boolean).join(' – ') || 'Entreprise non précisée')}</h3>
+      <div style="font-size:19px;font-weight:600">📍 ${esc([t.hall, t.emplacement].filter(Boolean).join(' · '))}</div>
+      <p class="desc">${esc(t.description)}</p>
+      <div class="photos" id="p1" style="margin-top:12px"></div>
+    </div>
+    ${aPos ? '<div class="card"><h3>Emplacement sur le plan</h3><div id="pl"></div></div>' : ''}
+    <div class="card" id="actions"><div class="acts">
+      ${aEnvoyer ? bWa + bPhoto + '<p class="hint" style="margin:0 0 6px">Le bouton ouvre WhatsApp avec le message prêt : choisir le groupe du salon, puis envoyer.</p>' : ''}
+      ${ouvert && t.statut !== 'Pris en charge' ? `<button class="btn ${aEnvoyer ? '' : 'pri '}big" id="pc">✋ Je prends en charge</button>` : ''}
+      ${ouvert ? `<button class="btn ${t.statut === 'Pris en charge' ? 'pri ' : ''}big" id="fi">✅ Problème résolu</button>` : ''}
+      ${me && ouvert && !aEnvoyer ? bWa + bPhoto : ''}
+    </div>
+    ${me ? `<div class="acts2">${ouvert ? '<button class="btn sm" id="ed">✏️ Modifier</button><button class="btn sm" id="cp">Copier le message</button><button class="btn sm dan" id="an">Annuler le ticket</button>' : '<button class="btn sm" id="ro">Rouvrir</button>'}${me.membre ? '<button class="btn sm dan" id="su">Supprimer</button>' : ''}</div>` : ''}
+    </div>
+    <div class="card"><h3>Suivi</h3><ul class="tl">
+      <li>Signalé par ${esc(t.creePar || '')}${t.service ? ' (' + esc(t.service) + ')' : ''}<small>${fDate(t.creeLe)}${t.salon ? ' · ' + esc(t.salon) : ''}</small></li>
+      ${t.envoyeLe ? `<li>Envoyé sur WhatsApp<small>${fDate(t.envoyeLe)}</small></li>` : ''}
+      ${t.prisLe ? `<li>Pris en charge par ${esc(t.prisPar || '')}<small>${fDate(t.prisLe)} · ${entre(t.creeLe, t.prisLe)} après le signalement</small></li>` : ''}
+      ${t.finLe ? `<li>Terminé par ${esc(t.finPar || '')}<small>${fDate(t.finLe)} · traité en ${entre(t.creeLe, t.finLe)}</small>${t.finNote ? `<div class="desc" style="font-size:15.5px">${esc(t.finNote)}</div>` : ''}<div class="photos" id="p2" style="margin-top:8px"></div></li>` : ''}
+      ${t.statut === 'Annulé' ? `<li>Annulé${t.annuleMotif ? ' : ' + esc(t.annuleMotif) : ''}<small>${fDate(t.majLe)} · ${esc(t.majPar || '')}</small></li>` : ''}
+    </ul></div>
+    ${!me ? '<p class="hint center">Eurexpo Lyon · service Bâtiment</p>' : ''}</div>`;
+  if (haut) scrollTo(0, 0);
+  const ref = F.doc(db, 'Tickets', t.cle), on = (id, f) => { const e = $('#' + id); if (e) e.onclick = f; };
+  if (aPos) { plan($('#pl'), { px: t.px, py: t.py, lock: true, zoom: 5, tag: 'Toucher pour agrandir' }); $('#pl').firstChild.onclick = () => planPleinEcran({ px: t.px, py: t.py }); }
+  const montrer = async (id, L) => { const h = $('#' + id); if (!h || !L || !L.length) return; const U = await Promise.all(L.map(f => photoUrl(t.cle, f))); if (h.isConnected) h.innerHTML = U.filter(Boolean).map(u => `<a href="${esc(u)}" target="_blank" rel="noopener" style="background-image:url('${esc(u)}')" aria-label="Agrandir la photo"></a>`).join(''); };
+  montrer('p1', t.photos); montrer('p2', t.photosFin);
+  const champNom = `<label for="qn">Votre nom${me ? '' : ' et votre entreprise'}</label><input id="qn" type="text" maxlength="80" value="${esc(me ? me.nom : lsGet('tk.qui'))}" autocomplete="name" placeholder="${me ? '' : 'Ex. : Karim – Dalkia'}">`;
+  const lireNom = d => { const n = $('#qn', d).value.trim(); if (!n) return null; if (!me) lsSet('tk.qui', n); return n; };
+  on('bk', () => aller(''));
+  on('pc', async () => {
+    const r = await dialogue('Prise en charge', champNom, 'Je prends en charge', d => { const n = lireNom(d); return n ? { n } : 'Indiquer un nom.'; });
+    if (!r) return; try { await F.updateDoc(ref, { statut: 'Pris en charge', prisLe: now(), prisPar: r.n, majLe: now() }); toast('Prise en charge enregistrée'); } catch (e) { toast(errMsg(e)); }
+  });
+  on('fi', async () => {
+    let blobs = [];
+    const r = await dialogue('Problème résolu', champNom + `<label for="qt">Commentaire (facultatif)</label><textarea id="qt" maxlength="2000" placeholder="Ce qui a été fait"></textarea>
+      <label>Photo après intervention (facultatif)</label><input id="qp" type="file" accept="image/*" multiple>`, 'Terminer le ticket',
+      async d => { const n = lireNom(d); if (!n) return 'Indiquer un nom.'; blobs = await Promise.all([...$('#qp', d).files].slice(0, 4).map(reduire)); return { n, note: $('#qt', d).value.trim() }; });
+    if (!r) return;
+    try {
+      const u = { statut: 'Terminé', finLe: now(), finPar: r.n, majLe: now() }; if (r.note) u.finNote = r.note;
+      if (!t.prisLe) { u.prisLe = u.finLe; u.prisPar = r.n; }
+      if (blobs.length) { try { u.photosFin = await envoyerPhotos(t.cle, blobs); } catch (e) { toast('Photo non envoyée : ' + errMsg(e)); } }
+      await F.updateDoc(ref, u); toast('Ticket terminé, merci');
+    } catch (e) { toast(errMsg(e)); }
+  });
+  on('wa', () => { setTimeout(() => marquerEnvoye(t), 400); });
+  on('wap', () => partagerAvecPhoto(t));
+  on('cp', async () => { try { await navigator.clipboard.writeText(message(t)); toast('Message copié'); } catch (e) { toast('Copie impossible sur cet appareil'); } });
+  on('ed', () => vForm(t));
+  on('an', async () => {
+    const r = await dialogue('Annuler le ticket', '<label for="qm">Motif (facultatif)</label><input id="qm" type="text" maxlength="200" placeholder="Ex. : doublon, fausse alerte">', 'Annuler le ticket', d => ({ m: $('#qm', d).value.trim() }), 'dan');
+    if (!r) return; try { await F.updateDoc(ref, { statut: 'Annulé', annuleMotif: r.m, majLe: now(), majPar: me.nom }); } catch (e) { toast(errMsg(e)); }
+  });
+  on('ro', async () => { try { await F.updateDoc(ref, { statut: t.prisLe ? 'Pris en charge' : 'Envoyé', finLe: F.deleteField(), finPar: F.deleteField(), majLe: now(), majPar: me.nom }); } catch (e) { toast(errMsg(e)); } });
+  on('su', async () => {
+    const r = await dialogue('Supprimer ' + t.numero + ' ?', '<p>Le ticket et ses photos sont effacés définitivement.</p>', 'Supprimer', null, 'dan'); if (!r) return;
+    try { for (const f of [...(t.photos || []), ...(t.photosFin || [])]) await S.deleteObject(S.ref(st, `tickets/${t.cle}/${f}`)).catch(() => {}); if (unsubTicket) { unsubTicket(); unsubTicket = null; } await F.deleteDoc(ref); aller(''); } catch (e) { toast(errMsg(e)); }
+  });
+}
+
+/* ---------- Entreprises (liste proposée à la saisie) ---------- */
+function vCfg() {
+  let L = cfg.entreprises.map(e => ({ ...e }));
+  const d = document.createElement('div'); d.className = 'dlg';
+  const dessiner = () => {
+    d.innerHTML = `<div role="dialog" aria-modal="true"><h3>Entreprises proposées à la saisie</h3><p class="hint">Le métier s'affiche en tête du message WhatsApp (ex. : ÉLECTRICITÉ – nom de l'entreprise).</p>
+      ${L.map((e, i) => `<div class="cfgrow"><input type="text" data-i="${i}" data-k="nom" value="${esc(e.nom)}" placeholder="Entreprise" aria-label="Entreprise"><input type="text" data-i="${i}" data-k="metier" value="${esc(e.metier || '')}" placeholder="Métier / lot" aria-label="Métier"><button class="btn sm dan" data-del="${i}" aria-label="Retirer">×</button></div>`).join('')}
+      <button class="btn sm" data-add>＋ Ajouter une entreprise</button>
+      <div class="acts2" style="margin-top:16px"><button class="btn" data-x style="flex:1">Fermer</button><button class="btn pri" data-ok style="flex:2">Enregistrer</button></div></div>`;
+    d.querySelectorAll('input').forEach(i => i.oninput = () => { L[+i.dataset.i][i.dataset.k] = i.value; });
+    d.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { L.splice(+b.dataset.del, 1); dessiner(); });
+    $('[data-add]', d).onclick = () => { L.push({ nom: '', metier: '' }); dessiner(); const a = d.querySelectorAll('input[data-k=nom]'); a[a.length - 1].focus(); };
+    $('[data-x]', d).onclick = () => d.remove();
+    $('[data-ok]', d).onclick = async () => {
+      const P = L.map(e => ({ nom: e.nom.trim(), metier: (e.metier || '').trim() })).filter(e => e.nom).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+      try { await F.setDoc(F.doc(db, 'TicketsCfg', 'config'), { entreprises: JSON.stringify(P), salons: JSON.stringify(cfg.salons || []), majPar: me.nom, majLe: now() }); cfg.entreprises = P; d.remove(); toast('Liste enregistrée'); } catch (e) { toast(errMsg(e)); }
+    };
+  };
+  dessiner(); document.body.append(d);
+}
+
+/* ---------- Aiguillage ---------- */
+function route() {
+  if (unsubTicket) { unsubTicket(); unsubTicket = null; }
+  const cle = Q.get('t');
+  if (cle) return vTicket(cle);          // lien d'un ticket : lisible sans compte
+  qui();
+  if (authEtat === 'attente') return;
+  if (authEtat === 'deconnecte') return vLogin();
+  if (authEtat === 'non-verifie') return vNonVerifie();
+  if (authEtat === 'sans-acces') { $('#app').innerHTML = `<div class="card center"><p>Le ticketing est réservé aux adresses @gl-events.com et à l'équipe Bâtiment.</p><button class="btn" id="o3">Changer de compte</button></div>`; $('#o3').onclick = () => A.signOut(auth); return; }
+  vListe();
+}
+setInterval(() => { if ($('#liste') && !$('.dlg') && !$('.ov')) vListe(); }, 60000); // délais d'attente à jour
+
+try { await fbInit(); ecouterConnexion(); if (Q.get('t')) route(); }
+catch (e) { $('#app').innerHTML = `<div class="err">Impossible de démarrer (connexion internet ?). ${esc(errMsg(e))}</div>`; }
+</script>
+</body>
+</html>

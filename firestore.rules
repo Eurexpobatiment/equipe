@@ -222,5 +222,47 @@ service cloud.firestore {
       allow update: if (dtDomaine() || member()) && request.resource.data.keys().hasOnly(['n'])
                     && (request.resource.data.n == resource.data.n + 1 || admin());
     }
+  
+
+    // ================= Ticketing (tickets/index.html) =================
+    // Créés par le Bâtiment et les autres services (adresse de l'entreprise, compte vérifié).
+    // L'entreprise ouvre le ticket par le lien du message WhatsApp, sans compte : la clé du ticket (32 caractères tirés au hasard)
+    // sert de secret. Elle peut seulement indiquer « Pris en charge » puis « Terminé ».
+    function tkEquipe() { return member() || dtDomaine(); }
+    function tkStr(d, k, maxi) { return !(k in d) || (d[k] is string && d[k].size() <= maxi); }
+    function tkListe(d, k, maxi) { return !(k in d) || (d[k] is list && d[k].size() <= maxi); }
+    function tkChamps(d) {
+      return d.keys().size() <= 32 && d.description is string && d.description.size() >= 1 && d.description.size() <= 3000
+        && tkStr(d, 'emplacement', 300) && tkStr(d, 'entreprise', 120) && tkStr(d, 'metier', 80) && tkStr(d, 'salon', 160)
+        && tkStr(d, 'hall', 80) && tkStr(d, 'creePar', 80) && tkStr(d, 'service', 80) && tkStr(d, 'numero', 20)
+        && tkStr(d, 'prisPar', 80) && tkStr(d, 'finPar', 80) && tkStr(d, 'finNote', 2000) && tkStr(d, 'annuleMotif', 200)
+        && d.priorite in ['Normale', 'Urgente'] && d.statut in ['Nouveau', 'Envoyé', 'Pris en charge', 'Terminé', 'Annulé']
+        && tkListe(d, 'photos', 6) && tkListe(d, 'photosFin', 4);
+    }
+    function tkEntreprise() {
+      let n = request.resource.data;
+      let o = resource.data;
+      return n.diff(o).affectedKeys().hasOnly(['statut', 'prisLe', 'prisPar', 'finLe', 'finPar', 'finNote', 'photosFin', 'majLe'])
+        && o.statut in ['Nouveau', 'Envoyé', 'Pris en charge'] && n.statut in ['Pris en charge', 'Terminé']
+        && tkStr(n, 'prisLe', 40) && tkStr(n, 'finLe', 40) && tkStr(n, 'majLe', 40) && tkChamps(n);
+    }
+    match /Tickets/{cle} {
+      allow get: if true;            // par le lien du ticket
+      allow list: if tkEquipe();
+      allow create: if tkEquipe() && cle.matches('[0-9a-f]{32}') && request.resource.data.cle == cle
+                    && request.resource.data.compte == myEmail() && request.resource.data.statut == 'Nouveau' && tkChamps(request.resource.data);
+      allow update: if (tkEquipe() && tkChamps(request.resource.data)
+                        && request.resource.data.cle == resource.data.cle && request.resource.data.compte == resource.data.compte
+                        && request.resource.data.numero == resource.data.numero && request.resource.data.creeLe == resource.data.creeLe)
+                    || tkEntreprise();
+      allow delete: if member();
+    }
+    // Liste des entreprises proposées (fiche « config », tenue par le Bâtiment) et numérotation TK-AAAA-NNNN (fiches « n-AAAA »)
+    match /TicketsCfg/{id} {
+      allow get: if tkEquipe();
+      allow create, update: if (id == 'config' && member() && small())
+                            || (tkEquipe() && id.matches('n-[0-9]{4}') && request.resource.data.keys().hasOnly(['n']) && request.resource.data.n is int
+                                && ((resource == null && request.resource.data.n == 1) || (resource != null && request.resource.data.n == resource.data.n + 1)));
+    }
   }
 }

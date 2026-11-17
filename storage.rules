@@ -1,5 +1,5 @@
 rules_version = '2';
-// Firebase Storage – projet equipe-batiment · pièces jointes des demandes de travaux + devis des benchmarks (appli Équipe)
+// Firebase Storage – projet equipe-batiment · pièces jointes des demandes de travaux + devis des benchmarks et photos du ticketing (appli Équipe)
 // Fichier commun aux deux applis : même contenu dans les dépôts « travaux » et « equipe ».
 // Mêmes droits que la fiche dans Firestore : le Bâtiment (comptes de l'appli Équipe) et le demandeur de la fiche.
 // Les fichiers restent ici jusqu'à ce que le Bâtiment les range dans le dossier de son choix (et coche « retirer de l'appli »).
@@ -31,6 +31,17 @@ service firebase.storage {
       allow read, delete: if member() && bmAcces(bid);
       allow create: if member() && bmAcces(bid) && fid.matches('^[0-9a-f]{8,32}$')
                     && request.resource.size <= 25 * 1024 * 1024;
+    }
+
+    // tickets/{clé du ticket}/{identifiant de la photo} : photos du ticketing (tickets/index.html de l'appli Équipe)
+    // La clé du ticket (32 caractères tirés au hasard, reçue par le lien WhatsApp) sert de secret : l'entreprise voit les photos
+    // et peut ajouter la photo de fin d'intervention sans compte. Images seulement, 4 Mo au plus, sur un ticket qui existe.
+    match /tickets/{cle}/{fid} {
+      allow get: if cle.matches('^[0-9a-f]{32}$');
+      allow create: if cle.matches('^[0-9a-f]{32}$') && fid.matches('^[0-9a-f]{8,32}$')
+                    && request.resource.size <= 4 * 1024 * 1024 && request.resource.contentType.matches('image/.*')
+                    && firestore.exists(/databases/(default)/documents/Tickets/$(cle));
+      allow delete: if member();
     }
 
     match /{autre=**} {

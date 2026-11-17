@@ -754,6 +754,7 @@ const TABS = [
   {id:'Planning',l:'📆 Planning global',g:'Au quotidien'},
   {id:'Taches',l:'✅ Tâches',g:'Au quotidien'},
   {id:'Nacelle',l:'🏗️ Nacelle',g:'Au quotidien'},
+  {id:'Tickets',l:'🎫 Ticketing',g:'Au quotidien'}, // signalements aux entreprises pendant les salons (tickets/index.html)
   {id:'Regie',l:'🎪 Régie évènementielle',g:'Site & évènements'},
   {id:'Surete',l:'🛡️ Veille sûreté',g:'Site & évènements'},
   {id:'Clefs',l:'🔑 Clefs',g:'Site & évènements'},
@@ -774,6 +775,7 @@ const ICO_P={
   Planning:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
   Taches:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/>',
   Nacelle:'<path d="M4 20h16M7 20V10l5-6 5 6v10M10 14h4"/>',
+  Tickets:'<path d="M3 9V6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a3 3 0 0 0 0 6v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a3 3 0 0 0 0-6z"/><path d="M14 5v3M14 11v2M14 16v3"/>',
   Regie:'<path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/>',
   Surete:'<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>',
   Clefs:'<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/>',
@@ -1021,6 +1023,7 @@ function svVersMemo(id){
 
 /* ---------- Applis intégrées (Devis EDL, Relevés compteurs, Consommations halls) : même compte Firebase, gardées chargées d'un onglet à l'autre ---------- */
 const APPS={
+  Tickets:{l:'🎫 Ticketing',h:'Problèmes signalés aux entreprises (alerte WhatsApp, pastille sur plan)',u:'tickets/'},
   Devis:{l:'🧾 Devis EDL',h:'Application devis BatiScript (réserves des salons)',u:'https://eurexpobatiment.github.io/devis/v2/'},
   Compteurs:{l:'💧 Relevés compteurs',h:'Relevés mensuels eau, électricité, gaz, fioul (Dalkia)',u:'https://eurexpobatiment.github.io/compteurs/'},
   Conso:{l:'⚡ Consommations halls',h:'Consommations énergétiques des halls par salon (DJU, météo, PV)',u:'https://eurexpobatiment.github.io/conso/'}};
@@ -1035,7 +1038,7 @@ function appWrap(id){let w=$('#app_'+id);if(w)return w;const a=APPS[id];
   $('#view').after(w);w.querySelector('iframe').src=a.u;return w}
 function vApp(id,el){el.hidden=true;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);
   appWrap(id).hidden=false;document.body.style.overflow='hidden';window.scrollTo(0,0);appTop()}
-function appReload(id){appWrap(id).querySelector('iframe').src=APPS[id].u+'?t='+Date.now()}
+function appReload(id){const u=APPS[id].u;appWrap(id).querySelector('iframe').src=u+(u.includes('?')?'&':'?')+'t='+Date.now()}
 addEventListener('resize',()=>{if(APPS[tab])appTop()});
 
 /* ---------- rendu général ---------- */

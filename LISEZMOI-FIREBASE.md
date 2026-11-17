@@ -25,3 +25,17 @@ L'ancienne version (Google Sheet) est en lecture seule depuis la bascule : le Sh
 - **Agenda GL events** : toujours lu par le script Google.
 - **Journal** : collection Journal de Firestore, lisible par les responsables.
 - **⚖️ Benchmark devis** (groupe Gestion) : un benchmark par consultation, visible par son créateur et les membres avec qui il le partage (mêmes droits que le suivi de projets, collections `Benchmarks` / `BenchOffres`). On y glisse les devis (PDF texte, Excel, CSV) : entreprise, n°, date, total HT, délai, validité et lignes chiffrées sont lus dans la page, à vérifier dans chaque offre. Les fichiers sont gardés dans Firebase Storage (`benchmarks/{id}/{fichier}`). Comparaison : écart au moins-disant et au budget, notation pondérée (prix noté automatiquement : 10 × moins-disant ÷ montant, autres critères notés sur 10), comparatif poste par poste, offre retenue ★, export Excel. Un PDF scanné (image) ne se lit pas : le fichier est gardé, le montant se saisit à la main. Le bouton **📊 Présentation PowerPoint** d'un benchmark télécharge une présentation à la trame des rapports (charte GL events Lyon : page de garde, synthèse et chiffres clés, comparatif des offres, comparatif par famille de travaux, origine des écarts, options et variantes, conclusion) ; la photo et le logo de la page de garde sont ceux de la charte des rapports de l'appli Consommations (ConsoServeur/charte).
+
+## 🎫 Ticketing (dossier `tickets/`, onglet « Ticketing » du groupe Au quotidien)
+Signalement des problèmes aux entreprises pendant les salons, séparé des états des lieux BatiScript.
+Adresse directe : https://eurexpobatiment.github.io/equipe/tickets/
+
+- **Qui crée** : l'équipe Bâtiment (compte de l'appli Équipe) et les autres services (adresse @gl-events.com, même compte que les demandes de travaux). Tous voient tous les tickets.
+- **Ticket** : problème, photos (réduites à ≈ 300 Ko sur le téléphone), priorité, hall, emplacement, pastille sur le plan de masse, entreprise et métier, salon. Numéro `TK-AAAA-NNNN`.
+- **Alerte** : le bouton « Envoyer sur WhatsApp » ouvre WhatsApp avec le message prêt (métier – entreprise, lieu, description, lien du ticket) ; on choisit le groupe du salon et on envoie. « Partager avec la photo… » joint la première photo (téléphone). Rien n'est envoyé automatiquement : pas de fonction Firebase, pas de compte Meta.
+- **Entreprise** : le lien du message ouvre le ticket sans compte (plan, photos) avec « Je prends en charge » et « Problème résolu » (commentaire et photo de fin). La clé du lien (32 caractères au hasard) sert de secret : qui a le lien voit ce ticket, et lui seul.
+- **Suivi** : tickets ouverts en direct, délais d'attente (en rouge après 30 min, 10 min si urgent : `attenteMin` / `attenteUrgentMin` dans `tickets/index.html`), filtres salon et entreprise, 200 derniers tickets dans « Terminés » / « Tous ».
+- **⚙️ Entreprises** (Bâtiment) : liste des entreprises et de leur métier proposée à la saisie.
+- **Plan** : `tickets/plan.webp` (détail) et `tickets/plan-s.webp` (vue d'ensemble), tirés du PDF « BatiScript plan de masse » (A0). Pour le remplacer : mêmes noms, même proportion (4400 × 3113), sinon ajuster `planRatio`.
+- **Données** : collections `Tickets` et `TicketsCfg` (Firestore), photos dans `tickets/{clé}/{photo}` (Storage).
+- **Mise en service** : publier les blocs « Ticketing » de `firestore.rules` (Firestore › Règles) et de `storage.rules` (Storage › Règles). Sans eux, l'onglet affiche « Accès refusé ».
