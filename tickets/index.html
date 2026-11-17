@@ -407,7 +407,7 @@ function vListe() {
   const nAtt = ouverts.filter(t => t.statut !== 'Pris en charge').length, nRet = ouverts.filter(enRetard).length;
   const opt = (v, cur) => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`;
   $('#app').innerHTML = `<div id="liste">
-    <div class="bar"><h2>Tickets</h2>${me.membre ? '<button class="btn sm" id="cfg">⚙️ Entreprises</button>' : ''}</div>
+    <div class="bar"><h2>Tickets</h2>${me.membre ? '<button class="btn sm" id="xp" title="Télécharger la liste affichée (fichier pour Excel)">⬇ Extraire</button><button class="btn sm" id="cfg">⚙️ Entreprises</button>' : ''}</div>
     <button class="btn pri big" id="nv" style="margin-bottom:14px">＋ Signaler un problème</button>
     <div class="stats"><div class="stat"><b>${ouverts.length}</b><span>ouverts</span></div><div class="stat"><b>${nAtt}</b><span>non pris en charge</span></div>
       <div class="stat${nRet ? ' al' : ''}"><b>${nRet}</b><span>en attente depuis trop longtemps</span></div><div class="stat"><b>${ouverts.filter(t => t.priorite === 'Urgente').length}</b><span>urgents</span></div></div>
@@ -418,10 +418,26 @@ function vListe() {
     ${ui.vue !== 'ouverts' && histo ? '<p class="hint center">200 derniers tickets.</p>' : ''}</div>`;
   $('#nv').onclick = () => vForm();
   if ($('#cfg')) $('#cfg').onclick = vCfg;
+  if ($('#xp')) $('#xp').onclick = () => L.length ? extraire(L) : toast('Aucun ticket à extraire.');
   $('#vue').onclick = async e => { const b = e.target.closest('button'); if (!b) return; ui.vue = b.dataset.v; vListe(); if (ui.vue !== 'ouverts') { try { await chargerHisto(); } catch (er) { toast(errMsg(er)); histo = []; } vListe(); } };
   $('#fs').onchange = e => { ui.salon = e.target.value; vListe(); };
   $('#fe').onchange = e => { ui.entreprise = e.target.value; vListe(); };
   $('#app').querySelectorAll('.tk').forEach(b => b.onclick = () => aller(b.dataset.cle));
+}
+function extraire(L) {
+  const dt = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ''); };
+  const mn = (a, b) => (a && b) ? Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000)) : '';
+  const C = [['N°', t => t.numero], ['Statut', t => t.statut], ['Priorité', t => t.priorite], ['Salon', t => t.salon], ['Hall / lieu', t => t.hall], ['Emplacement', t => t.emplacement],
+    ['Entreprise', t => t.entreprise], ['Métier / lot', t => t.metier], ['Description', t => t.description], ['Signalé par', t => t.creePar], ['Service', t => t.service], ['Signalé le', t => dt(t.creeLe)],
+    ['Envoyé le', t => dt(t.envoyeLe)], ['Pris en charge par', t => t.prisPar], ['Pris en charge le', t => dt(t.prisLe)], ['Délai de prise en charge (min)', t => mn(t.creeLe, t.prisLe)],
+    ['Terminé par', t => t.finPar], ['Terminé le', t => dt(t.finLe)], ['Durée de traitement (min)', t => mn(t.creeLe, t.finLe)], ['Note de fin', t => t.finNote], ['Motif d\'annulation', t => t.annuleMotif],
+    ['Photos', t => (t.photos || []).length || '']];
+  const cel = v => { let x = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(x)) x = "'" + x; return '"' + x.replace(/"/g, '""') + '"'; };
+  const csv = '﻿' + [C.map(c => cel(c[0])).join(';'), ...L.map(t => C.map(c => cel(c[1](t))).join(';'))].join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'tickets-eurexpo-' + ({ ouverts: 'ouverts', clos: 'termines', tous: 'tous' }[ui.vue] || 'liste') + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast(L.length + ' ticket' + (L.length > 1 ? 's' : '') + ' extrait' + (L.length > 1 ? 's' : ''));
 }
 function aller(cle) {
   const e = Q.get('e'); Q.delete('t'); if (cle) Q.set('t', cle);
@@ -446,6 +462,7 @@ async function vForm(t) {
   if (!await identite()) return;
   const neuf = !t, d = t || { priorite: 'Normale', salon: salonsProposes()[0] || '', hall: '', entreprise: '', metier: '', emplacement: '', description: '', photos: [] };
   let pos = typeof d.px === 'number' ? { px: d.px, py: d.py } : null, nouvelles = [], prio = d.priorite;
+  const entListe = cfg.entreprises.find(x => (x.nom || '').trim().toLowerCase() === (d.entreprise || '').trim().toLowerCase());
   const opts = (L, cur) => L.map(v => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
   $('#app').innerHTML = `<form id="form" autocomplete="off">
     <div class="bar"><h2>${neuf ? 'Signaler un problème' : 'Modifier ' + esc(d.numero)}</h2><button type="button" class="btn sm" id="ann">Annuler</button></div>
@@ -464,7 +481,7 @@ async function vForm(t) {
       <div class="acts2"><button type="button" class="btn" id="pp">📍 Placer sur le plan</button></div>
     </div>
     <div class="card">
-      <div class="row"><div><label for="fen">Entreprise concernée</label><input id="fen" type="text" maxlength="120" list="len" value="${esc(d.entreprise)}" placeholder="Nom de l'entreprise"><datalist id="len">${cfg.entreprises.map(e => `<option value="${esc(e.nom)}">${esc(e.metier || '')}</option>`).join('')}</datalist></div>
+      <div class="row"><div><label for="${cfg.entreprises.length ? 'fes' : 'fen'}">Entreprise concernée</label>${cfg.entreprises.length ? `<select id="fes" aria-label="Entreprise concernée"><option value="">Choisir…</option>${cfg.entreprises.map(e => `<option value="${esc(e.nom)}"${entListe && entListe.nom === e.nom ? ' selected' : ''}>${esc(e.nom)}${e.metier ? ' – ' + esc(e.metier) : ''}</option>`).join('')}<option value="__autre"${d.entreprise && !entListe ? ' selected' : ''}>Autre entreprise…</option></select>` : ''}<input id="fen" type="text" maxlength="120" list="len" value="${esc(d.entreprise)}" placeholder="Nom de l'entreprise"${cfg.entreprises.length ? ` aria-label="Nom de l'autre entreprise" style="margin-top:8px${d.entreprise && !entListe ? '' : ';display:none'}"` : ''}><datalist id="len">${cfg.entreprises.map(e => `<option value="${esc(e.nom)}">${esc(e.metier || '')}</option>`).join('')}</datalist></div>
       <div><label for="fm">Métier / lot</label><input id="fm" type="text" maxlength="80" list="lme" value="${esc(d.metier)}" placeholder="Ex. : Électricité"><datalist id="lme">${[...new Set(cfg.entreprises.map(e => e.metier).filter(Boolean))].map(m => `<option value="${esc(m)}">`).join('')}</datalist></div></div>
       <label for="fs2">Salon</label><input id="fs2" type="text" maxlength="160" list="lsa" value="${esc(d.salon)}" placeholder="Nom du salon"><datalist id="lsa">${salonsProposes().map(s => `<option value="${esc(s)}">`).join('')}</datalist>
     </div>
@@ -480,7 +497,9 @@ async function vForm(t) {
   majPlan(); majPhotos();
   $('#cam').onchange = ajout; $('#gal').onchange = ajout; $('#pp').onclick = choisir;
   $('#pr').onclick = e => { const b = e.target.closest('button'); if (!b) return; prio = b.dataset.v; $('#pr').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
-  $('#fen').onchange = () => { const e = cfg.entreprises.find(x => x.nom === $('#fen').value.trim()); if (e && e.metier && !$('#fm').value) $('#fm').value = e.metier; };
+  const majMetier = () => { const n = $('#fen').value.trim().toLowerCase(); const e = cfg.entreprises.find(x => (x.nom || '').trim().toLowerCase() === n); if (e && e.metier) $('#fm').value = e.metier; };
+  $('#fen').oninput = majMetier; $('#fen').onchange = majMetier;
+  if ($('#fes')) $('#fes').onchange = () => { const v = $('#fes').value, autre = v === '__autre', f = $('#fen'); f.style.display = autre ? '' : 'none'; f.value = autre ? '' : v; if (autre) f.focus(); else majMetier(); };
   $('#ann').onclick = () => t ? vTicket(t.cle) : vListe();
   $('#form').onsubmit = async ev => {
     ev.preventDefault(); const b = $('#sv'); b.disabled = true; b.textContent = 'Enregistrement…'; $('#fe2').innerHTML = '';
