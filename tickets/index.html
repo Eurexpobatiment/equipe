@@ -175,7 +175,7 @@ async function fbInit() {
   st = S.getStorage(app);
 }
 const MSG = {
-  'auth/invalid-email': 'Adresse e-mail invalide', 'auth/invalid-credential': 'E-mail ou mot de passe incorrect', 'auth/wrong-password': 'E-mail ou mot de passe incorrect',
+  'auth/invalid-email': 'Adresse e-mail invalide', 'auth/missing-email': 'Saisir l\'adresse e-mail', 'auth/missing-password': 'Saisir le mot de passe', 'auth/invalid-credential': 'E-mail ou mot de passe incorrect', 'auth/wrong-password': 'E-mail ou mot de passe incorrect',
   'auth/user-not-found': 'Aucun compte avec cette adresse : utiliser « Première connexion »', 'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse : se connecter (ou « Mot de passe oublié »)',
   'auth/weak-password': 'Mot de passe trop court (6 caractères minimum)', 'auth/too-many-requests': 'Trop d\'essais : patienter quelques minutes', 'auth/network-request-failed': 'Pas de connexion internet',
   'permission-denied': 'Accès refusé pour cette action', 'unavailable': 'Serveur injoignable (pas de connexion ?)', 'storage/unauthorized': 'Envoi de la photo refusé', 'storage/retry-limit-exceeded': 'Envoi de la photo interrompu (connexion ?)'
@@ -333,6 +333,7 @@ function vLogin(msg) {
     <div id="e"></div>
     <label for="em">E-mail</label><input id="em" type="email" autocomplete="username" inputmode="email">
     <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password">
+    <p class="hint" style="margin-top:6px">Première connexion : saisir ici le mot de passe de votre choix (6 caractères minimum), puis appuyer sur « Première connexion ».</p>
     <div class="acts" style="margin-top:16px"><button class="btn pri big" id="go">Se connecter</button>
     <button class="btn" id="new">Première connexion (créer mon mot de passe)</button><button class="btn" id="fg">Mot de passe oublié</button></div></div>`;
   const E = t => { $('#e').innerHTML = t ? `<div class="err">${esc(t)}</div>` : ''; }, em = () => $('#em').value.trim(), pw = () => $('#pw').value;
@@ -341,6 +342,7 @@ function vLogin(msg) {
   $('#pw').onkeydown = e => { if (e.key === 'Enter') $('#go').click(); };
   $('#new').onclick = async () => {
     if (!CONFIG.domaine.test(em().toLowerCase())) return E('Première connexion réservée aux adresses @gl-events.com.');
+    if (pw().length < 6) { $('#pw').focus(); return E('Choisissez d\'abord votre mot de passe (6 caractères minimum) dans le champ « Mot de passe », puis appuyez à nouveau sur « Première connexion ».'); }
     try { const c = await A.createUserWithEmailAndPassword(auth, em(), pw()); await A.sendEmailVerification(c.user, url); } catch (e) { E(errMsg(e)); }
   };
   $('#fg').onclick = () => A.sendPasswordResetEmail(auth, em(), url).then(() => vLogin('Un e-mail pour choisir un nouveau mot de passe vient d\'être envoyé.')).catch(e => E(errMsg(e)));
