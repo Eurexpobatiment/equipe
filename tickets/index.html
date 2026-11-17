@@ -101,6 +101,13 @@ h3{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
 .dlg>div{background:#fff;width:100%;max-width:560px;padding:16px;max-height:92vh;overflow:auto;border-radius:2px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
 @media(min-width:620px){.dlg{align-items:center}}
 .cfgrow{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px}
+.cfgent{border:1px solid var(--line,#d9dfdc);border-radius:8px;padding:10px 10px 4px;margin-bottom:10px}
+.cfgtel{margin-left:14px}
+.cfgent>.btn{margin:0 0 8px 14px}
+.contacts{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.contact{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.contact .qui{flex:1;min-width:140px;font-weight:600}
+.contact .qui small{display:block;font-weight:400;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:2px;z-index:80;max-width:90vw}
 .center{text-align:center}
 @media(max-width:560px){header img{height:26px;max-width:36vw}header h1 small{display:none}.bar h2{font-size:17px;white-space:nowrap}.bar h2::before{width:18px}.stat{min-width:40%}}
@@ -283,6 +290,11 @@ function message(t) {
   return L.filter(x => x && x.trim()).join('\n');
 }
 const waUrl = t => 'https://wa.me/?text=' + encodeURIComponent(message(t));
+// Numéros de téléphone des entreprises (liste « Entreprises », visible des équipes Eurexpo seulement)
+const telChiffres = n => { let c = String(n || '').replace(/[^\d+]/g, ''); if (c.startsWith('+')) return c.slice(1).replace(/\D/g, ''); if (c.startsWith('00')) return c.slice(2); if (/^0\d{9}$/.test(c)) return '33' + c.slice(1); return c; };
+const telAffiche = n => { const c = String(n || '').replace(/\s+/g, ''); return /^0\d{9}$/.test(c) ? c.replace(/(\d\d)(?=\d)/g, '$1 ') : String(n || '').trim(); };
+const contactsDe = t => { const e = cfg.entreprises.find(x => x.nom === t.entreprise); return ((e && e.tels) || []).filter(c => c.tel); };
+const waDirect = (t, tel) => 'https://wa.me/' + telChiffres(tel) + '?text=' + encodeURIComponent(message(t));
 async function marquerEnvoye(t) {
   if (!me || t.statut !== 'Nouveau') return;
   try { await F.updateDoc(F.doc(db, 'Tickets', t.cle), { statut: 'Envoyé', envoyeLe: now(), majLe: now(), majPar: me.nom }); } catch (e) { console.warn(e); }
@@ -521,6 +533,7 @@ async function dessinerTicket(t, haut) {
       ${ouvert ? `<button class="btn ${t.statut === 'Pris en charge' ? 'pri ' : ''}big" id="fi">✅ Problème résolu</button>` : ''}
       ${me && ouvert && !aEnvoyer ? bWa + bPhoto : ''}
     </div>
+    ${me && contactsDe(t).length ? `<h3 style="margin:16px 0 0">Contacts ${esc(t.entreprise)}</h3><div class="contacts">${contactsDe(t).map(c => `<div class="contact"><span class="qui">${esc(c.nom || telAffiche(c.tel))}${c.nom ? `<small>${esc(telAffiche(c.tel))}</small>` : ''}</span><a class="btn sm" href="tel:+${esc(telChiffres(c.tel))}">📞 Appeler</a>${ouvert ? `<a class="btn sm wa" data-wad href="${esc(waDirect(t, c.tel))}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div>`).join('')}</div>` : ''}
     ${me ? `<div class="acts2">${ouvert ? '<button class="btn sm" id="ed">✏️ Modifier</button><button class="btn sm" id="cp">Copier le message</button><button class="btn sm dan" id="an">Annuler le ticket</button>' : '<button class="btn sm" id="ro">Rouvrir</button>'}${me.membre ? '<button class="btn sm dan" id="su">Supprimer</button>' : ''}</div>` : ''}
     </div>
     <div class="card"><h3>Suivi</h3><ul class="tl">
@@ -557,6 +570,7 @@ async function dessinerTicket(t, haut) {
     } catch (e) { toast(errMsg(e)); }
   });
   on('wa', () => { setTimeout(() => marquerEnvoye(t), 400); });
+  document.querySelectorAll('#fiche [data-wad]').forEach(b => b.onclick = () => { setTimeout(() => marquerEnvoye(t), 400); });
   on('wap', () => partagerAvecPhoto(t));
   on('cp', async () => { try { await navigator.clipboard.writeText(message(t)); toast('Message copié'); } catch (e) { toast('Copie impossible sur cet appareil'); } });
   on('ed', () => vForm(t));
@@ -573,19 +587,23 @@ async function dessinerTicket(t, haut) {
 
 /* ---------- Entreprises (liste proposée à la saisie) ---------- */
 function vCfg() {
-  let L = cfg.entreprises.map(e => ({ ...e }));
+  let L = cfg.entreprises.map(e => ({ ...e, tels: (e.tels || []).map(c => ({ ...c })) }));
   const d = document.createElement('div'); d.className = 'dlg';
   const dessiner = () => {
-    d.innerHTML = `<div role="dialog" aria-modal="true"><h3>Entreprises proposées à la saisie</h3><p class="hint">Le métier s'affiche en tête du message WhatsApp (ex. : ÉLECTRICITÉ – nom de l'entreprise).</p>
-      ${L.map((e, i) => `<div class="cfgrow"><input type="text" data-i="${i}" data-k="nom" value="${esc(e.nom)}" placeholder="Entreprise" aria-label="Entreprise"><input type="text" data-i="${i}" data-k="metier" value="${esc(e.metier || '')}" placeholder="Métier / lot" aria-label="Métier"><button class="btn sm dan" data-del="${i}" aria-label="Retirer">×</button></div>`).join('')}
+    d.innerHTML = `<div role="dialog" aria-modal="true"><h3>Entreprises proposées à la saisie</h3><p class="hint">Le métier s'affiche en tête du message WhatsApp (ex. : ÉLECTRICITÉ – nom de l'entreprise). Les numéros ne sont visibles que des équipes Eurexpo, sur la fiche du ticket (appel ou WhatsApp direct).</p>
+      ${L.map((e, i) => `<div class="cfgent"><div class="cfgrow"><input type="text" data-i="${i}" data-k="nom" value="${esc(e.nom)}" placeholder="Entreprise" aria-label="Entreprise"><input type="text" data-i="${i}" data-k="metier" value="${esc(e.metier || '')}" placeholder="Métier / lot" aria-label="Métier"><button class="btn sm dan" data-del="${i}" aria-label="Retirer l'entreprise">×</button></div>
+        ${e.tels.map((c, j) => `<div class="cfgrow cfgtel"><input type="text" data-i="${i}" data-j="${j}" data-k="nom" value="${esc(c.nom || '')}" maxlength="60" placeholder="Nom du contact" aria-label="Nom du contact"><input type="tel" data-i="${i}" data-j="${j}" data-k="tel" value="${esc(c.tel || '')}" maxlength="24" placeholder="06 12 34 56 78" aria-label="Téléphone"><button class="btn sm dan" data-delt="${i},${j}" aria-label="Retirer le numéro">×</button></div>`).join('')}
+        <button class="btn sm" data-addt="${i}">＋ Numéro</button></div>`).join('')}
       <button class="btn sm" data-add>＋ Ajouter une entreprise</button>
       <div class="acts2" style="margin-top:16px"><button class="btn" data-x style="flex:1">Fermer</button><button class="btn pri" data-ok style="flex:2">Enregistrer</button></div></div>`;
-    d.querySelectorAll('input').forEach(i => i.oninput = () => { L[+i.dataset.i][i.dataset.k] = i.value; });
+    d.querySelectorAll('input').forEach(i => i.oninput = () => { const e = L[+i.dataset.i]; (i.dataset.j != null ? e.tels[+i.dataset.j] : e)[i.dataset.k] = i.value; });
+    d.querySelectorAll('[data-addt]').forEach(b => b.onclick = () => { const i = +b.dataset.addt; L[i].tels.push({ nom: '', tel: '' }); dessiner(); d.querySelector(`input[data-i="${i}"][data-j="${L[i].tels.length - 1}"][data-k=nom]`).focus(); });
+    d.querySelectorAll('[data-delt]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.delt.split(',').map(Number); L[i].tels.splice(j, 1); dessiner(); });
     d.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { L.splice(+b.dataset.del, 1); dessiner(); });
-    $('[data-add]', d).onclick = () => { L.push({ nom: '', metier: '' }); dessiner(); const a = d.querySelectorAll('input[data-k=nom]'); a[a.length - 1].focus(); };
+    $('[data-add]', d).onclick = () => { L.push({ nom: '', metier: '', tels: [] }); dessiner(); const a = d.querySelectorAll('input[data-k=nom]:not([data-j])'); a[a.length - 1].focus(); };
     $('[data-x]', d).onclick = () => d.remove();
     $('[data-ok]', d).onclick = async () => {
-      const P = L.map(e => ({ nom: e.nom.trim(), metier: (e.metier || '').trim() })).filter(e => e.nom).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+      const P = L.map(e => ({ nom: e.nom.trim(), metier: (e.metier || '').trim(), tels: e.tels.map(c => ({ nom: (c.nom || '').trim(), tel: (c.tel || '').trim() })).filter(c => c.tel) })).filter(e => e.nom).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
       try { await F.setDoc(F.doc(db, 'TicketsCfg', 'config'), { entreprises: JSON.stringify(P), salons: JSON.stringify(cfg.salons || []), majPar: me.nom, majLe: now() }); cfg.entreprises = P; d.remove(); toast('Liste enregistrée'); } catch (e) { toast(errMsg(e)); }
     };
   };
