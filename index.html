@@ -828,7 +828,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '26'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '27'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -1530,6 +1530,10 @@ async function alEnregistrer(){
 const nacHall=l=>chpEspaces(l||'').find(h=>/^Hall /.test(h))||'';
 function nacPos(t){
   const c=D.Nacelle.filter(b=>b.debut&&b.fin&&b.debut<=t&&t<b.fin).sort((a,b)=>a.debut.localeCompare(b.debut))[0];
+  // position posée à la main sur le plan : elle l'emporte tant qu'aucune réservation n'a commencé après elle
+  const M=(D.NacellePos||[]).find(p=>p.quand&&p.quand<=t), suiv=D.Nacelle.some(b=>b.debut&&b.fin&&b.debut>(M?M.quand:'')&&b.debut<=t&&nacHall(b.lieu));
+  if(M&&!suiv) return {hall:M.hall||'',x:M.x,y:M.y,manuel:true,cours:!!c,b:c||null,label:'Nacelle · placée par '+M.majPar,
+    txt:(M.hall||'Sur le plan')+' · placée à la main par '+M.majPar+' le '+fDT(M.quand)+(c?' · réservée par '+c.nom:'')};
   if(c){const hall=nacHall(c.lieu), f=c.fin.slice(0,10)===t.slice(0,10)?c.fin.slice(11):fDT(c.fin);
     return {hall,cours:true,b:c,label:'Nacelle · '+c.nom,txt:(hall||(c.lieu?c.lieu+' (hall non reconnu)':'lieu non précisé'))+' · utilisée par '+c.nom+' jusqu\'à '+f}}
   const d=D.Nacelle.filter(b=>b.debut&&b.fin&&b.fin<=t&&nacHall(b.lieu)).sort((a,b)=>b.fin.localeCompare(a.fin))[0];
@@ -1545,9 +1549,10 @@ function vNacellePlan(el){
       <input type="date" id="clD" value="${UI.clD}" onchange="UI.clD=this.value;clSend()">
       <input type="time" id="clH" value="${UI.clH}" onchange="UI.clH=this.value;clSend()">
       <button class="btn sm" onclick="UI.clD=today();UI.clH=new Date().toTimeString().slice(0,5);$('#clD').value=UI.clD;$('#clH').value=UI.clH;clSend()">Maintenant</button>
-      <span id="nacInfo" class="hint" style="margin:0"></span></div>
+      <span id="nacInfo" class="hint" style="margin:0"></span>
+      <a href="#" id="nacReset" class="hint" style="margin:0;display:none" onclick="nacPlacer(null);return false">↩ Revenir à la position des réservations</a></div>
     <iframe id="cloisonsFrame" src="cloisons/?embed=1&vue=1" title="Plan : nacelle et cloisons mobiles" style="width:100%;height:760px;border:0;border-radius:12px;background:#fff;display:block"></iframe>
-    <p class="hint">La nacelle est placée dans le hall indiqué dans le « Lieu » de la réservation en cours à la date choisie ; sans réservation en cours, à son dernier emplacement connu (dernière réservation terminée, repère en pointillé). Les cloisons sont celles du planning des mouvements à la même date (onglet Régie évènementielle).</p>`;
+    <p class="hint"><b>Pour déplacer la nacelle, fais glisser son repère sur le plan</b> : la position est enregistrée pour toute l'équipe, jusqu'à la prochaine réservation qui indique un hall. Sinon, la nacelle est placée dans le hall indiqué dans le « Lieu » de la réservation en cours à la date choisie ; sans réservation en cours, à son dernier emplacement connu (dernière réservation terminée, repère en pointillé). Les cloisons sont celles du planning des mouvements à la même date (onglet Régie évènementielle).</p>`;
   clSend();
 }
 function vNacelle(el){
@@ -1707,7 +1712,17 @@ window.addEventListener('message',e=>{const k=document.getElementById('clPick');
   if(Array.isArray(e.data.cloisonsPick)){const s=$('#f_position');if(s){s.value=e.data.cloisonsPick.map(o=>CL_POS.find(q=>q.c===o.c&&q.p===o.p)).filter(Boolean).map(p=>p.v).join(' ; ');clChips()}}});
 window.addEventListener('message',e=>{const f=document.getElementById('cloisonsFrame');if(!f||e.source!==f.contentWindow||!e.data)return;
   if(e.data.cloisonsH)f.style.height=(e.data.cloisonsH+4)+'px';
-  if(e.data.cloisonsReady)clSend()});
+  if(e.data.cloisonsReady)clSend();
+  if(e.data.cloisonsNacMove&&$('#nacInfo'))nacPlacer(e.data.cloisonsNacMove)});
+/* Nacelle déplacée à la main sur le plan (p = {x,y,hall}) ; p = null : retour à la position des réservations */
+async function nacPlacer(p){
+  const o=p?{x:p.x,y:p.y,hall:p.hall||'',quand:nowISO()}:null, avant=D.NacellePos;
+  D.NacellePos=o?[{...o,kind:'position',majPar:me}]:[];
+  UI.clD=today();UI.clH=nowISO().slice(11);const a=$('#clD'),b=$('#clH');if(a)a.value=UI.clD;if(b)b.value=UI.clH;
+  clSend();
+  try{if(FBM)await FB.nacPlacer(o);toast(o?'Nacelle placée'+(o.hall?' · '+o.hall:'')+' ✓':'Position des réservations rétablie ✓')}
+  catch(e){D.NacellePos=avant;clSend();toast('Pas enregistré : '+(e.message||e),1)}
+}
 /* État des cloisons à une date, d'après les mouvements du planning */
 /* Repère saisi en texte (anciens mouvements sans « Cloison sur le plan ») → positions du plan */
 const clNorm=s=>(s||'').toLowerCase().replace(/cloison|hall/g,'').replace(/[^0-9a-z.]/g,'');
@@ -1748,7 +1763,10 @@ function clSend(){
   const i=$('#clInfo'); if(i) i.textContent=r.n+' mouvement'+(r.n>1?'s':'')+' pris en compte'+(r.cours.length?' · '+r.cours.length+' en cours':'');
   const nac=nacPos(d+'T'+h), ni=$('#nacInfo'); // la nacelle figure sur le même plan que les cloisons
   if(ni) ni.textContent=nac?nac.txt:'Position inconnue : aucune réservation avec un hall en « Lieu » à cette date';
-  try{f.contentWindow.postMessage({cloisonsState:r.st,titre,nacelle:nac&&nac.hall?{hall:nac.hall,cours:nac.cours,label:nac.label}:null},'*')}catch(e){}
+  const nr=$('#nacReset'); if(nr) nr.style.display=nac&&nac.manuel?'':'none';
+  const edit=!!ni; // onglet Nacelle : le repère se déplace à la main ; position inconnue = repère « à placer » au centre du parc
+  const msgNac=nac&&(nac.hall||nac.manuel)?{hall:nac.hall,x:nac.manuel?nac.x:null,y:nac.manuel?nac.y:null,cours:nac.cours,label:nac.label,edit}:edit?{hall:'',x:1040,y:1225,cours:false,label:'Nacelle · à placer',edit}:null;
+  try{f.contentWindow.postMessage({cloisonsState:r.st,titre,nacelle:msgNac},'*')}catch(e){}
 }
 function agList(sheet){
   const st=UI.ag[sheet], A=AG[sheet], t=today();

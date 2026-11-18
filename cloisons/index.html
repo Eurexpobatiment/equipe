@@ -105,6 +105,8 @@ body.vue main{grid-template-columns:1fr}
 body.vue aside,body.vue .full,body.vue [data-preset],body.vue .toolbar .sep,body.vue .toolbar .lbl:first-child{display:none !important}
 /* Nacelle (position envoyée par l'appli Équipe, d'après les réservations) */
 #nac{pointer-events:none}
+#nac .drag{pointer-events:auto;cursor:grab;touch-action:none}
+#nac .drag.on{cursor:grabbing}
 #nac .halo{animation:nacPulse 1.8s ease-out infinite;transform-origin:center;transform-box:fill-box}
 @keyframes nacPulse{0%{opacity:.55;transform:scale(.7)}100%{opacity:0;transform:scale(1.7)}}
 .extinfo{padding:8px 14px;background:#eef6f1;border-bottom:1px solid var(--line);font-size:13px;color:#0e4d33}
@@ -142,7 +144,7 @@ body.vue aside,body.vue .full,body.vue [data-preset],body.vue .toolbar .sep,body
       <span><i style="border-top:6px solid #ff9f1a"></i>Trait plein = cloison en place</span>
       <span><i style="border-top:4px dashed #ff9f1a;background:#0e4d33;height:6px;border-radius:2px"></i>Pointillé = position possible, libre</span>
       <span>Une couleur = une cloison</span>
-      <span id="nacLeg" style="display:none"><i style="width:14px;height:14px;border-radius:50%;background:#e09a2b;border:2px solid #fff;box-shadow:0 0 0 1px #b87514"></i>Nacelle (d'après les réservations)</span>
+      <span id="nacLeg" style="display:none"><i style="width:14px;height:14px;border-radius:50%;background:#e09a2b;border:2px solid #fff;box-shadow:0 0 0 1px #b87514"></i>Nacelle</span>
       <span><i style="width:14px;height:14px;border:2px solid #333;border-radius:3px;background:#fff"></i>Espace indépendant</span>
       <span><i style="width:14px;height:14px;border-radius:3px;background:#1d3557"></i>Badges de même couleur = un seul espace</span>
       <label class="slider">Plan de fond <input type="range" id="op" min="0" max="100" value="100"></label>
@@ -487,7 +489,8 @@ const NAC_POS={"Hall 1":[780,1378],"Hall 2.1 AB":[565,1180],"Hall 2.1 Ext":[430,
   "Hall 5.2":[1600,540],"Hall 6.1":[1320,1373],"Hall 6.2":[1540,1178],"Hall 6.3":[1695,1023],"Hall 7":[1860,1320]};
 function drawNac(n){
   const g=document.getElementById("nac"); g.innerHTML="";
-  const P=n&&NAC_POS[n.hall]; document.getElementById("nacLeg").style.display=P?"":"none";
+  // position posée à la main (x, y) en priorité, sinon le hall de la réservation
+  const P=n&&(n.x!=null&&n.y!=null?[+n.x,+n.y]:NAC_POS[n.hall]); document.getElementById("nacLeg").style.display=P?"":"none";
   if(!P) return;
   const m=el("g",{transform:`translate(${P[0]},${P[1]}) scale(1.4)`,opacity:n.cours?1:.85},g);
   if(n.cours) el("circle",{class:"halo",r:38,fill:"#e09a2b"},m);
@@ -497,6 +500,21 @@ function drawNac(n){
   const lb=el("g",{transform:`translate(${left?-44-w:44},-17)`},m);
   el("rect",{width:w,height:34,rx:17,fill:"#fff",stroke:"#b87514","stroke-width":2.5},lb);
   const t=el("text",{x:w/2,y:23,"text-anchor":"middle","font-size":19,"font-weight":700,fill:"#7a4a00","font-family":"Inter,sans-serif"},lb); t.textContent=txt;
+  if(n.edit) nacDrag(m,P);
+}
+// Déplacement à la main (appli Équipe, onglet Nacelle) : on fait glisser le repère, la nouvelle position est renvoyée à l'appli
+const nacNear=(x,y)=>Object.entries(NAC_POS).map(([h,p])=>[h,(p[0]-x)**2+(p[1]-y)**2]).sort((a,b)=>a[1]-b[1])[0][0];
+function nacDrag(m,P){
+  m.classList.add("drag"); let d=null;
+  const pt=e=>{ const q=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse()); return [q.x,q.y]; };
+  m.addEventListener("pointerdown",e=>{ e.preventDefault(); const q=pt(e); d={dx:P[0]-q[0],dy:P[1]-q[1],x:P[0],y:P[1],moved:false}; m.classList.add("on"); try{m.setPointerCapture(e.pointerId)}catch(_){ } });
+  m.addEventListener("pointermove",e=>{ if(!d) return; const q=pt(e);
+    d.x=Math.max(40,Math.min(VB.all[2]-40,q[0]+d.dx)); d.y=Math.max(40,Math.min(VB.all[3]-40,q[1]+d.dy)); d.moved=true;
+    m.setAttribute("transform",`translate(${d.x},${d.y}) scale(1.4)`); });
+  const fin=e=>{ if(!d) return; const o=d; d=null; m.classList.remove("on");
+    if(o.moved&&e.type==="pointerup") try{ parent.postMessage({cloisonsNacMove:{x:Math.round(o.x),y:Math.round(o.y),hall:nacNear(o.x,o.y)}},"*"); }catch(_){ }
+    else m.setAttribute("transform",`translate(${P[0]},${P[1]}) scale(1.4)`); };
+  m.addEventListener("pointerup",fin); m.addEventListener("pointercancel",fin);
 }
 // ---------- État envoyé par l'appli Équipe (planning des mouvements) ----------
 let EXT=null;

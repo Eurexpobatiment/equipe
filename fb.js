@@ -137,6 +137,8 @@ export function start(D, onChange, onErr) {
     if (PARTAGES.indexOf(name) >= 0) { const vu = new Set(); L = L.filter(x => !vu.has(x.id) && vu.add(x.id)); }
     // Documents : l'index des dossiers Teams est rangé dans la même collection (fiches à part)
     if (name === 'Documents') { D.DocsIndex = L.filter(x => x.kind === 'index'); D[name] = L.filter(x => x.kind !== 'index'); }
+    // Nacelle : sa position posée à la main sur le plan est rangée dans la même collection (document « position », à part des réservations)
+    else if (name === 'Nacelle') { D.NacellePos = L.filter(x => x.kind === 'position'); D[name] = L.filter(x => x.kind !== 'position'); }
     else D[name] = L;
   };
   const sub = (name, q) => {
@@ -242,7 +244,7 @@ async function saveNacelle(o) {
   await wrap(F.runTransaction(db, async tx => {
     const lk = await tx.get(lock);
     const s = await F.getDocsFromServer(F.collection(db, 'Nacelle'));
-    checkNacelle_(o, s.docs.map(d => Object.assign({}, d.data(), { id: d.id })));
+    checkNacelle_(o, s.docs.filter(d => d.data().kind !== 'position').map(d => Object.assign({}, d.data(), { id: d.id })));
     tx.set(lock, { v: (lk.exists() ? Number(lk.data().v) || 0 : 0) + 1, par: me, le: now_() });
     tx.set(ref('Nacelle', o.id), o);
   }));
@@ -586,6 +588,16 @@ export async function alLire() {
 const DT_STATUTS = ['Nouvelle', "À l'étude", 'Chiffrage', 'Validée', 'Planifiée', 'En cours', 'Terminée', 'Refusée'];
 const dtParse = s => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
 const dtCles = new Map();
+/* Nacelle déplacée à la main sur le plan : document Nacelle/position = { kind:'position', x, y, hall, quand, majPar }
+   (debut / fin / nom vides : une ancienne copie de l'appli encore ouverte l'ignore). null = revenir à la position des réservations. */
+export async function nacPlacer(p) {
+  const r = ref('Nacelle', 'position');
+  if (!p) { await wrap(F.deleteDoc(r)); journal('suppression', 'Nacelle', 'position', 'position manuelle retirée'); return null; }
+  const o = { kind: 'position', debut: '', fin: '', nom: '', x: Math.round(p.x), y: Math.round(p.y), hall: String(p.hall || ''), quand: String(p.quand || ''), majPar: me };
+  await wrap(F.setDoc(r, o));
+  journal('modification', 'Nacelle', 'position', 'nacelle placée ' + (o.hall || 'sur le plan'));
+  return o;
+}
 export async function dtList() {
   if (!me) throw new Error('Connexion nécessaire');
   const s = await wrap(F.getDocs(F.collection(db, 'Demandes')));
