@@ -1525,8 +1525,35 @@ async function alEnregistrer(){
 }
 
 /* ================== NACELLE ================== */
+/* Position de la nacelle à un instant t ('AAAA-MM-JJTHH:MM'), d'après les réservations : hall de la réservation en cours,
+   sinon hall de la dernière réservation terminée (dernier emplacement connu). Le hall est lu dans le « Lieu ». */
+const nacHall=l=>chpEspaces(l||'').find(h=>/^Hall /.test(h))||'';
+function nacPos(t){
+  const c=D.Nacelle.filter(b=>b.debut&&b.fin&&b.debut<=t&&t<b.fin).sort((a,b)=>a.debut.localeCompare(b.debut))[0];
+  if(c){const hall=nacHall(c.lieu), f=c.fin.slice(0,10)===t.slice(0,10)?c.fin.slice(11):fDT(c.fin);
+    return {hall,cours:true,b:c,label:'Nacelle · '+c.nom,txt:(hall||(c.lieu?c.lieu+' (hall non reconnu)':'lieu non précisé'))+' · utilisée par '+c.nom+' jusqu\'à '+f}}
+  const d=D.Nacelle.filter(b=>b.debut&&b.fin&&b.fin<=t&&nacHall(b.lieu)).sort((a,b)=>b.fin.localeCompare(a.fin))[0];
+  if(d){const hall=nacHall(d.lieu);return {hall,cours:false,b:d,label:'Nacelle · dernier emplacement',txt:hall+' · dernier emplacement connu ('+d.nom+', fin le '+fDT(d.fin)+')'}}
+  return null;
+}
+const nacCtl=cur=>`<div class="seg-ctl">${[['sem','Semaine'],['mois','Mois'],['plan','🗺️ Plan']].map(([k,l])=>`<button class="${cur===k?'on':''}" onclick="UI.nView='${k}';render()">${l}</button>`).join('')}</div>`;
+function vNacellePlan(el){
+  if(!UI.clD){UI.clD=today();UI.clH=new Date().toTimeString().slice(0,5)}
+  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${nacCtl('plan')}
+    <button class="btn pri" onclick="newNac()">+ Réserver la nacelle</button></div>
+    <div class="clbar"><b>📍 Position de la nacelle au</b>
+      <input type="date" id="clD" value="${UI.clD}" onchange="UI.clD=this.value;clSend()">
+      <input type="time" id="clH" value="${UI.clH}" onchange="UI.clH=this.value;clSend()">
+      <button class="btn sm" onclick="UI.clD=today();UI.clH=new Date().toTimeString().slice(0,5);$('#clD').value=UI.clD;$('#clH').value=UI.clH;clSend()">Maintenant</button>
+      <span id="nacInfo" class="hint" style="margin:0"></span></div>
+    <iframe id="cloisonsFrame" src="cloisons/?embed=1&vue=1" title="Plan : nacelle et cloisons mobiles" style="width:100%;height:760px;border:0;border-radius:12px;background:#fff;display:block"></iframe>
+    <p class="hint">La nacelle est placée dans le hall indiqué dans le « Lieu » de la réservation en cours à la date choisie ; sans réservation en cours, à son dernier emplacement connu (dernière réservation terminée, repère en pointillé). Les cloisons sont celles du planning des mouvements à la même date (onglet Régie évènementielle).</p>`;
+  clSend();
+}
 function vNacelle(el){
   if(UI.nView==='mois') return vNacelleMois(el);
+  if(UI.nView==='plan') return vNacellePlan(el);
+  const nacNow=nacPos(nowISO());
   const ws=monday(UI.nWeek), days=[...Array(7)].map((_,i)=>addDays(ws,i)), t=today(), H0=6, H1=22, span=(H1-H0)*60;
   const now=nowISO();
   const mineNext=D.Nacelle.filter(b=>b.nom===me&&b.fin>=now).sort((a,b)=>a.debut.localeCompare(b.debut)).slice(0,3);
@@ -1549,10 +1576,11 @@ function vNacelle(el){
       <button class="btn sm" onclick="newNac('${d}')">+ Réserver</button></div>
       <div class="tl">${ticks}${segs}${nowLine}</div>${list||'<div class="free">Libre</div>'}</div>`;
   }).join('');
-  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${viewCtl('sem','UI.nView')}
+  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${nacCtl('sem')}
     <button class="btn" onclick="UI.nWeek--;render()">‹</button><button class="btn" onclick="UI.nWeek=0;render()">Cette semaine</button><button class="btn" onclick="UI.nWeek++;render()">›</button>
     <button class="btn pri" onclick="newNac()">+ Réserver la nacelle</button></div>
     <p class="hint">Semaine du ${fD(ws,{day:'numeric',month:'long'})} au ${fD(addDays(ws,6),{day:'numeric',month:'long',year:'numeric'})} · frise de 6 h à 22 h</p>
+    <div class="mine">📍 <b>Position de la nacelle :</b> ${nacNow?esc(nacNow.txt):'inconnue (aucune réservation avec un hall en « Lieu »)'} · <a href="#" onclick="UI.clD='';UI.nView='plan';render();return false">Voir sur le plan</a></div>
     ${mineNext.length?`<div class="mine"><b>Tes prochaines réservations :</b> ${mineNext.map(b=>`<a href="#" onclick="editNac('${b.id}');return false">${fDT(b.debut)} → ${b.fin.slice(0,10)===b.debut.slice(0,10)?b.fin.slice(11):fDT(b.fin)}</a>`).join(' · ')}</div>`:''}
     <div class="days">${rows}</div>`;
 }
@@ -1564,7 +1592,7 @@ function vNacelleMois(el){
       return {html:esc(h+' '+b.nom),col:pcol(b.nom),title:`${b.nom} · ${fDT(b.debut)} → ${fDT(b.fin)}${b.lieu?' · '+b.lieu:''}${b.motif?' · '+b.motif:''}`,click:`editNac('${b.id}')`}})};
   // clic sur un jour : ouvre la semaine correspondante
   const toWeek=d=>`UI.nView='sem';UI.nWeek=Math.round((parseD('${addDays(d,-((parseD(d).getDay()+6)%7))}')-parseD(monday()))/6048e5);render()`;
-  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${viewCtl('mois','UI.nView')}
+  el.innerHTML=`<div class="bar"><h2>Planning nacelle</h2>${nacCtl('mois')}
     <button class="btn" onclick="UI.nMonth--;render()">‹</button><button class="btn" onclick="UI.nMonth=0;render()">Ce mois</button><button class="btn" onclick="UI.nMonth++;render()">›</button>
     <button class="btn pri" onclick="newNac()">+ Réserver la nacelle</button></div>
     <p class="hint"><b>${fMonth(ms)}</b> · touche une réservation pour la modifier, ou un jour pour voir sa semaine en détail.</p>
@@ -1718,7 +1746,9 @@ function clSend(){
     +(r.cours.length?` · En cours : ${r.cours.map(o=>o.x.mouvement.toLowerCase()+' '+o.m.P.map(nom).join(', ')+' jusqu\'au '+fD(agFin(o.x))).join(' ; ')}`:'')
     +(nb?` · ${nb} mouvement${nb>1?'s':''} non reconnu${nb>1?'s':''} (cloison à préciser)`:'');
   const i=$('#clInfo'); if(i) i.textContent=r.n+' mouvement'+(r.n>1?'s':'')+' pris en compte'+(r.cours.length?' · '+r.cours.length+' en cours':'');
-  try{f.contentWindow.postMessage({cloisonsState:r.st,titre},'*')}catch(e){}
+  const nac=nacPos(d+'T'+h), ni=$('#nacInfo'); // la nacelle figure sur le même plan que les cloisons
+  if(ni) ni.textContent=nac?nac.txt:'Position inconnue : aucune réservation avec un hall en « Lieu » à cette date';
+  try{f.contentWindow.postMessage({cloisonsState:r.st,titre,nacelle:nac&&nac.hall?{hall:nac.hall,cours:nac.cours,label:nac.label}:null},'*')}catch(e){}
 }
 function agList(sheet){
   const st=UI.ag[sheet], A=AG[sheet], t=today();
