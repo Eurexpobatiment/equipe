@@ -1,4 +1,4 @@
-/* Appli Équipe – Eurexpo · tableau de bord des alertes (page d'accueil, au-dessus du Mémo vigilance)
+/* Appli Équipe – Eurexpo · tableau de bord des alertes (onglet « Dashboard »)
  * Calculs seuls, sans écran ni Firebase : utilisés par la page (index.html) et par les tests (Node).
  *
  * Une alerte : { id, dom, niv, cat, titre, detail, val, go }

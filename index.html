@@ -472,11 +472,12 @@ button.doccard.dxd{width:100%;text-align:left;font:inherit;cursor:pointer}button
 .trib{display:flex;flex-direction:column;gap:4px}.trib.out{background:#fff4e5}.trib .btn{align-self:flex-start;margin-top:2px}
 @media print{header,nav,.pgsrc,.chf,.bar .btn,.seg-ctl{display:none!important}body{background:#fff}.pgday{break-inside:avoid}}
 
-/* Tableau de bord des alertes (accueil) */
+/* Tableau de bord des alertes (onglet Dashboard) */
 .alb{background:#fff;border:1px solid var(--line);border-radius:2px;padding:12px 14px;margin-bottom:20px}
 .albh{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px}
-.albh h2{margin:0;font-size:19px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--txt)}
+.albh h2{margin:0;display:flex;align-items:center;gap:12px;font-size:19px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--txt)}
 .albh small{color:var(--muted);font-size:12.5px}
+.albh h2::before{content:'';flex:none;width:28px;height:10px;background:var(--mint)}
 .albs{font-size:14px;color:#475569}.albs b.n3{color:var(--accent)}.albs b.n2{color:#b9770e}
 .albt{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px;margin-bottom:10px}
 .alt{border:1px solid var(--line);background:#fff;border-radius:2px;padding:8px 11px;text-align:left;cursor:pointer;font:inherit;color:var(--txt);border-top:4px solid var(--ok);display:flex;flex-direction:column;gap:1px}
@@ -779,6 +780,7 @@ const FORMS_MEMO = {
 };
 
 const TABS = [
+  {id:'Dash',l:'🚦 Dashboard',g:'Au quotidien'}, // tableau de bord des alertes : dans le menu des seules personnes qui y ont accès (alVu)
   {id:'Memo',l:'⚠️ Mémo vigilance',g:'Au quotidien'},
   {id:'Planning',l:'📆 Planning global',g:'Au quotidien'},
   {id:'Taches',l:'✅ Tâches',g:'Au quotidien'},
@@ -800,6 +802,7 @@ const TABS = [
 const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur téléphone
 /* Icônes au trait du menu (remplacent les emojis) */
 const ICO_P={
+  Dash:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   Memo:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
   Planning:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
   Taches:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/>',
@@ -1077,19 +1080,20 @@ function render(){
   const mine=D.Taches.filter(aFaire).length;
   navRender(mine);
   if(!loaded) return;
+  if(FBM&&me&&!AL.etat){AL.etat='charge';alDemarrer()}
   const el=$('#view');
   if(APPS[tab])return vApp(tab,el);
   el.hidden=false;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);document.body.style.overflow='';
-  ({Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Surete:vSurete,Equipe:vEquipe,Budget:vBudget,Projets:vProjets,Bench:vBench,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
+  ({Dash:vDash,Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Surete:vSurete,Equipe:vEquipe,Budget:vBudget,Projets:vProjets,Bench:vBench,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
   hallsDatalist(); budgetDatalists();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
 function navRender(mine){
   const ico=t=>icoSvg(t.id)||t.l.split(' ')[0], nom=t=>t.l.slice(t.l.indexOf(' ')+1);
   const btn=t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')" title="${esc(nom(t))}"><span class="ni">${ico(t)}</span><span class="nl">${esc(nom(t))}</span>${tabBadge(t.id,mine)}</button>`;
-  const TV=TABS, grps=[...new Set(TV.map(t=>t.g))];
+  const TV=TABS.filter(t=>t.id!=='Dash'||alVu()), grps=[...new Set(TV.map(t=>t.g))];
   $('#tabs').innerHTML=grps.map(g=>`<div class="ng"><div class="ngt">${esc(g)}</div>${TV.filter(t=>t.g===g).map(btn).join('')}</div>`).join('');
-  const cur=TABS.find(t=>t.id===tab);
+  const cur=TABS.find(t=>t.id===tab)||TABS[1];
   $('#bnav').innerHTML=TABS_RAPIDES.map(id=>TABS.find(t=>t.id===id)).map(t=>`<button class="${t.id===tab?'on':''}" onclick="goTab('${t.id}')"><span class="ni">${ico(t)}${tabBadge(t.id,mine)}</span><small>${esc(nom(t).split(' ')[0])}</small></button>`).join('')
     +`<button class="${TABS_RAPIDES.includes(tab)?'':'on'}" onclick="navOpen()"><span class="ni">${icoSvg('Menu')}</span><small>${TABS_RAPIDES.includes(tab)?'Menu':esc(nom(cur).split(' ')[0])}</small></button>`;
 }
@@ -1351,7 +1355,7 @@ function vMemo(el){
   const SJ=isV?svDuJour().filter(m=>!q||[m.titre,m.texte,m.lieu,m.salon].join(' ').toLowerCase().includes(q)).sort((x,y)=>svSynth(y)-svSynth(x)||ni(y)-ni(x)):[];
   const nbV=D.Memos.filter(m=>m.type==='Vigilance'&&memoActif(m)&&!memoLu(m)).length+svDuJour().filter(m=>!memoLu(m)).length, nbC=D.Memos.filter(m=>m.type==='Compte rendu'&&memoActif(m)&&!memoLu(m)).length;
   const seg=[['Vigilance','⚠️ Points de vigilance',nbV],['Compte rendu','📝 Comptes rendus',nbC]].map(([k,l,n])=>`<button class="${S.v===k?'on':''}" onclick="UI.m.v='${k}';UI.m.arch=false;render()">${l}${n?` <span class="badge">${n}</span>`:''}</button>`).join('');
-  el.innerHTML=`${alBloc()}<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
+  el.innerHTML=`<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
     <input class="search" placeholder="Rechercher…" value="${esc(S.q)}" oninput="UI.m.q=this.value;memoRefresh()">
     <button class="btn pri" onclick="memoNew('${S.v}')">+ ${isV?'Point de vigilance':'Compte rendu'}</button></div>
     ${isV?'<p class="hint">Les points importants à connaître par toute l\'équipe. Touche « ✓ J\'ai lu » pour confirmer que tu en as pris connaissance.</p>':'<p class="hint">Les comptes rendus de réunions. Depuis un compte rendu, tu peux créer une tâche pour chaque action à mener.</p>'}
@@ -1406,29 +1410,29 @@ async function memoSetLu(id,lu,btn){
 function memoTache(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;closeModal(true);
   openForm('Taches',{description:`Suite au compte rendu « ${m.titre} » du ${fD(m.dateReunion,{day:'numeric',month:'long',year:'numeric'})}${m.decisions?' :\n'+m.decisions:''}`,lieu:m.lieu||''},'Nouvelle tâche (depuis un compte rendu)')}
 
-/* ================== 🚦 TABLEAU DE BORD DES ALERTES (accueil, au-dessus du Mémo vigilance) ==================
+/* ================== 🚦 TABLEAU DE BORD DES ALERTES (onglet « Dashboard », tout en haut du menu) ==================
    Calculs dans alertes.js. Vu par les personnes choisies dans ⚙️ (à défaut : les responsables).
    Budget, sûreté, tâches, chantiers, drapeaux : données de l'appli, en direct.
    Conso des salons, PV, températures, compteurs / eau, tickets, demandes : lus dans Firebase à l'ouverture, puis gardés
    sur l'appareil pendant « cacheMin » minutes (pas d'écoute en direct, pour limiter les lectures Firestore). */
 let ALM=null;
-const AL={etat:'',regl:null,reglErr:'',ext:null,charge:false,err:'',f:'',tout:false,plie:lsGet('equipe.al.plie')==='1',L:[]};
+const AL={etat:'',regl:null,reglErr:'',ext:null,charge:false,err:'',f:'',tout:false,L:[]};
 const alRole=()=>(D.Equipe.find(e=>e.nom===me)||{}).role||'';
 const alAdmin=()=>alRole()==='Responsable';
 const alVu=()=>FBM&&!!me&&!!ALM&&AL.etat==='pret'&&ALM.aAcces(AL.regl,me,alRole());
 const alMasques=()=>{let o={};try{o=JSON.parse(lsGet('equipe.al.masque')||'{}')||{}}catch(e){}const t=Date.now();Object.keys(o).forEach(k=>{if(!(o[k]>t))delete o[k]});return o};
-function alBloc(){
-  if(!FBM||!me)return '';
-  if(!AL.etat){AL.etat='charge';alDemarrer()}
-  return `<div id="alb">${alVu()?alHtml():''}</div>`;
+// Onglet « Dashboard » (tout en haut du menu). Sans accès : retour au Mémo vigilance.
+function vDash(el){
+  if(!FBM||!me||AL.etat==='ko'||(AL.etat==='pret'&&!alVu())){tab='Memo';lsSet('equipe.tab','Memo');return render()}
+  el.innerHTML=`<div id="alb">${alVu()?alHtml():'<div class="loading">Chargement…</div>'}</div>`;
 }
 async function alDemarrer(){
-  try{ALM=await import('./alertes.js?v='+FB_VER)}catch(e){console.warn('Alertes :',e);AL.etat='';return}
+  try{ALM=await import('./alertes.js?v='+FB_VER)}catch(e){console.warn('Alertes :',e);AL.etat='ko';return}
   try{AL.regl=await FB.alReglages();AL.reglErr=''}catch(e){AL.regl=null;AL.reglErr=e.message}
   AL.etat='pret';
-  if(!alVu())return;
+  if(!alVu()){if(tab==='Dash')render();return}
   try{const c=JSON.parse(lsGet('equipe.al.ext')||'null');if(c&&c.moi===me&&c.ext)AL.ext=c.ext}catch(e){}
-  alPeindre();
+  liveRender(); // le Dashboard apparaît dans le menu
   if(!AL.ext||Date.now()-AL.ext.at>ALM.seuils(AL.regl).cacheMin*60000)alCharger();
 }
 // conso/metier.js et compteurs/metier.js (mêmes calculs que les applis), chargés à part pour ne rien mélanger avec cette page
@@ -1456,20 +1460,18 @@ function alListe(){
   return ALM.calculer({D,ext:AL.ext,regl:AL.regl,auj:t,maintenant:Date.now(),moi:me,manquesPav:pav});
 }
 function alHtml(){
-  let tous;try{tous=alListe()}catch(e){console.warn('Alertes :',e);return `<section class="alb"><div class="albh"><h2>🚦 Alertes</h2></div><p class="empty">Calcul des alertes impossible : ${esc(e.message)}</p></section>`}
+  let tous;try{tous=alListe()}catch(e){console.warn('Alertes :',e);return `<section class="alb"><div class="albh"><h2>Dashboard</h2></div><p class="empty">Calcul des alertes impossible : ${esc(e.message)}</p></section>`}
   const mq=alMasques(),A=tous.filter(a=>!mq[a.id]),nm=tous.length-A.length,c=ALM.compter(A);
   const n3=A.filter(a=>a.niv===3).length,n2=A.filter(a=>a.niv===2).length,n1=A.length-n3-n2;
   const res=A.length?[n3&&`<b class="n3">${n3} critique${n3>1?'s':''}</b>`,n2&&`<b class="n2">${n2} à surveiller</b>`,n1&&`${n1} info${n1>1?'s':''}`].filter(Boolean).join(' · '):'rien à signaler';
   const lu=AL.charge?'lecture des autres applis…':AL.ext?'autres applis lues '+(ymd(new Date(AL.ext.at))===today()?'à ':'le '+fD(ymd(new Date(AL.ext.at)),{day:'numeric',month:'short'})+' à ')+new Date(AL.ext.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):AL.err?'autres applis non lues':'';
-  const tete=`<div class="albh"><h2>🚦 Alertes</h2><span class="albs">${res}</span><span class="sp"></span><small>${esc(lu)}</small>
+  const tete=`<div class="albh"><h2>Dashboard</h2><span class="albs">${res}</span><span class="sp"></span><small>${esc(lu)}</small>
       <button class="btn sm" onclick="alCharger(true)" ${AL.charge?'disabled':''} title="Relire les consommations, compteurs, températures, tickets et demandes">↻ Actualiser</button>
-      ${alAdmin()?'<button class="btn sm" onclick="alReglages()" title="Qui voit ce tableau de bord, et à partir de quels seuils">⚙️ Réglages</button>':''}
-      <button class="btn sm" onclick="AL.plie=!AL.plie;lsSet('equipe.al.plie',AL.plie?'1':'');alPeindre()">${AL.plie?'▸ Déplier':'▾ Replier'}</button></div>`;
-  if(AL.plie)return `<section class="alb">${tete.replace('class="albh"','class="albh" style="margin-bottom:0"')}</section>`;
+      ${alAdmin()?'<button class="btn sm" onclick="alReglages()" title="Qui voit ce tableau de bord, et à partir de quels seuils">⚙️ Réglages</button>':''}</div>`;
   const tuiles=ALM.DOMAINES.map(d=>{const x=c[d.id],niv=x[3]?3:x[2]?2:x[1]?1:0;
     const det=[x[3]&&x[3]+' critique'+(x[3]>1?'s':''),x[2]&&x[2]+' à surveiller',x[1]&&x[1]+' info'+(x[1]>1?'s':'')].filter(Boolean).join(' · ');
     return `<button class="alt n${niv} ${AL.f===d.id?'on':''}" onclick="AL.f=AL.f==='${d.id}'?'':'${d.id}';AL.tout=false;alPeindre()" title="${AL.f===d.id?'Revoir tous les domaines':'Ne voir que : '+d.l}"><span>${d.i} ${d.l}</span><b>${x.n}</b><small>${det||'rien à signaler'}</small></button>`}).join('');
-  const L=AL.f?A.filter(a=>a.dom===AL.f):A,MAXI=8,vus=AL.tout?L:L.slice(0,MAXI),dn=id=>ALM.DOMAINES.find(d=>d.id===id).l;
+  const L=AL.f?A.filter(a=>a.dom===AL.f):A,MAXI=25,vus=AL.tout?L:L.slice(0,MAXI),dn=id=>ALM.DOMAINES.find(d=>d.id===id).l;
   AL.L=vus;
   const lignes=vus.map((a,i)=>`<div class="alr n${a.niv}" onclick="alAller(${i})"><span class="aln">${ALM.NIVEAUX[a.niv]}</span>
       <div class="alx"><b>${esc(a.titre)}</b><small><i>${esc(dn(a.dom))}${a.cat?' · '+esc(a.cat):''}</i>${a.detail?' — '+esc(a.detail):''}</small></div>
@@ -1481,7 +1483,7 @@ function alHtml(){
     <div class="albf">${L.length>MAXI?`<button class="link" onclick="AL.tout=!AL.tout;alPeindre()">${AL.tout?'▴ Réduire la liste':'▾ Voir les '+(L.length-MAXI)+' autres'}</button>`:''}
       ${nm?`<button class="link" onclick="lsSet('equipe.al.masque','{}');alPeindre()">${nm} alerte${nm>1?'s':''} masquée${nm>1?'s':''} · réafficher</button>`:''}</div></section>`;
 }
-function alPeindre(){const el=$('#alb');if(el&&tab==='Memo')el.innerHTML=alVu()?alHtml():''}
+function alPeindre(){const el=$('#alb');if(el&&tab==='Dash')el.innerHTML=alVu()?alHtml():'';if(loaded)navRender(D.Taches.filter(aFaire).length)}
 function alMasquer(i){const a=AL.L[i];if(!a)return;const o=alMasques();o[a.id]=Date.now()+7*86400000;lsSet('equipe.al.masque',JSON.stringify(o));alPeindre();toast('Alerte masquée 7 jours sur cet appareil')}
 function alAller(i){
   const a=AL.L[i];if(!a)return;const [k,v]=a.go||[];
@@ -1501,7 +1503,7 @@ function alReglages(){
   const grp=g=>ALM.SEUILS.filter(x=>x.g===g).map(x=>`<label class="als"><span>${esc(x.l)}</span><input type="number" min="0" step="any" inputmode="decimal" data-k="${x.k}" value="${S[x.k]}" placeholder="${x.d}"><em>${esc(x.u)}</em></label>`).join('');
   modal(`<h2>⚙️ Tableau de bord des alertes</h2><div class="alset">
     <h3>Qui le voit</h3>
-    <p class="hint">Coche les personnes qui voient le tableau de bord sur leur page d'accueil. Si personne n'est coché, ce sont les responsables. Les autres ne voient rien de plus qu'avant.</p>
+    <p class="hint">Coche les personnes qui ont l'onglet Dashboard dans leur menu. Si personne n'est coché, ce sont les responsables. Les autres ne voient rien de plus qu'avant.</p>
     <div class="alq">${[...new Set([...eq,...acc])].map(n=>`<label class="chk"><input type="checkbox" value="${esc(n)}" ${acc.includes(n)?'checked':''}> ${esc(n)}</label>`).join('')}</div>
     ${ALM.DOMAINES.map(d=>{const h=grp(d.id);return h?`<h3>${d.i} ${d.l}</h3>${h}`:''}).join('')}
     <h3>Lecture des données</h3>${grp('general')}
@@ -1515,7 +1517,7 @@ async function alEnregistrer(){
   const acces=[...document.querySelectorAll('.alset .alq input:checked')].map(i=>i.value),seuils={};
   document.querySelectorAll('.alset .als input').forEach(i=>{const v=parseFloat(String(i.value).replace(',','.'));if(isFinite(v)&&v>=0)seuils[i.dataset.k]=v});
   const b=$('#alsv');
-  if(acces.length&&!acces.includes(me)&&!b.dataset.sur){b.dataset.sur='1';$('#ferr').textContent='Tu ne t\'es pas coché : tu ne verras plus le tableau de bord. Touche encore « Enregistrer » pour confirmer.';return}
+  if(acces.length&&!acces.includes(me)&&!b.dataset.sur){b.dataset.sur='1';$('#ferr').textContent='Tu ne t\'es pas coché : tu ne verras plus le Dashboard. Touche encore « Enregistrer » pour confirmer.';return}
   b.disabled=true;
   try{const avant=ALM.seuils(AL.regl);AL.regl=await FB.alSaveReglages({acces:acces.join(', '),seuils});AL.reglErr='';closeModal(true);toast('Réglages enregistrés ✓');
     alPeindre();if(ALM.seuils(AL.regl).cptJourMois!==avant.cptJourMois)alCharger(true)}
@@ -1944,6 +1946,7 @@ async function dtLoad(force){
 function renderTabsOnly(){const mine=D.Taches.filter(aFaire).length;
   navRender(mine)}
 function tabBadge(id,mine){
+  if(id==='Dash'&&alVu()){try{const mq=alMasques(),n=alListe().filter(a=>a.niv===3&&!mq[a.id]).length;if(n)return `<span class="badge">${n}</span>`}catch(e){}}
   if(id==='Taches'&&mine) return `<span class="badge">${mine}</span>`;
   if(id==='Memo'&&me){const j=new Set(svDuJour().map(m=>m.id)),n=memoNonLus().filter(m=>m.type!==SV_TYPE||j.has(m.id)).length;if(n)return `<span class="badge">${n}</span>`}
   if(id==='Surete'&&me){const n=memoNonLus().filter(m=>m.type===SV_TYPE).length;if(n)return `<span class="badge">${n}</span>`}
