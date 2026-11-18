@@ -26,6 +26,20 @@ L'ancienne version (Google Sheet) est en lecture seule depuis la bascule : le Sh
 - **Journal** : collection Journal de Firestore, lisible par les responsables.
 - **⚖️ Benchmark devis** (groupe Gestion) : un benchmark par consultation, visible par son créateur et les membres avec qui il le partage (mêmes droits que le suivi de projets, collections `Benchmarks` / `BenchOffres`). On y glisse les devis (PDF texte, Excel, CSV) : entreprise, n°, date, total HT, délai, validité et lignes chiffrées sont lus dans la page, à vérifier dans chaque offre. Les fichiers sont gardés dans Firebase Storage (`benchmarks/{id}/{fichier}`). Comparaison : écart au moins-disant et au budget, notation pondérée (prix noté automatiquement : 10 × moins-disant ÷ montant, autres critères notés sur 10), comparatif poste par poste, offre retenue ★, export Excel. Un PDF scanné (image) ne se lit pas : le fichier est gardé, le montant se saisit à la main. Le bouton **📊 Présentation PowerPoint** d'un benchmark télécharge une présentation à la trame des rapports (charte GL events Lyon : page de garde, synthèse et chiffres clés, comparatif des offres, comparatif par famille de travaux, origine des écarts, options et variantes, conclusion) ; la photo et le logo de la page de garde sont ceux de la charte des rapports de l'appli Consommations (ConsoServeur/charte).
 
+## 🚦 Tableau de bord des alertes (page d'accueil, au-dessus du Mémo vigilance)
+Résumé de ce qui demande une décision, classé Critique / À surveiller / Info, par domaine : Énergie, Eau, Budget, Sûreté, Exploitation.
+
+- **Qui le voit** : les personnes cochées dans ⚙️ Réglages (bouton réservé aux responsables). Tant que personne n'est coché : les responsables. Les autres membres ne voient rien de plus qu'avant. C'est un affichage : les données elles-mêmes restent visibles dans leurs onglets, comme avant.
+- **Énergie** : salon terminé au-dessus de la prévision ou de l'édition précédente (CVC + gaz, calculs de `conso/metier.js`), index de fin de salon incomplets ou négatifs, PV hall 4.3 sans production (FusionSolar), points de température hors de la plage de confort de l'appli Températures (dernier relevé des 48 h), relevés de compteurs élec / gaz / fioul signalés ou manquants.
+- **Eau** : alertes de la synthèse Eau de l'appli Relevés compteurs (`compteurs/metier.js` : fuite possible, hausse, eau non comptabilisée), relevés d'eau signalés.
+- **Budget** : lignes et enveloppes BA24 / BA25 hors budget ou presque épuisées, reste à engager avant la fin d'exercice, projets du suivi financier (les siens et ceux partagés) au-dessus de leur budget.
+- **Sûreté** : points de vigilance et bulletins de veille en cours de niveau Critique ou Important, et ceux que toute l'équipe n'a pas encore lus.
+- **Exploitation** : tickets pas pris en charge, demandes de travaux sans suite ou à date impérative proche, tâches d'équipe en retard, chantiers pas clôturés, pavoisements avec drapeaux manquants.
+- **Seuils** : réglables dans ⚙️ Réglages (valeurs par défaut dans `alertes.js`, liste `SEUILS`). « Masquer » retire une alerte pendant 7 jours, sur l'appareil seulement.
+- **Lectures Firebase** : budget, mémos, tâches, chantiers et drapeaux sont déjà dans l'appli (aucune lecture en plus). Conso, compteurs, températures, tickets et demandes sont lus une fois à l'ouverture de l'accueil, puis gardés sur l'appareil 30 min (réglable) ; « ↻ Actualiser » force la relecture. Pas d'écoute en direct.
+- **Fichiers** : `alertes.js` (calculs, sans écran), bloc « TABLEAU DE BORD DES ALERTES » de `index.html`, fonctions `alReglages` / `alSaveReglages` / `alLire` de `fb.js`.
+- **Mise en service** : publier le bloc « Alertes » de `firestore.rules` (Firestore › Règles). Sans lui, le tableau de bord s'affiche pour les responsables avec les seuils par défaut, et les réglages ne s'enregistrent pas.
+
 ## 🎫 Ticketing (dossier `tickets/`, onglet « Ticketing » du groupe Au quotidien)
 Signalement des problèmes aux entreprises pendant les salons, séparé des états des lieux BatiScript.
 Adresse directe : https://eurexpobatiment.github.io/equipe/tickets/

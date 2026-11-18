@@ -122,6 +122,13 @@ service cloud.firestore {
       allow write: if admin();
     }
 
+    // Tableau de bord des alertes (page d'accueil) : réglages (qui le voit, seuils) lus par l'équipe, modifiés par les responsables
+    match /Alertes/{id} {
+      allow read: if member();
+      allow write: if admin() && id == 'reglages' && request.resource.data.keys().hasOnly(['acces', 'seuils', 'majLe', 'majPar'])
+                   && request.resource.data.acces is string && request.resource.data.seuils is map;
+    }
+
     // Journal : chacun ajoute ses lignes, les responsables le consultent
     match /Journal/{id} {
       allow create: if member() && (isOwner() || request.resource.data.auteur == myNom());

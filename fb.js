@@ -531,6 +531,57 @@ export async function saveDocIndex(idx) {
   journal('index', 'Documents', base, root + ' · ' + idx.files.length + ' fichiers');
 }
 
+/* ---------- Tableau de bord des alertes (page d'accueil) ----------
+ * Réglages : document Alertes/reglages = { acces: 'Nom 1, Nom 2', seuils: { clé: valeur }, majLe, majPar } (lisible par l'équipe, modifiable par les responsables).
+ * Les données des autres applis (même projet Firebase) sont lues une fois, à la demande : pas d'écoute en direct, pour limiter les lectures. */
+export async function alReglages() {
+  if (!me) throw new Error('Connexion nécessaire');
+  const s = await wrap(F.getDoc(F.doc(db, 'Alertes', 'reglages')));
+  return s.exists() ? s.data() : null;
+}
+export async function alSaveReglages(o) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const seuils = {}; Object.keys(o.seuils || {}).slice(0, 30).forEach(k => { const v = Number(o.seuils[k]); if (isFinite(v) && v >= 0) seuils[String(k).slice(0, 30)] = v; });
+  const d = { acces: String(o.acces || '').slice(0, 1500), seuils, majLe: now_(), majPar: me };
+  await wrap(F.setDoc(F.doc(db, 'Alertes', 'reglages'), d));
+  journal('reglages', 'Alertes', 'reglages', d.acces || 'responsables');
+  return d;
+}
+// Lecture brute des autres applis. Chaque source qui échoue est notée dans errs, les autres restent utilisables.
+export async function alLire() {
+  if (!me) throw new Error('Connexion nécessaire');
+  const out = { errs: {} };
+  const tous = c => F.getDocs(F.collection(db, c)), un = (c, id) => F.getDoc(F.doc(db, c, id));
+  const lot = async (nom, f) => { try { await f(); } catch (e) { out.errs[nom] = errMsg(e); } };
+  await Promise.all([
+    lot('conso', async () => {
+      const [cfg, sal, rel, srv, met] = await Promise.all([tous('ConsoConfig'), tous('ConsoSalons'), tous('ConsoReleves'), un('ConsoServeur', 'donnees'), tous('ConsoMeteo')]);
+      const C = { params: {}, halls: [], lignes: [], corr: {}, releves: {}, srv: {}, meteoFb: {} };
+      cfg.docs.forEach(d => { const x = d.data(); if (d.id === 'params') C.params = x.p || {}; else if (d.id === 'halls') C.halls = x.liste || []; else if (d.id === 'lignes') C.lignes = x.liste || []; else if (d.id === 'corr') C.corr = x.map || {}; });
+      C.salons = sal.docs.map(d => Object.assign(d.data(), { id: d.id }));
+      rel.docs.forEach(d => { C.releves[d.id] = d.data().l || {}; });
+      if (srv.exists()) { try { C.srv = JSON.parse(srv.data().json || '{}'); } catch (e) { C.srv = {}; } }
+      met.docs.forEach(d => { if (d.id !== 'etat') Object.assign(C.meteoFb, d.data().j || {}); });
+      if (!C.salons.length && !cfg.size) throw new Error('aucune donnée reçue');
+      out.conso = C;
+    }),
+    lot('cpt', async () => { const s = await tous('CptCompteurs'); out.cpt = s.docs.map(d => d.data()); }),
+    lot('temp', async () => {
+      const depuis = new Date(Date.now() - 48 * 3600000).toISOString();
+      const [pts, seu, rel] = await Promise.all([un('TempReglages', 'points'), un('TempReglages', 'seuils'),
+        F.getDocs(F.query(F.collection(db, 'TempReleves'), F.where('at', '>=', depuis)))]);
+      let p = []; try { p = pts.exists() ? JSON.parse(pts.data().json || '[]') : []; } catch (e) {}
+      out.temp = { pts: p, seuils: seu.exists() ? seu.data() : {}, releves: rel.docs.map(d => d.data()) };
+    }),
+    lot('tickets', async () => {
+      const s = await F.getDocs(F.query(F.collection(db, 'Tickets'), F.where('statut', 'in', ['Nouveau', 'Envoyé'])));
+      out.tickets = s.docs.map(d => d.data());
+    }),
+    lot('demandes', async () => { out.demandes = await dtList(); })
+  ]);
+  return out;
+}
+
 /* ---------- Demandes de travaux (appli « travaux », même projet Firebase) ---------- */
 const DT_STATUTS = ['Nouvelle', "À l'étude", 'Chiffrage', 'Validée', 'Planifiée', 'En cours', 'Terminée', 'Refusée'];
 const dtParse = s => { try { const a = JSON.parse(s || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };

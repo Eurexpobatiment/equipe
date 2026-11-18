@@ -472,6 +472,35 @@ button.doccard.dxd{width:100%;text-align:left;font:inherit;cursor:pointer}button
 .trib{display:flex;flex-direction:column;gap:4px}.trib.out{background:#fff4e5}.trib .btn{align-self:flex-start;margin-top:2px}
 @media print{header,nav,.pgsrc,.chf,.bar .btn,.seg-ctl{display:none!important}body{background:#fff}.pgday{break-inside:avoid}}
 
+/* Tableau de bord des alertes (accueil) */
+.alb{background:#fff;border:1px solid var(--line);border-radius:2px;padding:12px 14px;margin-bottom:20px}
+.albh{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px}
+.albh h2{margin:0;font-size:19px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--txt)}
+.albh small{color:var(--muted);font-size:12.5px}
+.albs{font-size:14px;color:#475569}.albs b.n3{color:var(--accent)}.albs b.n2{color:#b9770e}
+.albt{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px;margin-bottom:10px}
+.alt{border:1px solid var(--line);background:#fff;border-radius:2px;padding:8px 11px;text-align:left;cursor:pointer;font:inherit;color:var(--txt);border-top:4px solid var(--ok);display:flex;flex-direction:column;gap:1px}
+.alt.n3{border-top-color:var(--accent)}.alt.n2{border-top-color:var(--warn)}.alt.n1{border-top-color:var(--blue)}
+.alt.on{background:#eef2f9;border-color:var(--navy)}
+.alt span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.alt b{font-size:20px;color:var(--navy);font-variant-numeric:tabular-nums}
+.alt small{font-size:12px;color:var(--muted);min-height:15px}
+.alr{display:flex;align-items:flex-start;gap:10px;padding:8px 6px 8px 10px;border-left:4px solid var(--blue);border-bottom:1px solid var(--line);cursor:pointer}
+.alr:hover{background:#f6f8fc}.alr.n3{border-left-color:var(--accent);background:#fff7f7}.alr.n3:hover{background:#ffeeee}.alr.n2{border-left-color:var(--warn)}
+.aln{flex:none;width:92px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--blue);padding-top:2px}
+.alr.n3 .aln{color:var(--accent)}.alr.n2 .aln{color:#b9770e}
+.alx{flex:1;min-width:0}.alx b{display:block;font-size:14.5px;color:var(--navy);overflow-wrap:anywhere}
+.alx small{display:block;color:#5b6474;font-size:12.5px;line-height:1.4;overflow-wrap:anywhere}.alx small i{font-style:normal;font-weight:600;color:#475569}
+.alv{flex:none;max-width:34%;text-align:right;font-size:13px;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums}
+.alr .link{flex:none;padding:0 2px;font-size:12px;color:var(--muted)}.alr .link:hover{color:var(--navy);text-decoration:underline}
+.albf{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;margin-top:6px}
+.alok{color:#1f7a47;font-size:14px;padding:8px 2px}
+.alset h3{margin:14px 0 6px;font-size:14px;color:var(--navy)}
+.alset .alq{display:flex;flex-wrap:wrap;gap:6px 14px}
+.alset .als{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#475569;padding:3px 0}
+.alset .als span{flex:1}.alset .als input{width:76px;padding:6px 7px;border:1px solid #d5d9e2;border-radius:6px;font-size:14px;text-align:right}
+.alset .als em{font-style:normal;width:62px;color:var(--muted);font-size:12.5px}
+@media(max-width:640px){.alr{flex-wrap:wrap;gap:4px 10px}.aln{width:auto;flex:1}.alr .link{order:1}.alx{flex-basis:100%;order:2}.alv{order:3;max-width:none;flex-basis:100%;text-align:left}}
 /* ===================== Style Eurexpo (charte du site gl-lyonevents.com) ===================== */
 :root{--navy:#004B46;--navy2:#00393A;--accent:#D62839;--bg:#F0F2F2;--card:#fff;--line:#DDE2E2;--muted:#4B5563;--txt:#1C1C1C;
 --ok:#1F8A6E;--blue:#00697E;--mint:#3FB498;--grey:#9AA5A5}
@@ -796,7 +825,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '25'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '26'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -1322,7 +1351,7 @@ function vMemo(el){
   const SJ=isV?svDuJour().filter(m=>!q||[m.titre,m.texte,m.lieu,m.salon].join(' ').toLowerCase().includes(q)).sort((x,y)=>svSynth(y)-svSynth(x)||ni(y)-ni(x)):[];
   const nbV=D.Memos.filter(m=>m.type==='Vigilance'&&memoActif(m)&&!memoLu(m)).length+svDuJour().filter(m=>!memoLu(m)).length, nbC=D.Memos.filter(m=>m.type==='Compte rendu'&&memoActif(m)&&!memoLu(m)).length;
   const seg=[['Vigilance','⚠️ Points de vigilance',nbV],['Compte rendu','📝 Comptes rendus',nbC]].map(([k,l,n])=>`<button class="${S.v===k?'on':''}" onclick="UI.m.v='${k}';UI.m.arch=false;render()">${l}${n?` <span class="badge">${n}</span>`:''}</button>`).join('');
-  el.innerHTML=`<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
+  el.innerHTML=`${alBloc()}<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
     <input class="search" placeholder="Rechercher…" value="${esc(S.q)}" oninput="UI.m.q=this.value;memoRefresh()">
     <button class="btn pri" onclick="memoNew('${S.v}')">+ ${isV?'Point de vigilance':'Compte rendu'}</button></div>
     ${isV?'<p class="hint">Les points importants à connaître par toute l\'équipe. Touche « ✓ J\'ai lu » pour confirmer que tu en as pris connaissance.</p>':'<p class="hint">Les comptes rendus de réunions. Depuis un compte rendu, tu peux créer une tâche pour chaque action à mener.</p>'}
@@ -1376,6 +1405,122 @@ async function memoSetLu(id,lu,btn){
 }
 function memoTache(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;closeModal(true);
   openForm('Taches',{description:`Suite au compte rendu « ${m.titre} » du ${fD(m.dateReunion,{day:'numeric',month:'long',year:'numeric'})}${m.decisions?' :\n'+m.decisions:''}`,lieu:m.lieu||''},'Nouvelle tâche (depuis un compte rendu)')}
+
+/* ================== 🚦 TABLEAU DE BORD DES ALERTES (accueil, au-dessus du Mémo vigilance) ==================
+   Calculs dans alertes.js. Vu par les personnes choisies dans ⚙️ (à défaut : les responsables).
+   Budget, sûreté, tâches, chantiers, drapeaux : données de l'appli, en direct.
+   Conso des salons, PV, températures, compteurs / eau, tickets, demandes : lus dans Firebase à l'ouverture, puis gardés
+   sur l'appareil pendant « cacheMin » minutes (pas d'écoute en direct, pour limiter les lectures Firestore). */
+let ALM=null;
+const AL={etat:'',regl:null,reglErr:'',ext:null,charge:false,err:'',f:'',tout:false,plie:lsGet('equipe.al.plie')==='1',L:[]};
+const alRole=()=>(D.Equipe.find(e=>e.nom===me)||{}).role||'';
+const alAdmin=()=>alRole()==='Responsable';
+const alVu=()=>FBM&&!!me&&!!ALM&&AL.etat==='pret'&&ALM.aAcces(AL.regl,me,alRole());
+const alMasques=()=>{let o={};try{o=JSON.parse(lsGet('equipe.al.masque')||'{}')||{}}catch(e){}const t=Date.now();Object.keys(o).forEach(k=>{if(!(o[k]>t))delete o[k]});return o};
+function alBloc(){
+  if(!FBM||!me)return '';
+  if(!AL.etat){AL.etat='charge';alDemarrer()}
+  return `<div id="alb">${alVu()?alHtml():''}</div>`;
+}
+async function alDemarrer(){
+  try{ALM=await import('./alertes.js?v='+FB_VER)}catch(e){console.warn('Alertes :',e);AL.etat='';return}
+  try{AL.regl=await FB.alReglages();AL.reglErr=''}catch(e){AL.regl=null;AL.reglErr=e.message}
+  AL.etat='pret';
+  if(!alVu())return;
+  try{const c=JSON.parse(lsGet('equipe.al.ext')||'null');if(c&&c.moi===me&&c.ext)AL.ext=c.ext}catch(e){}
+  alPeindre();
+  if(!AL.ext||Date.now()-AL.ext.at>ALM.seuils(AL.regl).cacheMin*60000)alCharger();
+}
+// conso/metier.js et compteurs/metier.js (mêmes calculs que les applis), chargés à part pour ne rien mélanger avec cette page
+async function alMetier(url,nom){
+  const r=await fetch(url,{cache:'no-cache'});if(!r.ok)throw new Error('calculs introuvables ('+r.status+')');
+  const w={};new Function('window','module',await r.text()).call(w,w,undefined);if(!w[nom])throw new Error('calculs illisibles');return w[nom]}
+async function alCharger(force){
+  if(AL.charge||!alVu())return;
+  if(!navigator.onLine){if(force)toast('Hors connexion : alertes des autres applis pas actualisées',1);return}
+  AL.charge=true;AL.err='';alPeindre();
+  try{
+    const b=await FB.alLire(),brut={errs:b.errs||{}},S=ALM.seuils(AL.regl);let prec=null;
+    if(b.conso){try{const M=await alMetier('../conso/metier.js','M');brut.conso={tous:M.tousCalcules(b.conso).tous};brut.h43=(b.conso.srv||{}).h43||null;prec=M.editionPrecedente}catch(e){brut.errs.conso=e.message}}
+    if(b.cpt){try{const M=await alMetier('../compteurs/metier.js','Metier');brut.cptEau=M.getEau(b.cpt);brut.cptCtrl=M.getControles(b.cpt,ALM.periodeCible(today(),S),new Date());
+      brut.cptActifs=M.lireCompteurs(b.cpt).filter(c=>c.actif).length}catch(e){brut.errs.cpt=e.message}}
+    brut.temp=b.temp;brut.tickets=b.tickets;brut.demandes=b.demandes;
+    AL.ext=ALM.reduire(brut,today(),prec);
+    lsSet('equipe.al.ext',JSON.stringify({moi:me,ext:AL.ext}));
+  }catch(e){AL.err=e.message}
+  AL.charge=false;alPeindre();
+}
+function alListe(){
+  const t=today(),lim=addDays(t,ALM.seuils(AL.regl).pavJours);
+  const pav=D.Pavoisements.filter(p=>p.dateDebut&&p.dateDebut<=lim&&!['Annulé','Déposé'].includes(p.statut)).map(p=>({id:p.id,titre:p.titre,lieu:p.lieu,dateDebut:p.dateDebut,manques:pvManqueTxt(pvManques(p))})).filter(p=>p.manques);
+  return ALM.calculer({D,ext:AL.ext,regl:AL.regl,auj:t,maintenant:Date.now(),moi:me,manquesPav:pav});
+}
+function alHtml(){
+  let tous;try{tous=alListe()}catch(e){console.warn('Alertes :',e);return `<section class="alb"><div class="albh"><h2>🚦 Alertes</h2></div><p class="empty">Calcul des alertes impossible : ${esc(e.message)}</p></section>`}
+  const mq=alMasques(),A=tous.filter(a=>!mq[a.id]),nm=tous.length-A.length,c=ALM.compter(A);
+  const n3=A.filter(a=>a.niv===3).length,n2=A.filter(a=>a.niv===2).length,n1=A.length-n3-n2;
+  const res=A.length?[n3&&`<b class="n3">${n3} critique${n3>1?'s':''}</b>`,n2&&`<b class="n2">${n2} à surveiller</b>`,n1&&`${n1} info${n1>1?'s':''}`].filter(Boolean).join(' · '):'rien à signaler';
+  const lu=AL.charge?'lecture des autres applis…':AL.ext?'autres applis lues '+(ymd(new Date(AL.ext.at))===today()?'à ':'le '+fD(ymd(new Date(AL.ext.at)),{day:'numeric',month:'short'})+' à ')+new Date(AL.ext.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):AL.err?'autres applis non lues':'';
+  const tete=`<div class="albh"><h2>🚦 Alertes</h2><span class="albs">${res}</span><span class="sp"></span><small>${esc(lu)}</small>
+      <button class="btn sm" onclick="alCharger(true)" ${AL.charge?'disabled':''} title="Relire les consommations, compteurs, températures, tickets et demandes">↻ Actualiser</button>
+      ${alAdmin()?'<button class="btn sm" onclick="alReglages()" title="Qui voit ce tableau de bord, et à partir de quels seuils">⚙️ Réglages</button>':''}
+      <button class="btn sm" onclick="AL.plie=!AL.plie;lsSet('equipe.al.plie',AL.plie?'1':'');alPeindre()">${AL.plie?'▸ Déplier':'▾ Replier'}</button></div>`;
+  if(AL.plie)return `<section class="alb">${tete.replace('class="albh"','class="albh" style="margin-bottom:0"')}</section>`;
+  const tuiles=ALM.DOMAINES.map(d=>{const x=c[d.id],niv=x[3]?3:x[2]?2:x[1]?1:0;
+    const det=[x[3]&&x[3]+' critique'+(x[3]>1?'s':''),x[2]&&x[2]+' à surveiller',x[1]&&x[1]+' info'+(x[1]>1?'s':'')].filter(Boolean).join(' · ');
+    return `<button class="alt n${niv} ${AL.f===d.id?'on':''}" onclick="AL.f=AL.f==='${d.id}'?'':'${d.id}';AL.tout=false;alPeindre()" title="${AL.f===d.id?'Revoir tous les domaines':'Ne voir que : '+d.l}"><span>${d.i} ${d.l}</span><b>${x.n}</b><small>${det||'rien à signaler'}</small></button>`}).join('');
+  const L=AL.f?A.filter(a=>a.dom===AL.f):A,MAXI=8,vus=AL.tout?L:L.slice(0,MAXI),dn=id=>ALM.DOMAINES.find(d=>d.id===id).l;
+  AL.L=vus;
+  const lignes=vus.map((a,i)=>`<div class="alr n${a.niv}" onclick="alAller(${i})"><span class="aln">${ALM.NIVEAUX[a.niv]}</span>
+      <div class="alx"><b>${esc(a.titre)}</b><small><i>${esc(dn(a.dom))}${a.cat?' · '+esc(a.cat):''}</i>${a.detail?' — '+esc(a.detail):''}</small></div>
+      ${a.val?`<span class="alv">${esc(a.val)}</span>`:''}<button class="link" onclick="event.stopPropagation();alMasquer(${i})" title="Ne plus afficher cette alerte pendant 7 jours (sur cet appareil)">Masquer</button></div>`).join('');
+  return `<section class="alb">${tete}<div class="albt">${tuiles}</div>
+    ${AL.err?`<p class="hint negt">Lecture des autres applis impossible : ${esc(AL.err)}</p>`:''}
+    ${!AL.ext&&AL.charge?'<p class="hint">Lecture des consommations, compteurs, tickets et demandes…</p>':''}
+    ${lignes||`<p class="alok">✓ ${AL.f?'Rien à signaler pour '+esc(dn(AL.f))+'.':'Aucune alerte en cours.'}</p>`}
+    <div class="albf">${L.length>MAXI?`<button class="link" onclick="AL.tout=!AL.tout;alPeindre()">${AL.tout?'▴ Réduire la liste':'▾ Voir les '+(L.length-MAXI)+' autres'}</button>`:''}
+      ${nm?`<button class="link" onclick="lsSet('equipe.al.masque','{}');alPeindre()">${nm} alerte${nm>1?'s':''} masquée${nm>1?'s':''} · réafficher</button>`:''}</div></section>`;
+}
+function alPeindre(){const el=$('#alb');if(el&&tab==='Memo')el.innerHTML=alVu()?alHtml():''}
+function alMasquer(i){const a=AL.L[i];if(!a)return;const o=alMasques();o[a.id]=Date.now()+7*86400000;lsSet('equipe.al.masque',JSON.stringify(o));alPeindre();toast('Alerte masquée 7 jours sur cet appareil')}
+function alAller(i){
+  const a=AL.L[i];if(!a)return;const [k,v]=a.go||[];
+  if(k==='tab')return goTab(v);
+  if(k==='budget'){goTab('Budget');return bOpen(v)}
+  if(k==='budgetTab'){UI.b=UI.b||{tab:'Synthese',q:'',hors:false,closed:{}};UI.b.tab=v;UI.b.q='';return goTab('Budget')}
+  if(k==='projet'){UI.pj=UI.pj||{f:'actifs',q:'',w:'tous'};UI.pj.open=v;return goTab('Projets')}
+  if(k==='memo')return memoOpen(v);
+  if(k==='sv')return svOpen(v);
+  if(k==='tache')return editTache(v);
+  if(k==='chantier'){goTab('Travaux');return chEdit(v)}
+  if(k==='recharger')return alCharger(true);
+}
+function alReglages(){
+  if(!alAdmin())return;
+  const S=ALM.seuils(AL.regl),acc=espList(AL.regl&&AL.regl.acces),eq=people();
+  const grp=g=>ALM.SEUILS.filter(x=>x.g===g).map(x=>`<label class="als"><span>${esc(x.l)}</span><input type="number" min="0" step="any" inputmode="decimal" data-k="${x.k}" value="${S[x.k]}" placeholder="${x.d}"><em>${esc(x.u)}</em></label>`).join('');
+  modal(`<h2>⚙️ Tableau de bord des alertes</h2><div class="alset">
+    <h3>Qui le voit</h3>
+    <p class="hint">Coche les personnes qui voient le tableau de bord sur leur page d'accueil. Si personne n'est coché, ce sont les responsables. Les autres ne voient rien de plus qu'avant.</p>
+    <div class="alq">${[...new Set([...eq,...acc])].map(n=>`<label class="chk"><input type="checkbox" value="${esc(n)}" ${acc.includes(n)?'checked':''}> ${esc(n)}</label>`).join('')}</div>
+    ${ALM.DOMAINES.map(d=>{const h=grp(d.id);return h?`<h3>${d.i} ${d.l}</h3>${h}`:''}).join('')}
+    <h3>Lecture des données</h3>${grp('general')}
+    <p class="hint">Les températures des halls sont jugées sur la plage de confort réglée dans l'appli Températures ; les fuites d'eau, sur la synthèse Eau de l'appli Relevés compteurs.</p>
+    ${AL.reglErr?`<p class="hint negt">Réglages pas encore lisibles (${esc(AL.reglErr)}) : le bloc « Alertes » de firestore.rules est à publier dans la console Firebase. En attendant, les seuils par défaut s'appliquent.</p>`:''}
+    </div><div class="err" id="ferr"></div>
+    <div class="acts"><button class="btn" onclick="document.querySelectorAll('.alset .als input').forEach(i=>i.value=i.placeholder)">Seuils par défaut</button><span class="sp"></span>
+      <button class="btn" onclick="closeModal(true)">Annuler</button><button class="btn pri" id="alsv" onclick="alEnregistrer()">Enregistrer</button></div>`,true);
+}
+async function alEnregistrer(){
+  const acces=[...document.querySelectorAll('.alset .alq input:checked')].map(i=>i.value),seuils={};
+  document.querySelectorAll('.alset .als input').forEach(i=>{const v=parseFloat(String(i.value).replace(',','.'));if(isFinite(v)&&v>=0)seuils[i.dataset.k]=v});
+  const b=$('#alsv');
+  if(acces.length&&!acces.includes(me)&&!b.dataset.sur){b.dataset.sur='1';$('#ferr').textContent='Tu ne t\'es pas coché : tu ne verras plus le tableau de bord. Touche encore « Enregistrer » pour confirmer.';return}
+  b.disabled=true;
+  try{const avant=ALM.seuils(AL.regl);AL.regl=await FB.alSaveReglages({acces:acces.join(', '),seuils});AL.reglErr='';closeModal(true);toast('Réglages enregistrés ✓');
+    alPeindre();if(ALM.seuils(AL.regl).cptJourMois!==avant.cptJourMois)alCharger(true)}
+  catch(e){b.disabled=false;$('#ferr').textContent=e.message}
+}
 
 /* ================== NACELLE ================== */
 function vNacelle(el){
@@ -4422,7 +4567,7 @@ async function fbStart(){
   FB.onBackgroundError(m=>{toast('Pas enregistré : '+m,1)});
   FB.onAuth(st=>{
     if(st.etat==='ok'){
-      const ch=me!==st.nom; me=st.nom; render();
+      const ch=me!==st.nom; me=st.nom; if(ch)Object.assign(AL,{etat:'',regl:null,ext:null,err:'',f:''}); render();
       if($('.ov.fbauth'))closeModal(true);
       if(ch){loaded=false;$('#view').innerHTML='<div class="loading">Chargement…</div>';
         FB.start(D,()=>{
@@ -4433,7 +4578,7 @@ async function fbStart(){
         },m=>{fbSync();toast(m,1)});}
       return;
     }
-    FB.stop(); me=''; loaded=false; render();
+    FB.stop(); me=''; loaded=false; Object.assign(AL,{etat:'',regl:null,ext:null,err:'',f:''}); render();
     $('#view').innerHTML='<div class="loading">Connexion nécessaire</div>';
     fbAuthModal(st);
   });
