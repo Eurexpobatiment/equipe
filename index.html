@@ -3863,7 +3863,7 @@ function clLotForm(lot,L,h){
   window.addEventListener('dragover',e=>{if(!isF(e))return;e.preventDefault();e.dataTransfer.dropEffect=zone()||$('#chpf')||$('#bmdrop')?'copy':'none'});
   window.addEventListener('drop',e=>{if(!isF(e)&&!(e.dataTransfer&&e.dataTransfer.files.length))return;e.preventDefault();n=0;ban(0); // jamais d'ouverture du fichier par le navigateur
     const f=e.dataTransfer.files[0];if(!f||!zone())return;if(!/\.(xlsx|xlsm|xls|csv)$/i.test(f.name))return toast('Dépose un fichier Excel (.xlsx)',1);
-    if(!$('#clxf'))clNew();clXFile(f)});
+    clXFile(f)});
 })();
 const clXN=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toUpperCase();
 const clXV=v=>v==null?'':typeof v==='number'?String(Math.round(v*1000)/1000):String(v).replace(/\s+/g,' ').trim();
@@ -3922,21 +3922,43 @@ async function clXFile(f){
 }
 function clXApply(res,src){
   const G=res.groups||[];if(!G.length)return toast('Aucune clef trouvée dans '+src,1);
-  if(G.length===1)return clXFill(G[0],src);
-  // plusieurs sociétés / personnes dans le fichier : on reprend d'office toutes les lignes dans la remise
-  const cnt={};G.forEach(g=>{const s=clXV(g.societe);if(s)cnt[s]=(cnt[s]||0)+g.lines.length});
-  const soc=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]||'',p=G.find(g=>g.prenom||g.nom)||G[0];
-  clXFill({societe:soc,prenom:p.prenom||'',nom:p.nom||'',fin:(G.find(g=>g.fin)||{}).fin||'',lines:G.flatMap(g=>g.lines)},src);
+  let g=G[0];
+  if(G.length>1){ // plusieurs sociétés / personnes dans le fichier : on reprend d'office toutes les lignes dans la remise
+    const cnt={};G.forEach(g=>{const s=clXV(g.societe);if(s)cnt[s]=(cnt[s]||0)+g.lines.length});
+    const soc=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]||'',p=G.find(g=>g.prenom||g.nom)||G[0];
+    g={societe:soc,prenom:p.prenom||'',nom:p.nom||'',fin:(G.find(g=>g.fin)||{}).fin||'',lines:G.flatMap(g=>g.lines)}}
+  // même formulaire remis une 2e fois (modifié) : on rouvre la remise en cours de cette société pour l'annuler et la remplacer
+  const open=!!$('#clxf');
+  if(!open||(CL.isNew&&(!CL.lines.length||CL.ximp))){const lot=clXLot(g);
+    if(lot){clEditLot(lot);CL.xlot=1}else if(!open)clNew()}
+  clXFill(g,src);
+}
+// remise encore en cours (clefs dehors) pour la société / personne du formulaire, la plus récente
+function clXLot(g){
+  const soc=clXN(clXSoc(g.societe));if(!soc)return '';
+  const P=clXN(g.prenom),N=clXN(g.nom);
+  const ok=h=>{const hp=clXN(h.prenom),hn=clXN(h.nom);return !(P||N)||!(hp||hn)||(!N||!hn||hn===N)&&(!P||!hp||hp===P)};
+  const last=x=>x.l.map(p=>p.datePrepa||'').sort().pop()||'';
+  const C=clLots(D.ClefsPrets.filter(p=>clXN(p.societe)===soc)).filter(x=>x.dehors>0&&ok(x.h)).sort((a,b)=>last(b).localeCompare(last(a)));
+  return C.length?C[0].lot:'';
 }
 function clXFill(g,src){
   const set=(id,v)=>{const e=$('#'+id);if(e&&v&&(!e.value.trim()||CL.isNew))e.value=v};
   set('cl_soc',clXSoc(g.societe));set('cl_pre',g.prenom.toLowerCase().replace(/(^|[\s-])\S/g,x=>x.toUpperCase()));set('cl_nom',g.nom.toUpperCase());
   if(g.fin){$('#cl_ras').checked=false;$('#cl_fin').disabled=false;$('#cl_fin').value=g.fin}
   else $('#cl_soc').dispatchEvent(new Event('change'));
-  let n=0;g.lines.forEach(l=>{const ex=l.clefId&&CL.lines.find(x=>x.clefId===l.clefId&&!x.id&&!(+x.rendu));if(ex)ex.qte=String((+ex.qte||0)+(+l.qte||0));else CL.lines.push({...l});n+=+l.qte||0});
-  CL.conf='';clLines();
+  // annule et remplace : la liste des clefs devient celle du fichier (pas d'addition avec l'import précédent ni avec la remise déjà enregistrée).
+  // On garde seulement l'historique : clefs perdues / facturées, et clefs déjà (en partie) rendues absentes du nouveau fichier.
+  const key=l=>l.clefId||('#'+clXN(l.numero)+'|'+clXN(l.designation));
+  const F=new Map();g.lines.forEach(l=>{const k=key(l);if(F.has(k))F.get(k).qte=String((+F.get(k).qte||0)+(+l.qte||0));else F.set(k,{...l})});
+  const old=CL.lines,used=new Set(),out=[];let n=0;
+  F.forEach((l,k)=>{const ex=old.find(x=>!used.has(x)&&!x.statut&&key(x)===k&&(x.id||!(+x.rendu)));
+    if(ex){used.add(ex);out.push({...ex,qte:String(Math.max(+l.qte||0,+ex.rendu||0)),xko:l.xko})}else out.push({...l});n+=+l.qte||0});
+  const garde=old.filter(x=>!used.has(x)&&(x.statut||(x.id&&+x.rendu>0)));
+  const remp=old.length>0;
+  CL.lines=[...out,...garde];CL.ximp=1;CL.conf='';clLines();
   const ko=g.lines.filter(l=>l.xko).length;
-  $('#clximp').innerHTML=`✅ ${n} clef${n>1?'s':''} reprise${n>1?'s':''} de ${esc(src)}${ko?` · <span class="negt">${ko} ligne${ko>1?'s':''} non trouvée${ko>1?'s':''} dans l'inventaire (en orange) : vérifie le n° et la désignation</span>`:''}. Vérifie puis enregistre.`;
+  $('#clximp').innerHTML=`${remp?'🔁 <b>Annule et remplace</b> : ':'✅ '}${n} clef${n>1?'s':''} reprise${n>1?'s':''} de ${esc(src)}${remp?` à la place de la liste précédente${CL.xlot?' (remise déjà en cours pour cette société)':''}`:''}${garde.length?` · ${garde.length} ligne${garde.length>1?'s':''} déjà rendue${garde.length>1?'s':''} ou perdue${garde.length>1?'s':''} conservée${garde.length>1?'s':''}`:''}${ko?` · <span class="negt">${ko} ligne${ko>1?'s':''} non trouvée${ko>1?'s':''} dans l'inventaire (en orange) : vérifie le n° et la désignation</span>`:''}. Vérifie puis enregistre (Annuler pour ne rien changer).`;
 }
 function clSearch(){
   const box=$('#clres'),q=($('#clq').value||'').trim().toLowerCase();if(!q){box.innerHTML='';return}
