@@ -801,6 +801,7 @@ const TABS = [
   {id:'Bench',l:'⚖️ Benchmark devis',g:'Gestion'}, // comparaison des devis d'une consultation (mêmes droits que les projets)
   {id:'Equipe',l:'👥 Équipe',g:'Gestion'},
   {id:'Descente',l:'🏋️ Descente de charges',g:'Outils'}, // calculateur (dépôt descente-charges)
+  {id:'Elec',l:'⚡ Départs électriques',g:'Outils'}, // disjonction : départs, armoires, plan (dépôt elec)
   {id:'CloisonsPlan',l:'🧱 Cloisons mobiles',g:'Outils'}];
 const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur téléphone
 /* Icônes au trait du menu (remplacent les emojis) */
@@ -826,6 +827,7 @@ const ICO_P={
   Bench:'<path d="M12 3v18M7 21h10M5 7h14"/><path d="m5 7-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>',
   Equipe:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
   Descente:'<path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 21h16M6 18h12"/>',
+  Elec:'<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>',
   CloisonsPlan:'<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M12 4v16M9 9h6M9 15h6"/>',
   Menu:'<path d="M4 7h16M4 12h16M4 17h10"/>'};
 const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO_P[id]}</svg>`:'';
@@ -1067,6 +1069,7 @@ const APPS={
   Conso:{l:'⚡ Consommations halls',h:'Consommations énergétiques des halls par salon (DJU, météo, PV)',u:'https://eurexpobatiment.github.io/conso/'},
   Temp:{l:'🌡️ Températures halls',h:'Relevés de température des halls pendant les salons (Dalkia)',u:'https://eurexpobatiment.github.io/temp/'},
   Descente:{l:'🏋️ Descente de charges',h:'Calculateur de descente de charges et plaques de répartition (plan du sous-sol, rapport PDF)',u:'https://eurexpobatiment.github.io/descente-charges/'},
+  Elec:{l:'⚡ Départs électriques',h:'Retrouver l’alimentation des armoires et des départs en cas de disjonction (nomenclature des TGBT, plan des armoires)',u:'https://eurexpobatiment.github.io/elec/?embed=1'},
   CloisonsPlan:{l:'🧱 Cloisons mobiles',h:'Plan interactif des positions des cloisons mobiles des halls',u:'cloisons/'}};
 function appTop(){const h=$('header');if(!h)return;const b=Math.round(h.getBoundingClientRect().bottom);document.documentElement.style.setProperty('--hdrh',b+'px');document.documentElement.style.setProperty('--toph',b+'px')}
 addEventListener('resize',appTop);addEventListener('load',appTop);setTimeout(appTop,0);
