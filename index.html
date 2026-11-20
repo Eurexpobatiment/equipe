@@ -834,7 +834,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '27'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '28'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -3681,7 +3681,7 @@ function clDatalists(){
   const box=$('#dl-clsoc');if(box)box.innerHTML=clSocietes().map(s=>`<option value="${esc(s)}">`).join('');
   const e=$('#dl-clesp');if(e)e.innerHTML=[...new Set(D.Clefs.map(c=>c.espace).filter(Boolean))].sort().map(s=>`<option value="${esc(s)}">`).join('');
 }
-const CL_SUB=[['Pret','📤 En prêt'],['Inv','🗝️ Inventaire'],['Hist','📜 Historique']];
+const CL_SUB=[['Pret','📤 En prêt'],['Inv','🗝️ Inventaire'],['Plan','🗺️ Plan'],['Hist','📜 Historique']];
 function vClefs(el){
   const st=UI.cl||(UI.cl={sub:lsGet('equipe.cl')||'Pret',q:'',iq:'',ie:'',ip:false,hq:'',hy:'',he:'Tous',tri:lsGet('equipe.cltri')||'fact',fs:'',fp:'',fe:'',htri:'desc',hs:'',hp:''});
   if(!CL_SUB.some(s=>s[0]===st.sub))st.sub='Pret';
@@ -3690,6 +3690,7 @@ function vClefs(el){
   el.innerHTML=`<div class="bar"><h2>Gestion des clefs</h2><span class="sp"></span><button class="btn" onclick="clExport()">⬇️ Excel</button><button class="btn pri" onclick="clNew()">+ Remise de clefs</button></div>
     <div class="seg-ctl bsub">${CL_SUB.map(([k,l])=>`<button class="${st.sub===k?'on':''}" onclick="UI.cl.sub='${k}';lsSet('equipe.cl','${k}');render()">${l}${k==='Pret'&&nR?` <span class="badge">${nR}</span>`:''}</button>`).join('')}</div>
     <div id="clview"></div>`;
+  if(st.sub==='Plan') return clpShow(el);
   if(!D.Clefs.length&&!D.ClefsPrets.length) return clVide($('#clview'));
 
   ({Pret:clVuePret,Inv:clVueInv,Hist:clVueHist})[st.sub]($('#clview'));
@@ -4048,9 +4049,10 @@ function clEditClef(id){const c=D.Clefs.find(x=>x.id===id);if(!c)return;clDatali
   const P=D.ClefsPrets.filter(p=>clOuvert(p)&&clClefOf(p,idx)===c);
   openForm('Clefs',c,(c.numero?'Clef '+c.numero+' · ':'')+clDes(c),{extra:`<div class="coms"><h3>Dehors en ce moment (${P.reduce((a,p)=>a+clDehors(p),0)})</h3>
     ${P.map(p=>`<div class="eqrow"><span><b>${esc(p.societe)}</b> ${esc(clNomP(p))} · ×${clDehors(p)}</span><span class="sp"></span><small class="hint" style="margin:0">depuis le ${fD(p.datePrepa,{day:'numeric',month:'short'})}</small></div>`).join('')||'<p class="empty">Aucune.</p>'}
+    ${c.numero?`<div class="bar" style="margin-top:8px"><button class="btn sm" type="button" onclick="closeModal();clpGo('${esc(String(c.numero)).replace(/'/g,"\\'")}')">📍 ${clpPosees()[clK(c.numero)]?'Voir sur le plan':'Poser sur le plan'}</button></div>`:''}
     ${c.majPar?`<div class="made">Dernière modification par ${esc(c.majPar)}</div>`:''}</div>`})}
 function clVueInv(el){
-  const st=UI.cl,q=(st.iq||'').toLowerCase(),E=clEnPret();
+  const st=UI.cl,q=(st.iq||'').toLowerCase(),E=clEnPret(),PL=clpPosees();
   const esp=[...new Set(D.Clefs.map(c=>c.espace).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
   let L=D.Clefs.filter(c=>(!st.ie||c.espace===st.ie)&&(!q||(c.numero+' '+clDes(c)+' '+(c.commentaire||'')).toLowerCase().includes(q))&&(!st.ip||E[c.id]));
   L.sort((a,b)=>(!a.espace&&!a.acces)-(!b.espace&&!b.acces)||String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')||String(a.numero).localeCompare(String(b.numero),'fr',{numeric:true}));
@@ -4063,12 +4065,60 @@ function clVueInv(el){
       <select class="sel" onchange="UI.cl.ie=this.value;render()"><option value="">Tous les espaces</option>${esp.map(e=>`<option ${e===st.ie?'selected':''}>${esc(e)}</option>`).join('')}</select>
       <label class="chk"><input type="checkbox" ${st.ip?'checked':''} onchange="UI.cl.ip=this.checked;render()"> En prêt seulement</label>
       <span class="sp"></span><button class="btn pri" onclick="clNewClef()">+ Clef</button></div>
-    <div class="tblwrap"><table class="btbl"><thead><tr><th>Espace</th><th>Accès / local</th><th>N° de clef</th><th class="c">Au tableau</th><th class="c">En prêt</th><th class="c">Dispo</th><th class="c">Archivées</th><th>Commentaire</th></tr></thead>
+    <div class="tblwrap"><table class="btbl"><thead><tr><th>Espace</th><th>Accès / local</th><th>N° de clef</th><th class="c">Au tableau</th><th class="c">En prêt</th><th class="c">Dispo</th><th class="c">Archivées</th><th>Commentaire</th><th class="c" title="Cylindre posé sur le plan des clefs">Plan</th></tr></thead>
       <tbody>${L.slice(0,600).map(c=>{const p=E[c.id]||0,d=(+c.stock||0)-p;return `<tr onclick="clEditClef('${c.id}')"><td>${esc(c.espace)}</td><td>${c.acces?`<b>${esc(c.acces)}</b>`:'<span class="hint">(sans désignation)</span>'}</td><td class="clnum">${esc(c.numero)}</td>
-        <td class="c">${+c.stock||''}</td><td class="c">${p||''}</td><td class="c ${d<0?'negt':''}"><b>${d}</b></td><td class="c">${+c.reserve||''}</td><td><small>${esc(c.commentaire||'')}</small></td></tr>`}).join('')
-        ||'<tr><td colspan="8" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
-    <p class="hint">« Dispo » = au tableau − en prêt. Touche une ligne pour corriger les quantités (clef refaite, perdue…) et voir qui l'a en ce moment.</p>`;
+        <td class="c">${+c.stock||''}</td><td class="c">${p||''}</td><td class="c ${d<0?'negt':''}"><b>${d}</b></td><td class="c">${+c.reserve||''}</td><td><small>${esc(c.commentaire||'')}</small></td>
+        <td class="c">${c.numero?(PL[clK(c.numero)]?`<button class="btn sm" title="Voir sur le plan" onclick="event.stopPropagation();clpGo('${esc(String(c.numero)).replace(/'/g,"\\'")}')">📍</button>`:`<button class="btn sm" style="opacity:.45" title="Pas encore posé : le poser sur le plan" onclick="event.stopPropagation();clpGo('${esc(String(c.numero)).replace(/'/g,"\\'")}')">＋</button>`):''}</td></tr>`}).join('')
+        ||'<tr><td colspan="9" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
+    <p class="hint">« Dispo » = au tableau − en prêt. Touche une ligne pour corriger les quantités (clef refaite, perdue…) et voir qui l'a en ce moment. 📍 = cylindre posé sur le plan des clefs (＋ pour le poser).</p>`;
 }
+
+/* ----- plan des clefs (clefs-plan/) : chargé une fois, gardé d'un onglet à l'autre ; repères dans Firebase (Clefs, kind « plan ») ----- */
+const clK=n=>String(n||'').trim().toUpperCase();
+function clpPosees(){const m={};(D.ClefsPlan||[]).forEach(p=>{const k=clK(p.numero);if(k)m[k]=(m[k]||0)+1});return m}
+function clpWrap(){let w=$('#clefsPlanWrap');if(w)return w;
+  w=document.createElement('div');w.id='clefsPlanWrap';w.className='appWrap';w.hidden=true;
+  w.innerHTML=`<div class="dvbar"><b>🔑 Gestion des clefs</b><div class="seg-ctl" id="clpSeg"></div><span class="hint" id="clpInfo"></span><span class="sp"></span>
+    <button class="btn sm" onclick="clpReload()" title="Recharger le plan">🔄</button></div>
+    <iframe id="clefsPlanFrame" title="Plan des clefs" allow="fullscreen"></iframe>`;
+  $('#view').after(w);w.querySelector('iframe').src='clefs-plan/?embed=1&v=1';return w}
+function clpReload(){const f=$('#clefsPlanFrame');if(f)f.src='clefs-plan/?embed=1&t='+Date.now()}
+function clpShow(el){
+  el.hidden=true;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);
+  const w=clpWrap();w.hidden=false;document.body.style.overflow='hidden';window.scrollTo(0,0);appTop();
+  const nR=clLotsRetard().length;
+  $('#clpSeg').innerHTML=CL_SUB.map(([k,l])=>`<button class="${UI.cl.sub===k?'on':''}" onclick="UI.cl.sub='${k}';lsSet('equipe.cl','${k}');render()">${l}${k==='Pret'&&nR?` <span class="badge">${nR}</span>`:''}</button>`).join('');
+  const n=(D.ClefsPlan||[]).length;$('#clpInfo').textContent=n?n+' cylindre'+(n>1?'s':'')+' posé'+(n>1?'s':'')+' · partagé avec l\'équipe':'';
+  clpSend();
+}
+// inventaire de l'appli, par n° de clef, pour le panneau du plan
+function clpInv(){const E=clEnPret(),idx=clNumIdx(),qui={};
+  D.ClefsPrets.filter(clOuvert).forEach(p=>{const c=clClefOf(p,idx);const k=c?c.id:'#'+clK(p.numero);(qui[k]=qui[k]||[]).push(p.societe+(clDehors(p)>1?' ×'+clDehors(p):''))});
+  const m={};D.Clefs.forEach(c=>{const k=clK(c.numero);if(!k)return;const pr=E[c.id]||0;
+    (m[k]=m[k]||[]).push({id:c.id,espace:c.espace||'',acces:c.acces||'',stock:+c.stock||0,pret:pr,dispo:(+c.stock||0)-pr,reserve:+c.reserve||0,qui:qui[c.id]||[],com:c.commentaire||''})});
+  return m}
+function clpSend(){const f=$('#clefsPlanFrame');if(!f||!f.contentWindow||!UI.clpReady)return;
+  f.contentWindow.postMessage({clefsData:{pins:(D.ClefsPlan||[]).map(p=>({id:p.id,n:p.numero,x:+p.x,y:+p.y})),inv:clpInv()}},'*');
+  if(UI.clpFocus){f.contentWindow.postMessage({clefsFocus:UI.clpFocus},'*');UI.clpFocus=''}}
+function clpGo(n){UI.cl=UI.cl||{};UI.cl.sub='Plan';lsSet('equipe.cl','Plan');UI.clpFocus=String(n);if(tab!=='Clefs')goTab('Clefs');else render()}
+// enregistrement des repères (affichés tout de suite, puis confirmés par Firebase)
+async function clpPins(op,pins){
+  if(!FBM){toast('Plan des clefs : enregistrement possible seulement avec Firebase',1);return}
+  const avant=D.ClefsPlan||[];
+  if(op==='save'){const m=new Map(avant.map(p=>[p.id,p]));pins.forEach(p=>m.set(p.id,{...(m.get(p.id)||{}),id:p.id,kind:'plan',numero:p.n,x:p.x,y:p.y,majPar:me}));D.ClefsPlan=[...m.values()]}
+  else{const s=new Set(pins.map(p=>p.id));D.ClefsPlan=avant.filter(p=>!s.has(p.id))}
+  try{if(op==='save')await FB.clefsPlanSave(pins);else await FB.clefsPlanDel(pins.map(p=>p.id));if(pins.length>1)toast(pins.length+' repères '+(op==='save'?'enregistrés':'supprimés')+' ✓')}
+  catch(e){D.ClefsPlan=avant;toast('Plan des clefs, pas enregistré : '+(e.message||e),1)}
+  if(tab==='Clefs'&&UI.cl&&UI.cl.sub==='Plan')clpShow($('#view'));
+}
+window.addEventListener('message',e=>{const f=$('#clefsPlanFrame');if(!f||e.source!==f.contentWindow||!e.data)return;const d=e.data;
+  if(d.clefsReady){UI.clpReady=1;clpSend()}
+  if(d.clefsPins&&Array.isArray(d.clefsPins.pins))clpPins(d.clefsPins.op,d.clefsPins.pins);
+  if(d.clefsOpen)clEditClef(String(d.clefsOpen));
+  if(d.clefsAdd)clNewClef({numero:String(d.clefsAdd.numero||''),acces:String(d.clefsAdd.acces||'')});
+  if(d.clefsRemise){const n=String(d.clefsRemise),c=(clNumIdx()[clK(n)]||[])[0];
+    clNew({});if(c)clAdd(c.id);else{CL.lines.push({clefId:'',numero:n,designation:'',qte:'1',rendu:'0',libre:1});clLines()}}
+});
 
 /* ----- historique ----- */
 function clVueHist(el){

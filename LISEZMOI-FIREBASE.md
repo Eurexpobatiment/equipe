@@ -54,3 +54,11 @@ Adresse directe : https://eurexpobatiment.github.io/equipe/tickets/
 - **Plan** : `tickets/plan.webp` (détail) et `tickets/plan-s.webp` (vue d'ensemble), tirés du PDF « BatiScript plan de masse » (A0). Pour le remplacer : mêmes noms, même proportion (4400 × 3113), sinon ajuster `planRatio`.
 - **Données** : collections `Tickets`, `TicketsCfg` et `TicketsEnt` (Firestore), photos dans `tickets/{clé}/{photo}` (Storage).
 - **Mise en service** : publier les blocs « Ticketing » de `firestore.rules` (Firestore › Règles) et de `storage.rules` (Storage › Règles). Sans eux, l'onglet affiche « Accès refusé ».
+
+## 🗺️ Plan des clefs (dossier `clefs-plan/`, sous-onglet « Plan » de l'onglet Clefs)
+Plan du rez-de-chaussée tiré du plan AutoCAD (« SEPEL-Plan tech.de base-Plan de masse », calques MUR) avec les cylindres posés à la main.
+- **Données du plan** (dans la page) : 746 cylindres du plan de fermeture NHKN (`EUREXPO_NHKN 2026.xlsx`) avec leurs clefs de groupe (PPG, PP-1…), espaces/accès de l'onglet « Inventaire HF2021 » du classeur clefs, 201 n° hors NHKN, noms des locaux et des halls du DWG.
+- **Cylindres posés** : partagés par toute l'équipe, rangés dans la collection `Clefs` (documents `plan_xxx`, `kind: 'plan'`, numero, x, y, majPar) : mêmes règles que l'inventaire, rien à publier. Ils sont écartés de l'inventaire à la lecture (`D.ClefsPlan`).
+- **Lien avec l'inventaire** : sur le plan, chaque cylindre montre la fiche de l'inventaire de l'appli (au tableau, en prêt, dispo, chez qui) avec « Ouvrir la fiche », « Ajouter à l'inventaire » et « Remettre cette clef… » ; dans l'inventaire, colonne « Plan » (📍 posé / ＋ à poser) et bouton dans la fiche.
+- **Reprise** : « Importer » sur le plan reprend un fichier exporté depuis la version hors appli (`plan-cles.html` du Drive).
+- **Mise à jour du fond** (nouveau DWG) : régénérer `clefs-plan/index.html` à partir d'une copie DXF du plan (même calage).

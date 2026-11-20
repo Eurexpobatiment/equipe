@@ -139,6 +139,8 @@ export function start(D, onChange, onErr) {
     if (name === 'Documents') { D.DocsIndex = L.filter(x => x.kind === 'index'); D[name] = L.filter(x => x.kind !== 'index'); }
     // Nacelle : sa position posée à la main sur le plan est rangée dans la même collection (document « position », à part des réservations)
     else if (name === 'Nacelle') { D.NacellePos = L.filter(x => x.kind === 'position'); D[name] = L.filter(x => x.kind !== 'position'); }
+    // Clefs : les cylindres posés sur le plan des clefs sont rangés dans la même collection (documents kind « plan », à part de l'inventaire)
+    else if (name === 'Clefs') { D.ClefsPlan = L.filter(x => x.kind === 'plan'); D[name] = L.filter(x => x.kind !== 'plan'); }
     else D[name] = L;
   };
   const sub = (name, q) => {
@@ -597,6 +599,24 @@ export async function nacPlacer(p) {
   await wrap(F.setDoc(r, o));
   journal('modification', 'Nacelle', 'position', 'nacelle placée ' + (o.hall || 'sur le plan'));
   return o;
+}
+/* Plan des clefs (clefs-plan/) : un document Clefs/plan_xxx par cylindre posé = { kind:'plan', numero, x, y, majPar, majLe }
+   (rangé dans la collection Clefs pour garder les mêmes règles de sécurité ; écarté de l'inventaire à la lecture). */
+const planId = id => /^plan_[\w-]{3,40}$/.test(String(id)) ? String(id) : 'plan_' + newId();
+export async function clefsPlanSave(list) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const L = list.filter(p => p && String(p.n || '').trim() && isFinite(p.x) && isFinite(p.y)).map(p => ({ id: planId(p.id),
+    o: { kind: 'plan', numero: String(p.n).trim().slice(0, 60), x: Math.round(+p.x), y: Math.round(+p.y), majPar: me, majLe: now_() } }));
+  for (let i = 0; i < L.length; i += 400) {
+    const b = F.writeBatch(db); L.slice(i, i + 400).forEach(p => b.set(ref('Clefs', p.id), p.o)); await wrap(b.commit());
+  }
+  if (L.length > 1) journal('ajout', 'Clefs', '', L.length + ' cylindres posés sur le plan des clefs');
+  return L.map(p => Object.assign({ id: p.id }, p.o));
+}
+export async function clefsPlanDel(ids) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const L = ids.map(String).filter(id => /^plan_/.test(id));
+  for (let i = 0; i < L.length; i += 400) { const b = F.writeBatch(db); L.slice(i, i + 400).forEach(id => b.delete(ref('Clefs', id))); await wrap(b.commit()); }
 }
 export async function dtList() {
   if (!me) throw new Error('Connexion nécessaire');
