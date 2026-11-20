@@ -801,7 +801,7 @@ const TABS = [
   {id:'Bench',l:'⚖️ Benchmark devis',g:'Gestion'}, // comparaison des devis d'une consultation (mêmes droits que les projets)
   {id:'Equipe',l:'👥 Équipe',g:'Gestion'},
   {id:'Descente',l:'🏋️ Descente de charges',g:'Outils'}, // calculateur (dépôt descente-charges)
-  {id:'Elec',l:'⚡ Départs électriques',g:'Outils'}, // disjonction : départs, armoires, plan (dépôt elec)
+  {id:'Elec',l:'⚡ Départs électriques',g:'Outils'}, // disjonction : départs, armoires, plan (dossier elec)
   {id:'CloisonsPlan',l:'🧱 Cloisons mobiles',g:'Outils'}];
 const TABS_RAPIDES=['Taches','Planning','Nacelle','Regie']; // barre du bas sur téléphone
 /* Icônes au trait du menu (remplacent les emojis) */
@@ -1069,7 +1069,7 @@ const APPS={
   Conso:{l:'⚡ Consommations halls',h:'Consommations énergétiques des halls par salon (DJU, météo, PV)',u:'https://eurexpobatiment.github.io/conso/'},
   Temp:{l:'🌡️ Températures halls',h:'Relevés de température des halls pendant les salons (Dalkia)',u:'https://eurexpobatiment.github.io/temp/'},
   Descente:{l:'🏋️ Descente de charges',h:'Calculateur de descente de charges et plaques de répartition (plan du sous-sol, rapport PDF)',u:'https://eurexpobatiment.github.io/descente-charges/'},
-  Elec:{l:'⚡ Départs électriques',h:'Retrouver l’alimentation des armoires et des départs en cas de disjonction (nomenclature des TGBT, plan des armoires)',u:'https://eurexpobatiment.github.io/elec/?embed=1'},
+  Elec:{l:'⚡ Départs électriques',h:'Retrouver l’alimentation des armoires et des départs en cas de disjonction (nomenclature des TGBT, plan des armoires)',u:'elec/?embed=1'},
   CloisonsPlan:{l:'🧱 Cloisons mobiles',h:'Plan interactif des positions des cloisons mobiles des halls',u:'cloisons/'}};
 function appTop(){const h=$('header');if(!h)return;const b=Math.round(h.getBoundingClientRect().bottom);document.documentElement.style.setProperty('--hdrh',b+'px');document.documentElement.style.setProperty('--toph',b+'px')}
 addEventListener('resize',appTop);addEventListener('load',appTop);setTimeout(appTop,0);

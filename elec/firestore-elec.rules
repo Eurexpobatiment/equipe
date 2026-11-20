@@ -1,0 +1,48 @@
+    // ===================== Appli Départs électriques (dépôt « elec ») =====================
+    // Bloc à coller dans les règles Firestore du projet equipe-batiment, JUSTE AVANT les deux
+    // dernières accolades « } » de la fin (à l'intérieur de « match /databases/{db}/documents { »).
+    // Lecture : service Bâtiment (comptes de l'appli Équipe) ou appareil qui a donné le code d'accès.
+    // Écriture : service Bâtiment seulement.
+    // Le code d'accès est dans le document ElecSecret/code (champ « code »), que personne ne peut lire.
+
+    function eSecret() { return get(/databases/$(db)/documents/ElecSecret/code).data.code; }
+    function eSession() {
+      return request.auth != null
+        && exists(/databases/$(db)/documents/ElecSessions/$(request.auth.uid))
+        && get(/databases/$(db)/documents/ElecSessions/$(request.auth.uid)).data.code == eSecret();
+    }
+    function eAuteur() { return isOwner() || request.resource.data.majPar == myNom(); }
+
+    // Nomenclature : une fiche par zone (feuille), arbre complet en JSON
+    match /ElecArbre/{id} {
+      allow read: if member() || eSession();
+      allow create, update: if member() && eAuteur() && id.size() <= 60
+        && request.resource.data.keys().hasOnly(['nom', 'ordre', 'json', 'majLe', 'majPar'])
+        && request.resource.data.nom is string && request.resource.data.json is string;
+      allow delete: if member();
+    }
+
+    // Armoires à rattacher et postes HT
+    match /ElecDivers/{id} {
+      allow read: if member() || eSession();
+      allow create, update: if member() && eAuteur() && id in ['orphelins', 'postes']
+        && request.resource.data.keys().hasOnly(['json', 'majLe', 'majPar'])
+        && request.resource.data.json is string;
+    }
+
+    // Historique des modifications
+    match /ElecHisto/{id} {
+      allow read: if member();
+      allow create: if member() && (isOwner() || request.resource.data.auteur == myNom())
+        && request.resource.data.keys().hasOnly(['date', 'auteur', 'action', 'detail']);
+    }
+
+    // Un appareil qui a donné le bon code d'accès (connexion anonyme)
+    match /ElecSessions/{uid} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['code', 'at'])
+        && request.resource.data.code == eSecret();
+    }
+    // ElecSecret : aucune règle = ni lecture ni écriture depuis les applis (modifiable dans la console seulement)
+    // ===================== fin Départs électriques =====================
