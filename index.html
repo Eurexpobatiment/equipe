@@ -834,7 +834,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '28'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '29'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -4098,14 +4098,14 @@ function clpInv(){const E=clEnPret(),idx=clNumIdx(),qui={};
     (m[k]=m[k]||[]).push({id:c.id,espace:c.espace||'',acces:c.acces||'',stock:+c.stock||0,pret:pr,dispo:(+c.stock||0)-pr,reserve:+c.reserve||0,qui:qui[c.id]||[],com:c.commentaire||''})});
   return m}
 function clpSend(){const f=$('#clefsPlanFrame');if(!f||!f.contentWindow||!UI.clpReady)return;
-  f.contentWindow.postMessage({clefsData:{pins:(D.ClefsPlan||[]).map(p=>({id:p.id,n:p.numero,x:+p.x,y:+p.y})),inv:clpInv()}},'*');
+  f.contentWindow.postMessage({clefsData:{pins:(D.ClefsPlan||[]).map(p=>({id:p.id,n:p.numero,x:+p.x,y:+p.y,lv:p.niveau||'R0'})),inv:clpInv()}},'*');
   if(UI.clpFocus){f.contentWindow.postMessage({clefsFocus:UI.clpFocus},'*');UI.clpFocus=''}}
 function clpGo(n){UI.cl=UI.cl||{};UI.cl.sub='Plan';lsSet('equipe.cl','Plan');UI.clpFocus=String(n);if(tab!=='Clefs')goTab('Clefs');else render()}
 // enregistrement des repères (affichés tout de suite, puis confirmés par Firebase)
 async function clpPins(op,pins){
   if(!FBM){toast('Plan des clefs : enregistrement possible seulement avec Firebase',1);return}
   const avant=D.ClefsPlan||[];
-  if(op==='save'){const m=new Map(avant.map(p=>[p.id,p]));pins.forEach(p=>m.set(p.id,{...(m.get(p.id)||{}),id:p.id,kind:'plan',numero:p.n,x:p.x,y:p.y,majPar:me}));D.ClefsPlan=[...m.values()]}
+  if(op==='save'){const m=new Map(avant.map(p=>[p.id,p]));pins.forEach(p=>m.set(p.id,{...(m.get(p.id)||{}),id:p.id,kind:'plan',numero:p.n,x:p.x,y:p.y,niveau:p.lv||'R0',majPar:me}));D.ClefsPlan=[...m.values()]}
   else{const s=new Set(pins.map(p=>p.id));D.ClefsPlan=avant.filter(p=>!s.has(p.id))}
   try{if(op==='save')await FB.clefsPlanSave(pins);else await FB.clefsPlanDel(pins.map(p=>p.id));if(pins.length>1)toast(pins.length+' repères '+(op==='save'?'enregistrés':'supprimés')+' ✓')}
   catch(e){D.ClefsPlan=avant;toast('Plan des clefs, pas enregistré : '+(e.message||e),1)}
