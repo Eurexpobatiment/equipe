@@ -1452,7 +1452,9 @@ async function buildPDF(levels, paper, optPins, optHalls){
 /* ---------- DXF (AutoCAD R12, lisible par toutes les versions) ---------- */
 async function buildDXF(levels, optPins, optHalls){
   const H = TILES.H, X = v => f2(v), Y = v => f2(H - v);
-  const layers = new Map();   // nom -> couleur ACI
+  const PIN_H = 12;   // hauteur du numéro ; cadre de largeur fixe calée sur le numéro le plus long
+  const PIN_W = Math.max(0, ...pins.map(p => tw(String(p.n), PIN_H/0.72, true))) + PIN_H*0.9, PIN_HH = PIN_H*2;
+  const layers = new Map([['0', 7]]);   // nom -> couleur ACI (calque 0 : contenu du bloc)
   const lay = (n, c) => { if(!layers.has(n)) layers.set(n, c); return n; };
   const E = [];
   const text = (layer, x, y, h, t, rot, hj, vj) => {
@@ -1488,10 +1490,10 @@ async function buildDXF(levels, optPins, optHalls){
       const k = selKey ? (selKey === XKEY ? 'HORS_NHKN' : selKey.replace(/[^A-Za-z0-9_-]/g,'_')) : '';
       for(const p of outPins(lv)){
         const l = p.st==='o' ? lay(`${lv}_CYLINDRES_${k}_OUVRE`, 3) : p.st==='c' ? lay(`${lv}_CYLINDRES_AUTRES`, 8) : lay(`${lv}_CYLINDRES`, 1);
-        const h = 12, w = tw(p.n, h/0.72, true) + h*0.9, hh = h*2;
-        text(l, p.x, p.y, h, p.n, 0, 1, 2);
-        const pts = [[p.x-w/2,p.y-hh/2],[p.x+w/2,p.y-hh/2],[p.x+w/2,p.y+hh/2],[p.x-w/2,p.y+hh/2]];
-        E.push(`0\nPOLYLINE\n8\n${l}\n66\n1\n10\n0\n20\n0\n30\n0\n70\n1\n` + pts.map(v=>`0\nVERTEX\n8\n${l}\n10\n${X(v[0])}\n20\n${Y(v[1])}\n30\n0\n`).join('') + `0\nSEQEND\n8\n${l}\n`);
+        // une étiquette = un bloc CYLINDRE (cadre + attribut NUM), posé sur le calque du cylindre
+        E.push(`0\nINSERT\n8\n${l}\n66\n1\n2\nCYLINDRE\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n`
+          + `0\nATTRIB\n8\n${l}\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n40\n${f2(PIN_H)}\n1\n${cp1252(String(p.n)).replace(/\r?\n/g,' ')}\n2\nNUM\n70\n0\n72\n1\n74\n2\n11\n${X(p.x)}\n21\n${Y(p.y)}\n31\n0\n`
+          + `0\nSEQEND\n8\n${l}\n`);
       }
     }
   }
@@ -1500,7 +1502,14 @@ async function buildDXF(levels, optPins, optHalls){
     + `0\nTABLE\n2\nLTYPE\n70\n1\n0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n0\nENDTAB\n`
     + `0\nTABLE\n2\nLAYER\n70\n${layers.size}\n` + [...layers].map(([n,c])=>`0\nLAYER\n2\n${n}\n70\n0\n62\n${c}\n6\nCONTINUOUS\n`).join('') + `0\nENDTAB\n`
     + `0\nTABLE\n2\nSTYLE\n70\n1\n0\nSTYLE\n2\nSTANDARD\n70\n0\n40\n0.0\n41\n1.0\n50\n0.0\n71\n0\n42\n2.5\n3\narial.ttf\n4\n\n0\nENDTAB\n`
-    + `0\nENDSEC\n0\nSECTION\n2\nENTITIES\n`;
+    + `0\nENDSEC\n`
+    + (optPins ? `0\nSECTION\n2\nBLOCKS\n0\nBLOCK\n8\n0\n2\nCYLINDRE\n70\n2\n10\n0\n20\n0\n30\n0\n3\nCYLINDRE\n`
+        + `0\nPOLYLINE\n8\n0\n66\n1\n10\n0\n20\n0\n30\n0\n70\n1\n`
+        + [[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>`0\nVERTEX\n8\n0\n10\n${f2(a*PIN_W/2)}\n20\n${f2(b*PIN_HH/2)}\n30\n0\n`).join('')
+        + `0\nSEQEND\n8\n0\n`
+        + `0\nATTDEF\n8\n0\n10\n0\n20\n0\n30\n0\n40\n${f2(PIN_H)}\n1\n\n3\nN° cylindre\n2\nNUM\n70\n0\n72\n1\n74\n2\n11\n0\n21\n0\n31\n0\n`
+        + `0\nENDBLK\n8\n0\n0\nENDSEC\n` : '')
+    + `0\nSECTION\n2\nENTITIES\n`;
   const parts = [bytesOf(head)];
   for(let i = 0; i < E.length; i += 5000) parts.push(bytesOf(E.slice(i, i+5000).join('')));
   parts.push(bytesOf('0\nENDSEC\n0\nEOF\n'));
