@@ -151,6 +151,8 @@ body.embed header .logo{display:none}
 .frm .chk input{width:auto}
 .mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
 .btn.danger{color:#b42318;border-color:#f3c7c3}
+.btn.sm{padding:3px 8px;font-size:12px;border-radius:6px}
+table.ct td.acts{white-space:nowrap;text-align:right}table.ct td.acts .btn{margin-left:4px}
 .btn.danger:hover{border-color:#b42318}
 .edbar{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;padding:10px;border:1px dashed #cfe5d9;border-radius:10px;background:#f7fbf9}
 .edbar .t{font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.06em;width:100%}
@@ -902,7 +904,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 <section class="view" id="vPlan">
   <div class="card pad"><div class="lvseg" id="lvSeg"></div><div class="mapwrap"><div id="map"></div><div id="placeBar" hidden></div></div>
-    <div class="legend"><span><i style="background:#b42318"></i>TGBT</span><span><i style="background:#0e4d33"></i>Armoire / coffret</span><span id="lgO"><i style="background:#98a2b3"></i>À rattacher à la nomenclature</span><span><i style="background:#ffd400;border:2px solid #b08d00"></i>Sélection et son chemin d'alimentation</span></div></div>
+    <div class="legend"><span><i style="background:#b42318"></i>TGBT</span><span><i style="background:#0e4d33"></i>Armoire / coffret</span><span id="lgO"><i style="background:#98a2b3"></i>À rattacher à la nomenclature</span><span><i style="background:#ffd400;border:2px solid #b08d00"></i>Sélection et son chemin d'alimentation</span><span class="ed" hidden style="margin-left:auto"><button class="btn sm pri" id="addArmPlan">＋ Nouvelle armoire</button></span></div></div>
   <div class="card pad plside" id="plSide"><h2>Plan des armoires</h2><p class="muted">Clique sur une armoire pour voir son alimentation. Depuis une fiche, le bouton « Voir sur le plan » surligne le chemin depuis le TGBT.</p></div>
 </section>
 
@@ -1157,15 +1159,20 @@ function renderCtrl(){
   const dbl=[...codes.values()].filter(a=>a.length>1);
   const row=n=>`<tr><td>${n.c?`<span class="code">${esc(n.c)}</span>`:''}</td><td><a href="#n=${encodeURIComponent(n.id)}">${esc(n.l)}</a></td><td class="muted">${esc(anc(n).slice(0,-1).map(x=>x.l).join(' › '))}</td></tr>`;
   $('ctrl').innerHTML=`<h2>Contrôle des données</h2><p class="muted">Points à reprendre pour fiabiliser la recherche et le plan.${ROLE==='bat'?' Clique sur une ligne pour ouvrir la fiche et la corriger.':''}</p>
-  <h3>À rattacher à la nomenclature (${ORPH.length})</h3><p class="muted">Armoires présentes sur le plan AutoCAD ou dans la table de correspondance, sans équivalent dans la nomenclature.${ROLE==='bat'?' Sur le plan (points gris), clique dessus puis « Rattacher ».':''}</p>
-  <table class="ct"><tr><th>Nom abrégé</th><th>Nom</th><th>Source</th></tr>${ORPH.map(o=>`<tr><td>${o.code?`<span class="code">${esc(o.code)}</span>`:''}</td><td>${o.pos?`<a href="#" data-o="${esc(o.id)}">${esc(o.nom)}</a>`:esc(o.nom)}</td><td class="muted">${o.src==='plan'?'Plan ('+esc(LVNAME[o.pos&&o.pos.lv]||'')+')':'Correspondance'}${o.rem?' · '+esc(o.rem):''}</td></tr>`).join('')}</table>
-  <h3 style="margin-top:20px">TGBT et armoires sans position sur le plan (${sansPos.length})</h3><table class="ct"><tr><th>Nom abrégé</th><th>Libellé</th><th>Chemin</th></tr>${sansPos.map(row).join('')}</table>
+  <h3>À rattacher à la nomenclature (${ORPH.length})</h3><p class="muted">Armoires présentes sur le plan AutoCAD ou dans la table de correspondance, sans équivalent dans la nomenclature.${ROLE==='bat'?' « Ajouter » crée la ligne dans la nomenclature (sous le TGBT ou l’armoire qui l’alimente) et la place sur le plan ; « Rattacher » la relie à une ligne qui existe déjà.':''}</p>
+  <table class="ct"><tr><th>Nom abrégé</th><th>Nom</th><th>Source</th>${ROLE==='bat'?'<th></th>':''}</tr>${ORPH.map(o=>`<tr><td>${o.code?`<span class="code">${esc(o.code)}</span>`:''}</td><td>${o.pos?`<a href="#" data-o="${esc(o.id)}">${esc(o.nom)}</a>`:esc(o.nom)}</td><td class="muted">${o.pos?(o.src==='plan'?'Plan':'Placé')+' ('+esc(LVNAME[o.pos.lv]||'')+')':(o.src==='plan'?'Plan':'Correspondance')+' · pas sur le plan'}${o.rem?' · '+esc(o.rem):''}</td>${ROLE==='bat'?`<td class="acts"><button class="btn sm pri" data-oa="${esc(o.id)}" title="Créer une nouvelle ligne dans la nomenclature">＋ Ajouter</button><button class="btn sm" data-ot="${esc(o.id)}" title="Relier à une ligne existante de la nomenclature">🔗 Rattacher</button><button class="btn sm" data-op="${esc(o.id)}">📍 ${o.pos?'Déplacer':'Placer'}</button></td>`:''}</tr>`).join('')}</table>
+  <h3 style="margin-top:20px">TGBT et armoires sans position sur le plan (${sansPos.length})</h3><table class="ct"><tr><th>Nom abrégé</th><th>Libellé</th><th>Chemin</th>${ROLE==='bat'?'<th></th>':''}</tr>${sansPos.map(n=>row(n).replace('</tr>',ROLE==='bat'?`<td class="acts"><button class="btn sm" data-np="${esc(n.id)}">📍 Placer</button></td></tr>`:'</tr>')).join('')}</table>
   ${dbl.length?`<h3 style="margin-top:20px">Noms abrégés en double (${dbl.length})</h3><table class="ct"><tr><th>Nom abrégé</th><th>Libellé</th><th>Chemin</th></tr>${dbl.flat().map(row).join('')}</table>`:''}
   <h3 style="margin-top:20px">Armoires dont le schéma est à trouver / à faire (${sch.length})</h3><table class="ct"><tr><th>Nom abrégé</th><th>Libellé</th><th>Chemin</th></tr>${sch.map(row).join('')}</table>
   ${ROLE==='bat'?`<h3 style="margin-top:24px">Historique des modifications</h3><div id="histo" class="muted">Chargement…</div>
   <h3 style="margin-top:24px">Sauvegarde</h3><div class="btns"><button class="btn" id="exp">⬇ Exporter une sauvegarde (JSON)</button><button class="btn" id="expCsv">⬇ Exporter la nomenclature (CSV / Excel)</button><label class="btn">⇪ Importer un fichier de données…<input type="file" id="imp" accept=".json,application/json" hidden></label></div>
   <p class="muted">L'import remplace toutes les données de l'appli par celles du fichier (à utiliser pour la mise en route ou pour restaurer une sauvegarde).</p>`:''}`;
   $('ctrl').querySelectorAll('[data-o]').forEach(a=>a.onclick=e=>{e.preventDefault();const o=ORPH.find(x=>x.id===a.dataset.o);if(o)showOrphOnPlan(o)});
+  const oF=id=>ORPH.find(x=>x.id===id);
+  $('ctrl').querySelectorAll('[data-oa]').forEach(b=>b.onclick=()=>{const o=oF(b.dataset.oa);if(o)addToNomenclature(o)});
+  $('ctrl').querySelectorAll('[data-ot]').forEach(b=>b.onclick=()=>{const o=oF(b.dataset.ot);if(o)attachOrph(o)});
+  $('ctrl').querySelectorAll('[data-op]').forEach(b=>b.onclick=()=>{const o=oF(b.dataset.op);if(o)startPlace({orph:o})});
+  $('ctrl').querySelectorAll('[data-np]').forEach(b=>b.onclick=()=>{const n=N.get(b.dataset.np);if(n)startPlace({node:n})});
   if(ROLE==='bat'){$('exp').onclick=exportJson;$('expCsv').onclick=exportCsv;$('imp').onchange=e=>importJson(e.target.files[0]);loadHisto()}
 }
 async function loadHisto(){
@@ -1292,6 +1299,7 @@ async function zoneAction(a,fid){
   if(a==='ren')openForm('Renommer la zone',[{k:'nom',l:'Nom de la zone',full:true},{k:'ordre',l:'Ordre d’affichage'}],{nom:f.nom,ordre:String(f.ordre)},async o=>{try{await F.updateDoc(F.doc(db,'ElecArbre',fid),{nom:clean(o.nom,120)||f.nom,ordre:+o.ordre||0,majLe:nowIso(),majPar:ME.nom});histo('Zone renommée',f.nom+' → '+o.nom);return true}catch(e){toast(errMsg(e));return false}});
   if(a==='del'){if(f.nodes.length)return toast('Zone non vide : déplace ou supprime d’abord ses TGBT.');if(!confirm('Supprimer la zone vide « '+f.nom+' » ?'))return;try{await F.deleteDoc(F.doc(db,'ElecArbre',fid));histo('Zone supprimée',f.nom)}catch(e){toast(errMsg(e))}}
 }
+$('addArmPlan').onclick=()=>addToNomenclature(null);
 $('addZone').onclick=()=>openForm('Nouvelle zone',[{k:'nom',l:'Nom de la zone (ex. Hall 8)',full:true}],{},async o=>{const nom=clean(o.nom,120);if(!nom){toast('Indique un nom');return false}
   const id=norm(nom).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||newId();if(FEU.some(x=>x.id===id)){toast('Cette zone existe déjà');return false}
   try{await F.setDoc(F.doc(db,'ElecArbre',id),{nom,ordre:FEU.length,json:'[]',majLe:nowIso(),majPar:ME.nom});histo('Zone ajoutée',nom);return true}catch(e){toast(errMsg(e));return false}});
@@ -1397,9 +1405,9 @@ function pickOrph(o){
   selKey='O:'+o.id;CHAIN=[];hlSet=new Set();drawMarkers();
   $('plSide').innerHTML=`<h2><span class="badge orph">À rattacher</span></h2><h3 style="margin:6px 0">${esc(o.nom)}</h3>${o.code?`<span class="code">${esc(o.code)}</span>`:''}
    ${o.alim?`<div class="muted" style="margin-top:6px">Alimentation notée sur le plan : <span class="rep">${esc(o.alim)}</span></div>`:''}${o.rem?`<div class="box note">📝 ${esc(o.rem)}</div>`:''}
-   <div class="box info">Cette armoire figure sur le plan AutoCAD mais n'est pas reliée à la nomenclature (nom abrégé ${o.code?'introuvable':'absent'}).${ROLE==='bat'?' Rattache-la au départ correspondant : elle prendra sa position et ses informations.':''}</div>
-   ${ROLE==='bat'?'<div class="btns"><button class="btn pri" id="att">🔗 Rattacher à un départ</button><button class="btn" id="mvO">📍 Déplacer</button><button class="btn danger" id="rmO">Supprimer</button></div>':''}`;
-  if(ROLE==='bat'){$('att').onclick=()=>attachOrph(o);$('mvO').onclick=()=>startPlace({orph:o});$('rmO').onclick=()=>{if(confirm('Supprimer ce repère du plan ?'))mutateOrph(L=>{const i=L.findIndex(x=>x.id===o.id);if(i>=0)L.splice(i,1)},'Repère supprimé',o.nom)}}
+   <div class="box info">Cette armoire figure sur le plan AutoCAD mais n'est pas reliée à la nomenclature (nom abrégé ${o.code?'introuvable':'absent'}).${ROLE==='bat'?' Ajoute-la à la nomenclature sous le TGBT ou l’armoire qui l’alimente, ou rattache-la à une ligne qui existe déjà : elle garde sa position et ses informations.':''}</div>
+   ${ROLE==='bat'?'<div class="btns"><button class="btn pri" id="addO">＋ Ajouter à la nomenclature</button><button class="btn" id="att">🔗 Rattacher à une ligne existante</button><button class="btn" id="mvO">📍 Déplacer</button><button class="btn danger" id="rmO">Supprimer</button></div>':''}`;
+  if(ROLE==='bat'){$('addO').onclick=()=>addToNomenclature(o);$('att').onclick=()=>attachOrph(o);$('mvO').onclick=()=>startPlace({orph:o});$('rmO').onclick=()=>{if(confirm('Supprimer ce repère du plan ?'))mutateOrph(L=>{const i=L.findIndex(x=>x.id===o.id);if(i>=0)L.splice(i,1)},'Repère supprimé',o.nom)}}
 }
 function attachOrph(o){
   const m=document.createElement('div');m.className='modal';
@@ -1416,6 +1424,40 @@ function attachOrph(o){
         const f=Object.assign({},x.f||{});if(!f.nom&&o.nom)f.nom=o.nom;if(!f.etiq&&o.etiq)f.etiq=o.etiq;if(!f.schema&&o.schema)f.schema=o.schema;if(!f.numSchema&&o.numSchema)f.numSchema=o.numSchema;if(o.rem)f.rem=[f.rem,o.rem].filter(Boolean).join(' / ');if(Object.keys(f).length)x.f=f},'Rattachement',o.nom+' → '+n.l);
       if(ok){await mutateOrph(L=>{const i=L.findIndex(x=>x.id===o.id);if(i>=0)L.splice(i,1)},'Rattachement',o.nom);setTimeout(()=>{const nn=N.get(n.id);if(nn&&nn.pos)pickNode(nn)},500)}})};
   m.querySelector('#aq').oninput=draw;draw();
+}
+/* Ajout d'une armoire dans la nomenclature (depuis un repère « à rattacher » ou depuis le plan) : choix de l'alimentation, fiche, position */
+function addToNomenclature(o){
+  if(ROLE!=='bat')return toast('Modification réservée au service Bâtiment');
+  o=o||null;const nom=o?(o.nom||o.code||'?'):'';
+  const guess=o?((o.alim||o.code||'').split(/[-\s]/)[0]):'';
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="card"><h3>${o?'Ajouter « '+esc(nom)+' » à la nomenclature':'Nouvelle armoire'}</h3><div class="muted">1/2 · Choisis le TGBT, l’armoire ou le départ qui l’alimente${o&&o.alim?` (noté sur le plan : <span class="rep">${esc(o.alim)}</span>)`:''}. Choisis une zone si l’alimentation n’est pas connue.</div>
+   <input id="nq" style="width:100%;margin-top:10px;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;font:500 14px Inter,sans-serif" placeholder="Rechercher un TGBT, une armoire, un repère…" value="${esc(guess)}">
+   <div class="pickl" id="nl"></div><div class="mbtns"><button class="btn" data-x="cancel">Annuler</button></div></div>`;
+  document.body.appendChild(m);m.querySelector('[data-x=cancel]').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};
+  const inp=m.querySelector('#nq');let first=true;
+  const draw=()=>{const toks=norm(inp.value).split(' ').filter(Boolean);
+    const Ls=[...N.values()].filter(x=>x.t==='feuille'||x.t==='tgbt'||kind(x)==='arm'||toks.length).filter(x=>{const h=x.t==='feuille'?norm(x.l):x._own+' '+x._ctx;return toks.every(t=>h.includes(t))}).slice(0,80);
+    if(!Ls.length&&first&&inp.value){first=false;inp.value='';return draw()}first=false;
+    m.querySelector('#nl').innerHTML=Ls.map(x=>`<div class="it" data-id="${esc(x.id)}">${x.t==='feuille'?'🗂 Zone : ':''}${x.r?`<span class="rep">${esc(x.r)}</span> `:''}<b>${esc(x.l)}</b> ${x.c?`<span class="code">${esc(x.c)}</span>`:''}<div class="muted">${esc(anc(x).slice(0,-1).map(y=>y.l).join(' › '))}</div></div>`).join('')||'<div class="muted">Aucun résultat : modifie la recherche.</div>';
+    m.querySelectorAll('.it').forEach(it=>it.onclick=()=>{const par=N.get(it.dataset.id);m.remove();fiche(par)})};
+  inp.oninput=draw;draw();setTimeout(()=>inp.focus(),50);
+  const fiche=par=>{
+    const fid=par._fid,pid=par.t==='feuille'?null:par.id;
+    const rep_=o&&o.alim&&/-([A-Z]{1,3}\d[\w.]*)$/i.exec(o.alim);
+    const vals=o?{t:'dep',r:rep_?rep_[1]:'',l:o.nom||o.code||'',c:o.code||'',f_nom:o.nom||'',f_etiq:o.etiq||'',f_schema:o.schema||'',f_numSchema:o.numSchema||'',f_rem:o.rem||'',alim:o.alim||''}:{t:'dep'};
+    openForm('2/2 · Nouvelle ligne sous : '+par.l,NODE_FIELDS,vals,async v=>{
+      if(!clean(v.l)&&!clean(v.r)){toast('Indique au moins un libellé ou un repère');return false}
+      const x={id:newId(),p:pid};applyVals(x,v);if(o&&o.pos)x.pos=o.pos;
+      const ok=await mutate([fid],Z=>{const L=Z[fid];let i=L.length-1;if(pid){const ids=subtreeIds(Z,fid,pid);i=-1;L.forEach((y,j)=>{if(ids.has(y.id))i=j})}L.splice(i+1,0,x)},'Ajout à la nomenclature',x.l+' (sous '+par.l+')');
+      if(!ok)return false;
+      if(o)await mutateOrph(L=>{const i=L.findIndex(y=>y.id===o.id);if(i>=0)L.splice(i,1)},'Rattachement',(o.nom||o.code)+' ajouté à la nomenclature');
+      setTimeout(()=>{const nn=N.get(x.id);if(!nn)return;
+        if(nn.pos)showOnPlan(nn);
+        else if(confirm('« '+nn.l+' » est dans la nomenclature. La placer maintenant sur le plan ?'))startPlace({node:nn});
+        else{view('vSearch');show(nn.id)}},600);
+      return true});
+  };
 }
 function startPlace(t){
   view('vPlan');initMap();PLACE=t;
