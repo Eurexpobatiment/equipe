@@ -938,7 +938,7 @@ function nacConflict(o){
 /* ---------- 🛡️ Veille sûreté : salons sur le parc (J-7 → J+60) et bulletins de veille ----------
    Mêmes règles que l'export veille (scripts/export-veille/build.mjs) : EDL d'entrée = début de montage,
    EDL de sortie = fin de démontage ; à défaut, présence des régisseurs et mouvements de cloisons.
-   Les bulletins sont des mémos de type « Veille sûreté » (même collection, mêmes droits, même « J'ai lu »). */
+   Les bulletins sont des mémos de type « Veille sûreté » (même collection, mêmes droits, même suivi des lectures). */
 const SV_TYPE='Veille sûreté';
 const svCle=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const svHalls=v=>String(v||'').split(/[,;/+]|\set\s/).map(h=>h.trim()).filter(Boolean);
@@ -1002,7 +1002,7 @@ function vSurete(el){
     <div class="mine"><b>Aujourd'hui :</b> ${now.length?now.map(s=>`<span class="svph" style="background:${SV_PH[s.ph]}">${esc(s.ph)}</span>${esc(s.nom)}${s.halls.length?' ('+esc(s.halls.join(', '))+')':''}`).join(' · '):'aucun salon sur le parc'}
       ${act.length?`<br><b>${act.length} bulletin${act.length>1?'s':''} en cours</b>${act.some(m=>m.niveau==='Critique')?' dont <b style="color:'+MNIV.Critique+'">critique</b>':''}`:''}</div>
     <h3>📰 Bulletins de veille</h3>
-    <p class="hint">Menaces, alertes et consignes à connaître (Vigipirate, manifestations, alertes préfecture, retours du PC sécurité…), rattachées si besoin à un salon. Touche « ✓ J'ai lu » pour confirmer.</p>
+    <p class="hint">Menaces, alertes et consignes à connaître (Vigipirate, manifestations, alertes préfecture, retours du PC sécurité…), rattachées si besoin à un salon. Un bulletin est noté « lu » automatiquement dès que tu l'as eu sous les yeux quelques secondes (ou que tu l'ouvres).</p>
     <div class="mgrid">${act.map(svCard).join('')||'<p class="empty">Aucun bulletin en cours.</p>'}</div>
     ${arch.length?`<div style="margin-top:10px"><button class="link" onclick="UI.sv.arch=!UI.sv.arch;render()">${st.arch?'▾':'▸'} Archivés / expirés (${arch.length})</button>
       ${st.arch?`<div class="mgrid" style="margin-top:10px">${arch.map(svCard).join('')}</div>`:''}</div>`:''}
@@ -1013,12 +1013,11 @@ function vSurete(el){
 }
 function svCard(m){
   const act=memoActif(m), t=m.texte||'';
-  return `<div class="card mv-${esc(m.niveau||'Info')} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" onclick="svOpen('${m.id}')">
+  return `<div class="card mv-${esc(m.niveau||'Info')} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" ${act&&!memoLu(m)?`data-lu="${m.id}"`:''} onclick="svOpen('${m.id}')">
     <div class="ct"><span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>${esc(m.titre)}</div>
     ${t?`<div class="cd memo">${esc(t.length>220?t.slice(0,220)+'…':t)}</div>`:''}
     <div class="meta">${m.dateBulletin?`<span>📅 ${fD(m.dateBulletin)}</span>`:''}${m.dateDebut&&m.dateDebut!==m.dateBulletin?`<span>⚠️ à partir du ${fD(m.dateDebut)}</span>`:''}<span>🎪 ${esc(m.salon||'Tout le parc')}</span>
       ${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}${m.jusquau?`<span>⏳ jusqu'au ${fD(m.jusquau)}</span>`:''}${memoLuHtml(m)}</div>
-    ${act&&!memoLu(m)?`<button class="adv ok" style="margin-left:0" onclick="event.stopPropagation();memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`:''}
   </div>`;
 }
 function svSalonCard(s,B){
@@ -1050,9 +1049,10 @@ function svOpen(id){
     <div class="mbody">${m.texte?`<div class="memo">${esc(m.texte)}</div>`:'<p class="empty">Pas de détail.</p>'}</div>
     <div class="meta"><span class="lu">👁 Lu par : ${lus.length?esc(lus.join(', ')):'personne'}</span>${nl.length?`<span>Pas encore lu : ${esc(nl.join(', '))}</span>`:''}</div>
     <div class="made">Rédigé par ${esc(m.creePar||'?')} le ${fDT(m.creeLe)}${m.majPar&&m.majLe!==m.creeLe?` · modifié par ${esc(m.majPar)} le ${fDT(m.majLe)}`:''}</div>
-    <div class="acts">${memoLu(m)?`<button class="btn" onclick="memoSetLu('${m.id}',false,this)">Marquer comme non lu</button>`:`<button class="btn pri" onclick="memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`}
+    <div class="acts">
       <button class="btn" onclick="svVersMemo('${m.id}')" title="En faire un point du Mémo vigilance">⚠️ Point de vigilance</button>
       <span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn pri" onclick="memoEdit('${m.id}')">✏️ Modifier</button></div>`);
+  memoAutoLu(m);
 }
 // Un bulletin qui demande une action de toute l'équipe devient un point du Mémo vigilance
 function svVersMemo(id){
@@ -1097,7 +1097,7 @@ function render(){
   if(APPS[tab])return vApp(tab,el);
   el.hidden=false;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);document.body.style.overflow='';
   ({Dash:vDash,Memo:vMemo,Taches:vTaches,Nacelle:vNacelle,Regie:vRegie,Surete:vSurete,Equipe:vEquipe,Budget:vBudget,Projets:vProjets,Bench:vBench,Travaux:vTravauxHub,Planning:vPlanning,Demandes:vTravaux,Clefs:vClefs,Docs:vDocs})[tab](el);
-  hallsDatalist(); budgetDatalists();
+  hallsDatalist(); budgetDatalists(); memoObserve();
   if(!FBM&&(!me||!people().includes(me))&&!$('.ov')) pickUser();
 }
 function navRender(mine){
@@ -1370,7 +1370,7 @@ function vMemo(el){
   el.innerHTML=`<div class="bar"><h2>Mémo vigilance</h2><div class="seg-ctl">${seg}</div>
     <input class="search" placeholder="Rechercher…" value="${esc(S.q)}" oninput="UI.m.q=this.value;memoRefresh()">
     <button class="btn pri" onclick="memoNew('${S.v}')">+ ${isV?'Point de vigilance':'Compte rendu'}</button></div>
-    ${isV?'<p class="hint">Les points importants à connaître par toute l\'équipe. Touche « ✓ J\'ai lu » pour confirmer que tu en as pris connaissance.</p>':'<p class="hint">Les comptes rendus de réunions. Depuis un compte rendu, tu peux créer une tâche pour chaque action à mener.</p>'}
+    ${isV?'<p class="hint">Les points importants à connaître par toute l\'équipe. Un point est noté « lu » automatiquement dès que tu l\'as eu sous les yeux quelques secondes (ou que tu l\'ouvres).</p>':'<p class="hint">Les comptes rendus de réunions. Depuis un compte rendu, tu peux créer une tâche pour chaque action à mener.</p>'}
     ${SJ.length?`<h3 style="margin:4px 0 8px">🛡️ Veille sûreté du jour <a href="#" class="hint" onclick="goTab('Surete');return false">tout voir ›</a></h3><div class="mgrid" style="margin-bottom:16px">${SJ.map(svCard).join('')}</div>`:''}
     <div class="mgrid">${sort(act).map(memoCard).join('')||`<p class="empty">${q?'Aucun résultat.':isV?'Aucun point de vigilance en cours.':'Aucun compte rendu pour l\'instant.'}</p>`}</div>
     ${arch.length?`<div style="margin-top:18px"><button class="link" onclick="UI.m.arch=!UI.m.arch;render()">${S.arch?'▾':'▸'} Archivés / expirés (${arch.length})</button>
@@ -1384,13 +1384,12 @@ function memoLuHtml(m){
 function memoCard(m){
   const isV=m.type==='Vigilance', act=memoActif(m), t=m.texte||'';
   const lev=isV?`<span class="mlev" style="background:${MNIV[m.niveau]||MNIV.Info}">${esc((m.niveau||'Info').toUpperCase())}</span>`:'';
-  return `<div class="card ${isV?'mv-'+esc(m.niveau||'Info'):''} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" onclick="memoOpen('${m.id}')">
+  return `<div class="card ${isV?'mv-'+esc(m.niveau||'Info'):''} ${act?'':'done'} ${act&&!memoLu(m)?'mnew':''}" ${act&&!memoLu(m)?`data-lu="${m.id}"`:''} onclick="memoOpen('${m.id}')">
     <div class="ct">${m.epingle==='oui'&&isV?'📌 ':''}${lev}${esc(m.titre)}</div>
     ${t?`<div class="cd memo">${esc(t.length>(isV?260:180)?t.slice(0,isV?260:180)+'…':t)}</div>`:''}
     <div class="meta">${!isV&&m.dateReunion?`<span>📅 ${fD(m.dateReunion,{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</span>`:''}
       ${m.lieu?`<span>📍 ${esc(m.lieu)}</span>`:''}${isV&&m.jusquau?`<span>⏳ jusqu'au ${fD(m.jusquau)}</span>`:''}
       ${!isV&&m.decisions?'<span>✅ actions</span>':''}<span>✍️ ${esc(m.creePar||'?')}</span>${memoLuHtml(m)}</div>
-    ${act&&!memoLu(m)?`<button class="adv ok" style="margin-left:0" onclick="event.stopPropagation();memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`:''}
   </div>`;
 }
 function memoOpen(id){
@@ -1404,20 +1403,40 @@ function memoOpen(id){
       ${m.decisions?`<h3>Décisions / actions à mener</h3><div class="memo">${esc(m.decisions)}</div>`:''}</div>
     <div class="meta"><span class="lu">👁 Lu par : ${lus.length?esc(lus.join(', ')):'personne'}</span>${nl.length?`<span>Pas encore lu : ${esc(nl.join(', '))}</span>`:''}</div>
     <div class="made">Rédigé par ${esc(m.creePar||'?')} le ${fDT(m.creeLe)}${m.majPar&&m.majLe!==m.creeLe?` · modifié par ${esc(m.majPar)} le ${fDT(m.majLe)}`:''}</div>
-    <div class="acts">${memoLu(m)?`<button class="btn" onclick="memoSetLu('${m.id}',false,this)">Marquer comme non lu</button>`:`<button class="btn pri" onclick="memoSetLu('${m.id}',true,this)">✓ J'ai lu</button>`}
+    <div class="acts">
       ${!isV?`<button class="btn" onclick="memoTache('${m.id}')">+ Créer une tâche</button>`:''}
       <span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button><button class="btn pri" onclick="memoEdit('${m.id}')">✏️ Modifier</button></div>`);
+  memoAutoLu(m);
 }
 function memoNew(type){openForm('Memos',{type,...(type==='Compte rendu'?{dateReunion:today(),participants:me}:{})},type==='Vigilance'?'Nouveau point de vigilance':'Nouveau compte rendu',{fields:FORMS_MEMO[type]})}
 function memoEdit(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;
   openForm('Memos',m,m.type==='Vigilance'?'Point de vigilance':m.type===SV_TYPE?'Bulletin de veille sûreté':'Compte rendu',{fields:FORMS_MEMO[m.type],extra:'<p class="hint">Si tu modifies le contenu, chacun devra le relire (les « lu » sont remis à zéro, sauf le tien).</p>'})}
-async function memoSetLu(id,lu,btn){
-  const done=setBusy(btn,'…');
+/* Lecture automatique : un mémo est noté lu quand on l'ouvre, ou quand sa carte reste
+   visible à l'écran (au moins 60 %, onglet au premier plan) pendant MEMO_LU_DELAI ms. */
+const MEMO_LU_DELAI=3000, memoLuEnCours=new Set(), memoLuTimers=new Map();
+async function memoAutoLu(m){
+  if(!me||!m||!memoActif(m)||memoLu(m)||memoLuEnCours.has(m.id)) return;
+  memoLuEnCours.add(m.id);
   try{
-    const r=await api('lu',{id,lu});
+    const r=await api('lu',{id:m.id,lu:true});
     const i=D.Memos.findIndex(x=>x.id===r.id); if(i>=0) D.Memos[i]=r;
-    if($('.ov')) memoOpen(id); render(); toast(lu?'Noté comme lu ✓':'Marqué non lu');
-  }catch(e){done();toast(e.message,1)}
+    liveRender(); // attend la fermeture de la fenêtre / la fin de saisie avant de redessiner
+  }catch(e){console.warn('Lecture auto du mémo',e)}
+  finally{memoLuEnCours.delete(m.id)}
+}
+const memoLuObs='IntersectionObserver' in window?new IntersectionObserver(ents=>ents.forEach(e=>{
+  const id=e.target.dataset.lu;
+  // assez visible : 60 % de la carte, ou la moitié de l'écran pour une carte très haute
+  if(e.isIntersecting&&(e.intersectionRatio>=.6||e.intersectionRect.height>=innerHeight*.5)){
+    if(!memoLuTimers.has(id)) memoLuTimers.set(id,setTimeout(()=>{memoLuTimers.delete(id);
+      if(document.visibilityState==='visible'&&document.querySelector(`#view [data-lu="${id}"]`)) memoAutoLu(D.Memos.find(x=>x.id===id))},MEMO_LU_DELAI));
+  }else{clearTimeout(memoLuTimers.get(id));memoLuTimers.delete(id)}
+}),{threshold:[0,.25,.5,.6,.75,1]}):null;
+// Après chaque rendu (les cartes sont recréées) : on garde les minuteries en cours
+function memoObserve(){
+  if(!memoLuObs) return;
+  memoLuObs.disconnect();
+  document.querySelectorAll('#view [data-lu]').forEach(c=>memoLuObs.observe(c));
 }
 function memoTache(id){const m=D.Memos.find(x=>x.id===id);if(!m)return;closeModal(true);
   openForm('Taches',{description:`Suite au compte rendu « ${m.titre} » du ${fD(m.dateReunion,{day:'numeric',month:'long',year:'numeric'})}${m.decisions?' :\n'+m.decisions:''}`,lieu:m.lieu||''},'Nouvelle tâche (depuis un compte rendu)')}
