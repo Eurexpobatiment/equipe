@@ -723,6 +723,8 @@ aside h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(-
 .pin.open{background:var(--ok)}
 .pin.closed{background:var(--off);color:#fff;opacity:.55}
 .pin.sel{background:var(--accent);opacity:1;box-shadow:0 0 0 3px rgba(228,87,46,.35)}
+.pin.same{background:#fff;color:var(--accent);border-color:var(--accent);opacity:1}
+.list li.cur{background:#fdece6;box-shadow:inset 3px 0 0 var(--accent)}
 .lowzoom .pin{font-size:0;padding:0;width:9px;height:9px;border-radius:50%}
 .lowzoom .pin.sel{width:13px;height:13px}
 .leaflet-div-icon{background:none;border:0}
@@ -999,12 +1001,12 @@ function flash(x, y){ const m = L.marker(rc(x,y), {icon:L.divIcon({className:'',
 map.on('zoomend', setZoomClass); setZoomClass();
 
 /* ---------- état ---------- */
-let editing = false, selKey = '', selCyl = null, armedN = null;
+let editing = false, selKey = '', selCyl = null, selPin = null, armedN = null;
 
 function pinClass(p){
   let cls = 'pin';
   if(selKey){ const c = CYL[p.n]; cls += opens(c, selKey) ? ' open' : ' closed'; }
-  if(selCyl === p.n) cls += ' sel';
+  if(selCyl === p.n) cls += (!selPin || selPin === p.id) ? ' sel' : ' same';
   return cls;
 }
 function iconFor(p){ return L.divIcon({className:'', html:`<span class="${pinClass(p)}">${p.n}</span>`, iconSize:null}); }
@@ -1015,15 +1017,15 @@ function drawPins(){
   for(const p of pins){
     if(lvOf(p) !== LV) continue;
     const m = L.marker(rc(p.x,p.y), {icon:iconFor(p), draggable:editing, keyboard:false, riseOnHover:true});
-    m.on('click', e => { L.DomEvent.stop(e); selectCyl(p.n, false); });
+    m.on('click', e => { L.DomEvent.stop(e); selectCyl(p.n, false, p.id); });
     m.on('dragend', () => { const pt = map.project(m.getLatLng(), TILES.Z); p.x=Math.round(pt.x); p.y=Math.round(pt.y); save(); sync('save',[p]); });
     if(selKey && opens(CYL[p.n], selKey)) m.setZIndexOffset(500);
-    if(selCyl === p.n) m.setZIndexOffset(1000);
+    if(selCyl === p.n) m.setZIndexOffset(selPin && selPin !== p.id ? 900 : 1000);
     m.addTo(layer); markers[p.id] = m;
   }
   updateProg();
 }
-function refreshIcons(){ for(const p of pins){ const m = markers[p.id]; if(m){ m.setIcon(iconFor(p)); m.setZIndexOffset(selCyl===p.n?1000:(selKey && opens(CYL[p.n], selKey)?500:0)); } } }
+function refreshIcons(){ for(const p of pins){ const m = markers[p.id]; if(m){ m.setIcon(iconFor(p)); m.setZIndexOffset(selCyl===p.n?(selPin && selPin!==p.id?900:1000):(selKey && opens(CYL[p.n], selKey)?500:0)); } } }
 
 function placedSet(){ return new Set(pins.map(p=>p.n)); }
 function updateProg(){
@@ -1056,6 +1058,9 @@ function renderHome(){
 function renderCyl(n){
   const c = CYL[n];
   const mine = pins.filter(p=>p.n===n);
+  if(selPin && !mine.some(p=>p.id===selPin)) selPin = null;
+  const cur = mine.length>1 && selPin ? mine.find(p=>p.id===selPin) : null;
+  const curL = cur ? nearLocal(cur.x,cur.y,140,lvOf(cur)) : null;
   if(!c){
     side.innerHTML = `<h2>${esc(n)}</h2><p class="sub">Ce numéro n'existe pas dans le plan de fermeture NHKN.</p>
       ${mine.length?`<div class="row"><button class="btn danger" id="delAll">Retirer ${mine.length>1?'ces repères':'ce repère'}</button></div>`:''}
@@ -1078,7 +1083,8 @@ function renderCyl(n){
                  : `<p class="sub">Aucune clé de groupe : seule la clé individuelle ouvre ce cylindre.</p>`}`}
     <h3>Clé individuelle</h3>
     <div class="chips"><div class="chip" style="cursor:default"><b>${esc(c.n)}</b><span>clé du cylindre</span></div></div>
-    ${mine.length>1?`<h3>Repères</h3><ul class="list">${mine.map((p,i)=>`<li data-pin="${p.id}"><span class="n">#${i+1}</span><span class="d"><span class="lvtag">${lvName(lvOf(p))}</span> Voir sur le plan</span><button class="btn light" data-edit="${p.id}" style="height:28px;padding:0 8px" title="Modifier ce repère">✏️</button><button class="btn danger" data-del="${p.id}" style="height:26px">Supprimer</button></li>`).join('')}</ul>`:''}
+    ${cur?`<h3>Repère cliqué (#${mine.indexOf(cur)+1} sur ${mine.length})</h3><p class="where">📍 <span class="lvtag">${lvName(lvOf(cur))}</span>${curL ? ` près de : <b>${esc(curL.t)}</b>` : ''}</p><div class="row"><button class="btn light" data-edit="${cur.id}">✏️ Modifier ce repère</button><button class="btn danger" data-del="${cur.id}">Supprimer ce repère</button></div>`:''}
+    ${mine.length>1?`<h3>Tous les repères ${esc(c.n)}</h3><ul class="list">${mine.map((p,i)=>`<li data-pin="${p.id}" class="${p.id===selPin?'cur':''}"><span class="n">#${i+1}</span><span class="d"><span class="lvtag">${lvName(lvOf(p))}</span> ${p.id===selPin?'<b>celui cliqué</b>':'Voir sur le plan'}</span><button class="btn light" data-edit="${p.id}" style="height:28px;padding:0 8px" title="Modifier ce repère">✏️</button><button class="btn danger" data-del="${p.id}" style="height:26px">Supprimer</button></li>`).join('')}</ul>`:''}
     <div class="row">
       ${mine.length===1?`<button class="btn light" id="zoomBtn">Centrer sur le plan</button>`:''}
       ${editing?`<button class="btn primary" id="armBtn">${mine.length?'Poser un autre repère':'Poser sur le plan'}</button>`:''}
@@ -1088,7 +1094,7 @@ function renderCyl(n){
     </div>
     <div class="row"><button class="btn light" id="back">← Retour</button></div>`;
   side.querySelectorAll('[data-key]').forEach(el=>el.onclick=()=>setKey(el.dataset.key===selKey?'':el.dataset.key));
-  side.querySelectorAll('[data-pin]').forEach(el=>el.onclick=e=>{ if(e.target.dataset.del) return; const p=pins.find(x=>x.id===el.dataset.pin); if(p){ setLevel(lvOf(p)); map.flyTo(rc(p.x,p.y), Math.max(map.getZoom(),5)); } });
+  side.querySelectorAll('[data-pin]').forEach(el=>el.onclick=e=>{ if(e.target.dataset.del) return; const p=pins.find(x=>x.id===el.dataset.pin); if(p){ setLevel(lvOf(p)); selPin = p.id; refreshIcons(); renderCyl(n); map.flyTo(rc(p.x,p.y), Math.max(map.getZoom(),5)); } });
   side.querySelectorAll('[data-del]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); removePins(p=>p.id===el.dataset.del, n); });
   side.querySelectorAll('[data-edit]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); renderEditPin(el.dataset.edit); });
   const da=document.getElementById('delAllC'); if(da) da.onclick=()=>removePins(p=>p.n===n, n);
@@ -1131,8 +1137,8 @@ function setKey(k){
   }
   if(selCyl) renderCyl(selCyl); else renderSide();
 }
-function selectCyl(n, fly){
-  selCyl = n; refreshIcons(); renderSide();
+function selectCyl(n, fly, pinId){
+  selCyl = n; selPin = (n && pinId) ? pinId : null; refreshIcons(); renderSide();
   if(n && fly){
     let mine = pins.filter(p=>p.n===n);
     if(mine.length && !mine.some(p=>lvOf(p)===LV)) setLevel(lvOf(mine[0]));
@@ -1210,15 +1216,15 @@ function renderEditPin(id){
   const ok = () => {
     const v = inp.value.trim(); if(!v) return;
     if(!CYL[v]){ hint.textContent = 'Numéro absent du plan NHKN'; return; }
-    if(v === p.n){ selectCyl(p.n); return; }
-    const old = p.n; p.n = v; save(); sync('save',[p]); drawPins(); selCyl = v; refreshIcons(); renderSide();
+    if(v === p.n){ selectCyl(p.n, false, p.id); return; }
+    const old = p.n; p.n = v; save(); sync('save',[p]); drawPins(); selCyl = v; selPin = p.id; refreshIcons(); renderSide();
     toast(`${old} → ${v} modifié`);
   };
   upd(); inp.addEventListener('input', upd);
-  inp.addEventListener('keydown', e => { if(e.key==='Enter') ok(); if(e.key==='Escape') selectCyl(p.n); });
+  inp.addEventListener('keydown', e => { if(e.key==='Enter') ok(); if(e.key==='Escape') selectCyl(p.n, false, p.id); });
   document.getElementById('edOk').onclick = ok;
   document.getElementById('edMove').onclick = () => armMove(id);
-  document.getElementById('edBack').onclick = () => selectCyl(p.n);
+  document.getElementById('edBack').onclick = () => selectCyl(p.n, false, p.id);
   setTimeout(()=>{ inp.focus(); inp.select(); }, 30);
 }
 function armMove(id){
@@ -1233,7 +1239,7 @@ function movePin(latlng){
   const p = pins.find(x=>x.id===moveId); disarm(); if(!p) return;
   const pt = map.project(latlng, TILES.Z);
   p.x = Math.round(pt.x); p.y = Math.round(pt.y); p.lv = LV;
-  save(); sync('save',[p]); drawPins(); selCyl = p.n; refreshIcons(); renderSide();
+  save(); sync('save',[p]); drawPins(); selCyl = p.n; selPin = p.id; refreshIcons(); renderSide();
   toast(`${p.n} déplacé`);
 }
 
@@ -1249,7 +1255,7 @@ function disarm(){ armedN = null; moveId = null; armedBox.style.display = 'none'
 function addPin(n, latlng){
   const pt = map.project(latlng, TILES.Z);
   const p = {id:uid(), n, x:Math.round(pt.x), y:Math.round(pt.y), lv:LV};
-  pins.push(p); save(); sync('save',[p]); drawPins(); selCyl = n; refreshIcons(); renderSide();
+  pins.push(p); save(); sync('save',[p]); drawPins(); selCyl = n; selPin = p.id; refreshIcons(); renderSide();
   toast(`${n} posé`);
 }
 document.getElementById('editBtn').onclick = function(){
