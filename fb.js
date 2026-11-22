@@ -600,13 +600,13 @@ export async function nacPlacer(p) {
   journal('modification', 'Nacelle', 'position', 'nacelle placée ' + (o.hall || 'sur le plan'));
   return o;
 }
-/* Plan des clefs (clefs-plan/) : un document Clefs/plan_xxx par cylindre posé = { kind:'plan', numero, x, y, niveau (SS, R0, N1, N2), majPar, majLe }
+/* Plan des clefs (clefs-plan/) : un document Clefs/plan_xxx par cylindre posé = { kind:'plan', numero, x, y, niveau (SS, R0, N1, N2, N3, MA = plan de masse), majPar, majLe }
    (rangé dans la collection Clefs pour garder les mêmes règles de sécurité ; écarté de l'inventaire à la lecture). */
 const planId = id => /^plan_[\w-]{3,40}$/.test(String(id)) ? String(id) : 'plan_' + newId();
 export async function clefsPlanSave(list) {
   if (!me) throw new Error('Connexion nécessaire');
   const L = list.filter(p => p && String(p.n || '').trim() && isFinite(p.x) && isFinite(p.y)).map(p => ({ id: planId(p.id),
-    o: { kind: 'plan', numero: String(p.n).trim().slice(0, 60), x: Math.round(+p.x), y: Math.round(+p.y), niveau: ['SS', 'R0', 'N1', 'N2'].includes(p.lv) ? p.lv : 'R0', majPar: me, majLe: now_() } }));
+    o: { kind: 'plan', numero: String(p.n).trim().slice(0, 60), x: Math.round(+p.x), y: Math.round(+p.y), niveau: ['SS', 'R0', 'N1', 'N2', 'N3', 'MA'].includes(p.lv) ? p.lv : 'R0', majPar: me, majLe: now_() } }));
   for (let i = 0; i < L.length; i += 400) {
     const b = F.writeBatch(db); L.slice(i, i + 400).forEach(p => b.set(ref('Clefs', p.id), p.o)); await wrap(b.commit());
   }
