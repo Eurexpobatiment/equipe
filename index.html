@@ -92,6 +92,7 @@ main{max-width:1240px;margin:0 auto;padding:14px 14px 80px}
 .seg-ctl{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .seg-ctl button{border:0;background:none;padding:7px 12px;cursor:pointer}
 .seg-ctl button.on{background:var(--navy);color:#fff}
+#cl_type{flex-wrap:wrap}.cllong{color:#3a6ea5;font-weight:600}
 .seg-ctl .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--accent);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:600}
 select.sel,input.search{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
 input.search{min-width:0;flex:1 1 160px;max-width:280px}
@@ -3662,6 +3663,7 @@ const CL_FACT_J=8; // facturation des clefs non rendues : à partir de fin de d�
 const clDehors=p=>p.statut?0:Math.max(0,(+p.qte||0)-(+p.rendu||0));
 const clOuvert=p=>clDehors(p)>0;
 const clFactLe=p=>/^\d{4}-\d{2}-\d{2}$/.test(p.finDemontage||'')?addDays(p.finDemontage,CL_FACT_J):'';
+const clLong=p=>(p.finDemontage||'')==='RAS'; // prêt longue durée (prestataire, employé) : pas de fin de démontage ni de facturation ; sinon prêt courte durée (salon)
 const clRetard=p=>clOuvert(p)&&clFactLe(p)&&today()>=clFactLe(p);
 const clDes=c=>[c.espace,c.acces].filter(Boolean).join(' - ');
 const clNomP=p=>[p.prenom,p.nom].filter(Boolean).join(' ');
@@ -3693,7 +3695,7 @@ FORMS.ClefsPrets=[
   {k:'qte',l:'Sorties',t:'qte',req:1},{k:'rendu',l:'Rendues',t:'qte'},
   {k:'remisPar',l:'Remise par',t:'person'},{k:'datePrepa',l:'Remise le',t:'date',req:1},
   {k:'remisA',l:'Retirée par (si autre personne)'},{k:'retireLe',l:'Retirée le (si autre jour)',t:'date'},
-  {k:'finDemontage',l:'Fin de démontage (date ou RAS)'},
+  {k:'finDemontage',l:'Fin de démontage (date, ou RAS = prêt longue durée)'},
   {k:'statut',l:'Clef manquante',t:'select',o:['','Perdue','Facturée']},
   {k:'renduLe',l:'Rendue le',t:'date'},{k:'recuperePar',l:'Récupérée par',t:'person'},
   {k:'renduPar',l:'Rendue par (si autre personne)'},
@@ -3757,7 +3759,7 @@ function clLireClasseur(wb){
     const remisPar=typeof r[9]==='number'?'':norm(r[9]),remisA=K(r[11])!==nom?norm(r[11]):'';
     return {id:'p'+nid(),lot:lots[lk],societe:norm(r[2]),prenom:norm(r[3]).toLowerCase().replace(/(^|[\s-])\S/g,x=>x.toUpperCase()),nom,clefId:m?m[0].id:'',
       numero,designation:des,qte:String(sortie),rendu:String(rendu),statut,remisPar,remisA,datePrepa:prepa,retireLe:dt(r[12])!==prepa?dt(r[12]):'',renduLe:dt(r[13]),
-      recuperePar:norm(r[14])!==norm(r[9])?norm(r[14]):'',renduPar:K(r[15])!==(K(r[11])||nom)?norm(r[15]):'',finDemontage:K(r[16])==='RAS'?'RAS':dt(r[16]),commentaire:com}});
+      recuperePar:norm(r[14])!==norm(r[9])?norm(r[14]):'',renduPar:K(r[15])!==(K(r[11])||nom)?norm(r[15]):'',finDemontage:/^(RAS|LONGUE ?DUR[EÉ]E|LD)$/.test(K(r[16]))?'RAS':dt(r[16]),commentaire:com}});
   if(!clefs.length&&!prets.length)throw new Error('Rien à reprendre dans ce fichier');
   return {clefs,prets};
 }
@@ -3771,36 +3773,39 @@ function clVuePret(el){
   const m0=t.slice(0,7), rendM=D.ClefsPrets.filter(p=>(p.renduLe||'').slice(0,7)===m0).reduce((a,p)=>a+(+p.rendu||0),0);
   const Gall=G, socs=clOpts(Gall.map(g=>g.h.societe)), pars=clOpts(Gall.map(g=>g.h.remisPar));
   if(q)G=G.filter(g=>[g.h.societe,clNomP(g.h),g.h.contact,g.h.remisPar,...g.l.map(p=>p.numero+' '+p.designation)].join(' ').toLowerCase().includes(q));
+  const nLong=G.filter(g=>clLong(g.h)).length,nCourt=G.length-nLong;
+  if(st.fd)G=G.filter(g=>st.fd==='long'?clLong(g.h):!clLong(g.h));
   if(st.fs)G=G.filter(g=>g.h.societe===st.fs);
   if(st.fp)G=G.filter(g=>g.h.remisPar===st.fp);
   const fin=g=>g.h.finDemontage||'';
-  if(st.fe)G=G.filter(g=>({fact:g.retard,bientot:!g.retard&&g.fact,sans:!fin(g),ras:fin(g)==='RAS'})[st.fe]);
+  if(st.fe)G=G.filter(g=>({fact:g.retard,bientot:!g.retard&&g.fact,sans:!fin(g),ras:clLong(g.h)})[st.fe]);
   const T={fact:(a,b)=>(b.retard-a.retard)||(a.fact||'9').localeCompare(b.fact||'9')||b.date.localeCompare(a.date),
     recent:(a,b)=>b.date.localeCompare(a.date)||String(a.h.societe).localeCompare(String(b.h.societe),'fr'),
     ancien:(a,b)=>(a.date||'9').localeCompare(b.date||'9')||String(a.h.societe).localeCompare(String(b.h.societe),'fr'),
     fin:(a,b)=>(/^\d/.test(fin(a))?fin(a):'9').localeCompare(/^\d/.test(fin(b))?fin(b):'9')||b.date.localeCompare(a.date),
     soc:(a,b)=>String(a.h.societe).localeCompare(String(b.h.societe),'fr')||b.date.localeCompare(a.date)};
   G.sort(T[st.tri]||T.fact);
-  const nf=[st.fs,st.fp,st.fe].filter(Boolean).length;
+  const nf=[st.fs,st.fp,st.fe,st.fd].filter(Boolean).length;
   el.innerHTML=`<div class="kpis kc"><div class="kpi"><span>Clefs dehors</span><b>${tot}</b><small>${open.length} ligne${open.length>1?'s':''}</small></div>
       <div class="kpi"><span>Remises en cours</span><b>${clLots(open).length}</b><small>sociétés / personnes</small></div>
       <div class="kpi ${nRet?'neg':''}"><span>À facturer</span><b>${nRet}</b><small>démontage + ${CL_FACT_J} j dépassé</small></div>
       <div class="kpi"><span>Rendues ce mois</span><b>${rendM}</b></div></div>
+    <div class="bar chf"><div class="seg-ctl">${[['','Tous',nLong+nCourt],['court','🎪 Salons · courte durée',nCourt],['long','🔑 Longue durée',nLong]].map(([k,l,n])=>`<button class="${(st.fd||'')===k?'on':''}" onclick="UI.cl.fd='${k}';render()">${l} (${n})</button>`).join('')}</div></div>
     <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°, local…)" value="${esc(st.q)}" oninput="UI.cl.q=this.value;pgRefresh()">
       <label class="chk">Trier <select class="sel" onchange="UI.cl.tri=this.value;lsSet('equipe.cltri',this.value);render()">${[['fact','À facturer d\'abord'],['recent','Remise : plus récentes'],['ancien','Remise : plus anciennes'],['fin','Fin de démontage (la plus proche)'],['soc','Société A → Z']].map(([k,l])=>`<option value="${k}" ${st.tri===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
     <div class="bar chf"><select class="sel" onchange="UI.cl.fs=this.value;render()"><option value="">Toutes les sociétés / salons</option>${socs.map(x=>`<option ${x===st.fs?'selected':''}>${esc(x)}</option>`).join('')}</select>
       <select class="sel" onchange="UI.cl.fp=this.value;render()"><option value="">Remises par : tous</option>${pars.map(x=>`<option ${x===st.fp?'selected':''}>${esc(x)}</option>`).join('')}</select>
-      <select class="sel" onchange="UI.cl.fe=this.value;render()">${[['','Tous les états'],['fact','💶 À facturer'],['bientot','Facturables plus tard'],['sans','Sans fin de démontage'],['ras','RAS (pas de facturation)']].map(([k,l])=>`<option value="${k}" ${st.fe===k?'selected':''}>${l}</option>`).join('')}</select>
-      ${nf||q?`<button class="btn sm" onclick="Object.assign(UI.cl,{q:'',fs:'',fp:'',fe:''});render()">✕ Effacer les filtres</button><span class="hint" style="margin:0">${G.length} remise${G.length>1?'s':''} sur ${Gall.length}</span>`:''}</div>
+      <select class="sel" onchange="UI.cl.fe=this.value;render()">${[['','Tous les états'],['fact','💶 À facturer'],['bientot','Facturables plus tard'],['sans','Salon sans fin de démontage'],['ras','Longue durée (pas de facturation)']].map(([k,l])=>`<option value="${k}" ${st.fe===k?'selected':''}>${l}</option>`).join('')}</select>
+      ${nf||q?`<button class="btn sm" onclick="Object.assign(UI.cl,{q:'',fs:'',fp:'',fe:'',fd:''});render()">✕ Effacer les filtres</button><span class="hint" style="margin:0">${G.length} remise${G.length>1?'s':''} sur ${Gall.length}</span>`:''}</div>
     ${G.map(clCarte).join('')||`<p class="empty">${q||nf?'Aucun résultat.':'Aucune clef dehors 👍'}</p>`}
-    <p class="hint">Facturation des clefs non rendues à partir de la fin de démontage + ${CL_FACT_J} jours (« RAS » = pas de facturation). Touche une ligne pour la corriger.</p>`;
+    <p class="hint">Facturation des clefs non rendues à partir de la fin de démontage + ${CL_FACT_J} jours (prêts aux salons). Les prêts longue durée (prestataires, employés) ne sont pas facturés. Touche une ligne pour la corriger.</p>`;
 }
 function clCarte(g){
   const h=g.h,o=g.l.filter(clOuvert),fin=h.finDemontage;
   return `<div class="clcard ${g.retard?'cllate':''}">
     <div class="clhd"><div><b>🔑 ${esc(h.societe||'—')}</b>${clNomP(h)?' — '+esc(clNomP(h)):''}
       <div class="sub">${g.date?`<span>📅 remise le ${fD(g.date,{day:'numeric',month:'short',year:'numeric'})}</span>`:''}${h.remisPar?`<span>👤 par ${esc(h.remisPar)}</span>`:''}${h.contact?`<span>📞 ${esc(h.contact)}</span>`:''}
-      ${fin==='RAS'?'<span>Fin de démontage : RAS</span>':fin?`<span>🏁 fin de démontage ${fD(fin,{day:'numeric',month:'short'})}</span>`:'<span class="negt">fin de démontage non renseignée</span>'}
+      ${fin==='RAS'?'<span class="cllong">🔑 Prêt longue durée</span>':fin?`<span>🎪 salon · 🏁 fin de démontage ${fD(fin,{day:'numeric',month:'short'})}</span>`:'<span class="negt">fin de démontage non renseignée</span>'}
       ${g.retard?`<span class="negt">💶 à facturer depuis le ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:g.fact?`<span>facturable à partir du ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:''}</div></div>
       <span class="sp"></span><b class="cln">${g.dehors}</b></div>
     <table class="btbl cltbl"><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}</td>
@@ -3848,6 +3853,8 @@ function clRendre(lot){
 let CL={lot:'',lines:[],conf:''};
 function clNew(pre={}){clLotForm('',[],{datePrepa:today(),remisPar:me,...pre})}
 function clEditLot(lot){const L=D.ClefsPrets.filter(p=>(p.lot||p.id)===lot);if(L.length)clLotForm(lot,L,L[0])}
+function clType(long){$('#cl_ras').checked=!!long;$('#cl_finw').style.display=long?'none':'';$('#cl_longh').style.display=long?'':'none';
+  document.querySelectorAll('#cl_type button').forEach(b=>b.classList.toggle('on',(b.dataset.t==='long')===!!long))}
 function clLotForm(lot,L,h){
   clDatalists();
   CL={lot:lot||('l'+Math.random().toString(16).slice(2,12)),lines:L.map(p=>({...p})),conf:'',isNew:!lot};
@@ -3863,8 +3870,12 @@ function clLotForm(lot,L,h){
       <label class="fl full"><span>Téléphone / e-mail</span><input id="cl_ct" value="${esc(h.contact||'')}" autocomplete="off"></label>
       ${fieldHtml({k:'cl_par',l:'Remise par',t:'person'},h.remisPar||me)}
       <label class="fl"><span>Remise le *</span><input type="date" id="cl_le" value="${esc(h.datePrepa||today())}"></label>
-      <label class="fl"><span>Fin de démontage</span><input type="date" id="cl_fin" value="${fin==='RAS'?'':esc(fin)}" ${fin==='RAS'?'disabled':''}></label>
-      <label class="chk" style="align-self:end;padding-bottom:9px"><input type="checkbox" id="cl_ras" ${fin==='RAS'?'checked':''} onchange="$('#cl_fin').disabled=this.checked"> RAS (pas de facturation)</label>
+      <div class="fl full"><span>Type de prêt</span><div class="seg-ctl" id="cl_type">
+        <button type="button" data-t="court" class="${fin==='RAS'?'':'on'}" onclick="clType(0)">🎪 Salon · courte durée</button>
+        <button type="button" data-t="long" class="${fin==='RAS'?'on':''}" onclick="clType(1)">🔑 Longue durée · prestataire / employé</button></div>
+        <input type="checkbox" id="cl_ras" hidden ${fin==='RAS'?'checked':''}></div>
+      <label class="fl" id="cl_finw" ${fin==='RAS'?'style="display:none"':''}><span>Fin de démontage</span><input type="date" id="cl_fin" value="${fin==='RAS'?'':esc(fin)}"></label>
+      <p class="hint" id="cl_longh" style="grid-column:1/-1;margin:0;${fin==='RAS'?'':'display:none'}">Prêt longue durée : pas de fin de démontage, les clefs ne sont pas facturées.</p>
       <label class="fl full"><span>Commentaire</span><textarea id="cl_com" rows="2">${esc(L.length===1||!lot?h.commentaire||'':'')}</textarea></label></div>
     <div class="coms"><h3>Clefs remises · <span id="cltot"></span></h3>
       <div id="cllines"></div>
@@ -3875,7 +3886,7 @@ function clLotForm(lot,L,h){
     <div class="acts">${lot?`<button class="btn" type="button" onclick="clBon('${CL.lot}')">🖨️ Bon</button>`:''}<span class="sp"></span><button class="btn" onclick="closeModal(true)">Annuler</button><button class="btn pri" id="clgo">Enregistrer</button></div>`,true);
   $('#clq').addEventListener('input',clSearch);
   $('#cl_soc').addEventListener('change',()=>{const s=$('#cl_soc').value.trim().toLowerCase(),p=D.ClefsPrets.filter(x=>String(x.societe).toLowerCase()===s&&x.finDemontage).sort((a,b)=>String(b.datePrepa).localeCompare(a.datePrepa))[0];
-    if(p&&!$('#cl_fin').value&&!$('#cl_ras').checked&&(p.finDemontage==='RAS'||p.finDemontage>=today())){if(p.finDemontage==='RAS'){$('#cl_ras').checked=true;$('#cl_fin').disabled=true}else $('#cl_fin').value=p.finDemontage}});
+    if(p&&!$('#cl_fin').value&&!$('#cl_ras').checked&&(p.finDemontage==='RAS'||p.finDemontage>=today())){if(p.finDemontage==='RAS')clType(1);else $('#cl_fin').value=p.finDemontage}});
   $('#clgo').onclick=clLotSave;
   const md=$('.ov .mod');
   md.addEventListener('paste',e=>{const t=(e.clipboardData||window.clipboardData).getData('text')||'';
@@ -3974,7 +3985,7 @@ function clXLot(g){
 function clXFill(g,src){
   const set=(id,v)=>{const e=$('#'+id);if(e&&v&&(!e.value.trim()||CL.isNew))e.value=v};
   set('cl_soc',clXSoc(g.societe));set('cl_pre',g.prenom.toLowerCase().replace(/(^|[\s-])\S/g,x=>x.toUpperCase()));set('cl_nom',g.nom.toUpperCase());
-  if(g.fin){$('#cl_ras').checked=false;$('#cl_fin').disabled=false;$('#cl_fin').value=g.fin}
+  if(g.fin){clType(0);$('#cl_fin').value=g.fin}
   else $('#cl_soc').dispatchEvent(new Event('change'));
   // annule et remplace : la liste des clefs devient celle du fichier (pas d'addition avec l'import précédent ni avec la remise déjà enregistrée).
   // On garde seulement l'historique : clefs perdues / facturées, et clefs déjà (en partie) rendues absentes du nouveau fichier.
@@ -4055,11 +4066,11 @@ function clBon(lot){
   <div class="top"><img src="${location.href.replace(/[^/]*$/,'')}logo.png" onerror="this.remove()"><div><h1>Bon de remise de clefs</h1>Eurexpo Lyon · Service Bâtiment</div></div>
   <div class="g"><div><b>Société / salon :</b> ${esc(h.societe)}</div><div><b>Remise le :</b> ${h.datePrepa?fD(h.datePrepa,{day:'2-digit',month:'2-digit',year:'numeric'}):''}</div>
   <div><b>Remise à :</b> ${esc(clNomP(h))}${h.contact?' · '+esc(h.contact):''}</div><div><b>Remise par :</b> ${esc(h.remisPar||'')}</div>
-  <div><b>Fin de démontage :</b> ${f==='RAS'?'—':f?fD(f,{day:'2-digit',month:'2-digit',year:'numeric'}):''}</div></div>
+  <div>${f==='RAS'?'<b>Prêt longue durée</b>':`<b>Fin de démontage :</b> ${f?fD(f,{day:'2-digit',month:'2-digit',year:'numeric'}):''}`}</div></div>
   <table><thead><tr><th style="width:150px">N° de clef</th><th>Désignation</th><th class="c">Qté</th><th class="c">Rendue</th></tr></thead>
   <tbody>${L.map(p=>`<tr><td>${esc(p.numero||'')}</td><td>${esc(p.designation||'')}</td><td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu?esc(p.rendu):''}</td></tr>`).join('')}
   <tr><th colspan="2" style="text-align:right">Total</th><th class="c">${L.reduce((a,p)=>a+(+p.qte||0),0)}</th><th></th></tr></tbody></table>
-  <p class="note">Les clefs sont à rendre au service Bâtiment au plus tard à la fin du démontage.${fact?` Les clefs non rendues seront facturées à partir du ${fD(fact,{day:'2-digit',month:'2-digit',year:'numeric'})}.`:''}</p>
+  <p class="note">${f==='RAS'?'Les clefs sont à rendre au service Bâtiment dès la fin du besoin ou sur simple demande.':'Les clefs sont à rendre au service Bâtiment au plus tard à la fin du démontage.'}${fact?` Les clefs non rendues seront facturées à partir du ${fD(fact,{day:'2-digit',month:'2-digit',year:'numeric'})}.`:''}</p>
   <div class="sig"><div>Signature du bénéficiaire (remise)</div><div>Signature au retour des clefs</div></div>
   <p><button onclick="print()">🖨️ Imprimer</button></p></body></html>`);
   w.document.close();setTimeout(()=>{try{w.print()}catch(e){}},400);
@@ -4163,7 +4174,7 @@ function clVueHist(el){
     <div class="tblwrap"><table class="btbl"><thead><tr><th>État</th><th>Remise</th><th>Société / salon</th><th>Personne</th><th>N°</th><th>Désignation</th><th class="c">Sorties</th><th class="c">Rendues</th><th>Rendue le</th><th>Fin démontage</th><th>Par</th></tr></thead>
     <tbody>${L.slice(0,400).map(p=>{const e=etat(p);return `<tr onclick="clLigne('${p.id}')"><td><span class="st" style="background:${col[e]}">${e}</span></td><td>${fD(p.datePrepa,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
       <td>${esc(p.societe)}</td><td>${esc(clNomP(p))}</td><td class="clnum">${esc(p.numero)}</td><td>${esc(p.designation)}</td><td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu||''}</td>
-      <td>${p.renduLe?fD(p.renduLe,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td>${p.finDemontage==='RAS'?'RAS':p.finDemontage?fD(p.finDemontage,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td><small>${esc(p.remisPar||'')}</small></td></tr>`}).join('')
+      <td>${p.renduLe?fD(p.renduLe,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td>${p.finDemontage==='RAS'?'Longue durée':p.finDemontage?fD(p.finDemontage,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td><small>${esc(p.remisPar||'')}</small></td></tr>`}).join('')
       ||'<tr><td colspan="11" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
     <p class="hint">${L.length} ligne${L.length>1?'s':''}${L.length>400?' (400 premières affichées : affine la recherche, ou ⬇️ Excel pour tout avoir)':''}.</p>`;
 }
@@ -4189,7 +4200,7 @@ async function clExport(){
       const h=ws.getRow(6);h.height=48.75;COLS.forEach(([l],i)=>{const c=h.getCell(i+1);c.value=l;c.fill=fill('000000');c.font={name:F,size:7.5,bold:true,color:{argb:'FFFFFFFF'}};c.border=bord;c.alignment={horizontal:'center',vertical:'middle',wrapText:true}});
       L.forEach((p,j)=>{const ouv=clOuvert(p),fact=clFactLe(p),rendu=+p.rendu||0;
         const v=[ouv?'S':p.statut?'P':'R',fact?dt(fact):(p.finDemontage==='RAS'?'NC':''),p.societe,p.prenom,p.nom,p.contact,+p.qte||0,rendu||null,p.numero,p.designation,
-          p.remisPar,dt(p.datePrepa),p.remisA||p.nom,dt(p.retireLe||p.datePrepa),dt(p.renduLe),p.recuperePar||(rendu?p.remisPar:''),p.renduPar||(rendu?(p.remisA||p.nom):''),dt(p.finDemontage),
+          p.remisPar,dt(p.datePrepa),p.remisA||p.nom,dt(p.retireLe||p.datePrepa),dt(p.renduLe),p.recuperePar||(rendu?p.remisPar:''),p.renduPar||(rendu?(p.remisA||p.nom):''),(p.finDemontage==='RAS'?'LONGUE DUREE':dt(p.finDemontage)),
           [p.statut,p.commentaire].filter(Boolean).join(' · ')];
         const r=ws.getRow(7+j);r.height=15;
         v.forEach((x,i)=>{const c=r.getCell(i+1);c.value=x===''||x==null?null:x;c.border=bord;c.alignment={horizontal:i===18?'left':'center',vertical:'middle'};
