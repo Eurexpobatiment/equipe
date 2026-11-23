@@ -1864,9 +1864,11 @@ function clGeo(){
 const CLX_ACT={'À sortir':['#1a8f4c','#e7f6ec'],'À ranger':['#d96c00','#fff1e0'],'À rentrer':['#d96c00','#fff1e0'],'Déplacement':['#00697E','#e3f3f6'],'Autre':['#5f6b6b','#eef0f0']};
 const clxOpts=()=>{let o={};try{o=JSON.parse(lsGet('equipe.clExport')||'{}')||{}}catch(e){}return o};
 /* Mouvements de la période (non annulés), numérotés dans l'ordre chronologique */
-function clxListe(o){
+/* Clé de salon tolérante à la saisie (casse, accents, espaces, pluriel) : « Autocar », « AUTOCARS » → même salon */
+const clxSalonK=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim().replace(/s$/,'');
+function clxListe(o,sansSalon){
   const key=x=>(x.date||'')+(x.heure||'00:00')+(x.mouvement==='À ranger'?'0':'1');
-  return D.Cloisons.filter(x=>x.statut!=='Annulé'&&x.date&&x.date<=o.au&&agFin(x)>=o.du&&(o.trib||objOf(x)==='Cloison'))
+  return D.Cloisons.filter(x=>x.statut!=='Annulé'&&x.date&&x.date<=o.au&&agFin(x)>=o.du&&(o.trib||objOf(x)==='Cloison')&&(sansSalon||!o.salon||clxSalonK(x.salon)===o.salon))
     .sort((a,b)=>key(a).localeCompare(key(b))).map((x,i)=>({x,n:i+1,trib:objOf(x)==='Tribune',m:objOf(x)==='Tribune'?{P:[]}:clMatch(x)}));
 }
 function clxExport(){
@@ -1878,6 +1880,7 @@ function clxExport(){
       <label class="fl"><span>Du</span><input type="date" id="cx_du" value="${t}"></label>
       <label class="fl"><span>Au (inclus)</span><input type="date" id="cx_au" value="${R.j30[1]}"></label>
       <div class="fl full"><div class="seg-ctl" style="align-self:flex-start">${[['j30','30 jours'],['mois','Ce mois'],['suiv','Mois prochain']].map(([k,l])=>`<button type="button" data-cx="${k}">${l}</button>`).join('')}</div></div>
+      <label class="fl full"><span>Salon</span><select id="cx_salon"><option value="">Tous les salons</option></select></label>
       <label class="fl"><span>Destinataire (prestataire)</span><input type="text" id="cx_dest" value="${esc(p.dest||'')}" placeholder="ex. MSI"></label>
       <label class="fl"><span>Contact Eurexpo</span><input type="text" id="cx_contact" value="${esc(p.contact||me||'')}" placeholder="Nom · téléphone"></label>
       <div class="fl full" style="display:flex;flex-direction:column;gap:6px">
@@ -1888,14 +1891,20 @@ function clxExport(){
     </div>
     <div class="err" id="cx_info" style="color:var(--muted)"></div>
     <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="cx_go">📤 Générer le bon</button></div>`);
-  const lire=()=>({du:$('#cx_du').value,au:$('#cx_au').value,dest:$('#cx_dest').value.trim(),contact:$('#cx_contact').value.trim(),plans:$('#cx_plans').checked,trib:$('#cx_trib').checked,notes:$('#cx_notes').checked});
-  const maj=()=>{const o=lire(),i=$('#cx_info'),b=$('#cx_go');
+  const lire=()=>({du:$('#cx_du').value,au:$('#cx_au').value,salon:$('#cx_salon').value,salonNom:$('#cx_salon').value?$('#cx_salon').selectedOptions[0].dataset.nom:'',dest:$('#cx_dest').value.trim(),contact:$('#cx_contact').value.trim(),plans:$('#cx_plans').checked,trib:$('#cx_trib').checked,notes:$('#cx_notes').checked});
+  /* Liste des salons ayant des mouvements sur la période (orthographe la plus fréquente), sélection conservée si possible */
+  const salons=()=>{const o=lire(),sel=$('#cx_salon'),cur=sel.value,S={};
+    if(o.du&&o.au&&o.au>=o.du)clxListe(o,1).forEach(m=>{const k=clxSalonK(m.x.salon);if(!k)return;const e=S[k]=S[k]||{n:0,v:{}};e.n++;const v=String(m.x.salon).trim();e.v[v]=(e.v[v]||0)+1});
+    const K=Object.keys(S).map(k=>({k,nom:Object.entries(S[k].v).sort((a,b)=>b[1]-a[1])[0][0],n:S[k].n})).sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
+    sel.innerHTML='<option value="">Tous les salons</option>'+K.map(s=>`<option value="${esc(s.k)}" data-nom="${esc(s.nom)}">${esc(s.nom)} (${s.n})</option>`).join('');
+    sel.value=K.some(s=>s.k===cur)?cur:''};
+  const maj=()=>{salons();const o=lire(),i=$('#cx_info'),b=$('#cx_go');
     if(!o.du||!o.au||o.au<o.du){i.textContent='Période à corriger : la date de fin est avant la date de début.';b.disabled=true;return}
     const L=clxListe(o),nc=L.filter(m=>!m.trib).length,nt=L.length-nc,nl=L.filter(m=>!m.trib&&!m.m.P.length).length;
-    i.textContent=L.length?`${nc} mouvement${nc>1?'s':''} de cloison${nc>1?'s':''}${nt?' et '+nt+' de tribune':''} sur la période`+(nl&&o.plans?` · ${nl} sans cloison reconnue sur le plan (listé${nl>1?'s':''} sans tracé)`:''):'Aucun mouvement sur cette période.';
+    i.textContent=L.length?`${nc} mouvement${nc>1?'s':''} de cloison${nc>1?'s':''}${nt?' et '+nt+' de tribune':''} sur la période`+(o.salon?` pour « ${o.salonNom} »`:'')+(nl&&o.plans?` · ${nl} sans cloison reconnue sur le plan (listé${nl>1?'s':''} sans tracé)`:''):'Aucun mouvement sur cette période.';
     b.disabled=!L.length};
   document.querySelectorAll('[data-cx]').forEach(b=>b.onclick=()=>{const r=R[b.dataset.cx];$('#cx_du').value=r[0];$('#cx_au').value=r[1];maj()});
-  ['cx_du','cx_au','cx_plans','cx_trib','cx_notes'].forEach(k=>$('#'+k).onchange=maj);
+  ['cx_du','cx_au','cx_salon','cx_plans','cx_trib','cx_notes'].forEach(k=>$('#'+k).onchange=maj);
   maj();
   $('#cx_go').onclick=async()=>{
     const o=lire(); lsSet('equipe.clExport',JSON.stringify({dest:o.dest,contact:o.contact,plans:o.plans,trib:o.trib,notes:o.notes}));
@@ -1935,11 +1944,11 @@ function clxPlan(G,geo){
     ${fixes.map(k=>`<path d="${d(k)}" fill="none" stroke="#fff" stroke-width="${r(13*s)}" stroke-linecap="round"/><path d="${d(k)}" fill="none" stroke="#2d353b" stroke-width="${r(7*s)}" stroke-linecap="round"/>`).join('')}
     ${geo.zones.filter(z=>z.x>x0+50*s&&z.x<x0+w-50*s&&z.y>y0+20*s&&z.y<y0+h-20*s).map(z=>`<g transform="translate(${z.x},${z.y})"><rect x="${r(-46*s)}" y="${r(-17*s)}" width="${r(92*s)}" height="${r(34*s)}" rx="${r(5*s)}" fill="#fff" stroke="#2d353b" stroke-width="${r(1.5*s)}"/><text y="${r(7*s)}" text-anchor="middle" font-size="${r(20*s)}" font-weight="700" font-family="Arial,sans-serif" fill="#111">${esc(z.n)}</text></g>`).join('')}
     ${K.map(k=>{const o=tr[k],c=o.a==='in'?C_IN:C_OUT;
-      return `<path d="${d(k)}" fill="none" stroke="#fff" stroke-width="${r(22*s)}" stroke-linecap="round"/><path d="${d(k)}" fill="none" stroke="${c}" stroke-width="${r(13*s)}" stroke-linecap="round"${o.a==='out'?` stroke-dasharray="${r(26*s)} ${r(22*s)}"`:''}/>`}).join('')}
+      return `<path d="${d(k)}" fill="none" stroke="#fff" stroke-width="${r(22*s)}" stroke-linecap="round"/><path d="${d(k)}" fill="none" stroke="${c}" stroke-width="${r(13*s)}" stroke-linecap="round"/>`}).join('')}
     ${K.map(k=>{const o=tr[k],c=o.a==='in'?C_IN:C_OUT,[mx,my]=mid(k),lab=o.n.join('·'),rw=Math.max(23,13+lab.length*9)*s;
       return `<g transform="translate(${r(mx)},${r(my)})"><rect x="${r(-rw)}" y="${r(-23*s)}" width="${r(2*rw)}" height="${r(46*s)}" rx="${r(23*s)}" fill="${c}" stroke="#fff" stroke-width="${r(4*s)}"/><text y="${r(9*s)}" text-anchor="middle" font-size="${r(26*s)}" font-weight="700" font-family="Arial,sans-serif" fill="#fff">${esc(lab)}</text></g>`}).join('')}
   </svg>
-  <div class="leg"><span><i style="background:${C_IN}"></i>À sortir</span><span><i class="dash" style="--c:${C_OUT}"></i>À ranger</span>${fixes.length?'<span><i style="background:#2d353b;height:4px"></i>Autres cloisons en place (d\'après le planning)</span>':''}<span><b class="pn">n°</b>Repère du récapitulatif</span></div>`;
+  <div class="leg"><span><i style="background:${C_IN}"></i>À sortir</span><span><i style="background:${C_OUT}"></i>À ranger</span>${fixes.length?'<span><i style="background:#2d353b;height:4px"></i>Autres cloisons en place (d\'après le planning)</span>':''}<span><b class="pn">n°</b>Repère du récapitulatif</span></div>`;
 }
 function clxHtml(o,geo){
   const L=clxListe(o), base=location.href.replace(/[?#].*$/,'').replace(/[^/]*$/,''), dj={day:'2-digit',month:'2-digit',year:'numeric'};
@@ -1954,7 +1963,7 @@ function clxHtml(o,geo){
   // une intervention = mouvements du même créneau pour le même salon
   const G=[];L.forEach(m=>{const k=m.x.date+'|'+agFin(m.x)+'|'+(m.x.salon||'');let g=G.find(g=>g.k===k);if(!g)G.push(g={k,L:[]});g.L.push(m)});
   const titreG=g=>{const x=g.L[0].x,f=agFin(x);return (f!==x.date?'Du '+fD(x.date,{weekday:'long',day:'numeric',month:'long'})+' au '+fD(f,{weekday:'long',day:'numeric',month:'long',year:'numeric'}):(s=>s.charAt(0).toUpperCase()+s.slice(1))(fD(x.date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})))};
-  const titre=`Mouvements de cloisons - Eurexpo - ${o.du} au ${o.au}`;
+  const titre=`Mouvements de cloisons - Eurexpo${o.salon?' - '+o.salonNom:''} - ${o.du} au ${o.au}`;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(titre)}</title>
 <style>
 @page{size:A4;margin:12mm}
@@ -1982,6 +1991,7 @@ td.n{width:34px;text-align:center}td.q{white-space:nowrap}td.c{width:27%}tr.fait
 ${geo?`<svg width="0" height="0" style="position:absolute"><defs><image id="clxbg" href="${geo.bg}" x="0" y="0" width="${geo.w}" height="${geo.h}"/></defs></svg>`:''}
 <div class="top"><img src="${base}logo.png" alt="GL events Lyon" onerror="this.remove()"><div><h1>Mouvements de cloisons mobiles${o.trib&&L.some(m=>m.trib)?' et tribune':''}</h1><div class="s">Eurexpo Lyon · Service Bâtiment</div></div></div>
 <div class="meta"><div><b>Période :</b> du ${fD(o.du,dj)} au ${fD(o.au,dj)}</div><div><b>Édité le :</b> ${fD(today(),dj)}</div>
+  ${o.salon?`<div><b>Salon :</b> ${esc(o.salonNom)}</div>`:''}
   ${o.dest?`<div><b>Destinataire :</b> ${esc(o.dest)}</div>`:''}${o.contact?`<div><b>Contact Eurexpo :</b> ${esc(o.contact)}</div>`:''}
   <div><b>Mouvements :</b> ${L.length}</div></div>
 <h2>Récapitulatif</h2>
