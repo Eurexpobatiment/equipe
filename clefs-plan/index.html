@@ -828,7 +828,7 @@ const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperC
 const label = c => c.d || (c.i && c.i[0]) || c.r || '';
 const XKEY = '__X';   // filtre « hors organigramme NHKN »
 const opens = (c, k) => !!c && (k === XKEY ? !!c.x : c.k.includes(k));
-const NHKN_N = DATA.cyl.filter(c=>!c.x).length, EXTRA_N = DATA.cyl.length - NHKN_N;
+const NHKN_N = DATA.cyl.filter(c=>!c.x).length; let EXTRA_N = DATA.cyl.length - NHKN_N;
 const KINV = DATA.kinv || {};
 
 let pins = load();                            // [{id, n, x, y}]
@@ -1342,6 +1342,22 @@ function invBlock(c){
       <div class="row" style="margin-top:6px"><button class="btn light" data-inv="${esc(v.id)}" style="height:30px">Ouvrir la fiche</button></div>
     </div>`).join('') + `<div class="row" style="margin-top:2px"><button class="btn primary" id="remBtn" style="height:30px">📤 Remettre cette clef…</button></div>`;
 }
+/* numéros ajoutés à l'inventaire de l'appli après la création du plan : acceptés comme « hors NHKN » */
+function mergeInv(){
+  let added = 0;
+  for(const k of Object.keys(INV||{})){
+    if(!k || CYL[k] || DATA.cyl.some(c=>nk(c.n)===k)) continue;
+    const L = INV[k] || [];
+    const c = {n:k, d:'', q:0, k:[], x:1, i:L.map(v=>[v.espace, v.acces].filter(Boolean).join(' – ')).filter(Boolean)};
+    if(!c.i.length) delete c.i;
+    DATA.cyl.push(c); CYL[k] = c; added++;
+  }
+  if(added){
+    EXTRA_N += added;
+    const o = document.querySelector(`#keySel option[value="${XKEY}"]`) || [...document.querySelectorAll('option')].find(o=>o.value===XKEY);
+    if(o) o.textContent = `Hors NHKN – inventaire (${EXTRA_N})`;
+  }
+}
 let searchShown = false;
 window.addEventListener('message', e => {
   if(!EMBED || e.source !== parent || !e.data) return;
@@ -1349,6 +1365,7 @@ window.addEventListener('message', e => {
   if(d.clefsData){
     pins = (d.clefsData.pins || []).map(p => ({id:p.id, n:String(p.n), x:+p.x, y:+p.y, lv:p.lv || 'R0'}));
     INV = d.clefsData.inv || {};
+    mergeInv();
     drawPins();
     if(!searchShown) renderSide();
   }
