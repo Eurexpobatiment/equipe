@@ -1156,7 +1156,7 @@ dl.innerHTML = DATA.cyl.map(c=>`<option value="${esc(c.n)}">${esc(label(c))}</op
 const q = document.getElementById('q');
 function findCyl(v){
   const t = norm(v); if(!t) return null;
-  if(CYL[v.trim()]) return v.trim();
+  if(cylKey(v)) return cylKey(v);
   const exact = DATA.cyl.find(c=>norm(c.n)===t); if(exact) return exact.n;
   const byName = DATA.cyl.filter(c=>norm(label(c)).includes(t) || norm(c.r).includes(t) || norm(c.d).includes(t) || (c.i && c.i.some(x=>norm(x).includes(t))));
   return byName.length ? byName : null;
@@ -1212,11 +1212,11 @@ function renderEditPin(id){
     <p class="sub" style="margin-top:10px">Pour déplacer, tu peux aussi faire glisser le repère sur le plan en mode « Poser ».</p>
     <div class="row"><button class="btn light" id="edBack">← Annuler</button></div>`;
   const inp = document.getElementById('edN'), hint = document.getElementById('edHint');
-  const upd = () => { const v = inp.value.trim(), c = CYL[v]; const other = pins.filter(x=>x.n===v && x.id!==id).length;
+  const upd = () => { const v = cylKey(inp.value) || inp.value.trim(), c = CYL[v]; const other = pins.filter(x=>x.n===v && x.id!==id).length;
     hint.textContent = c ? (label(c)||'—') + (other?` · déjà ${other} autre${other>1?'s':''} repère${other>1?'s':''}`:'') : (v ? 'Numéro absent du plan NHKN' : ''); };
   const ok = () => {
-    const v = inp.value.trim(); if(!v) return;
-    if(!CYL[v]){ hint.textContent = 'Numéro absent du plan NHKN'; return; }
+    if(!inp.value.trim()) return; const v = cylKey(inp.value);
+    if(!v){ hint.textContent = 'Numéro absent du plan NHKN et de l\'inventaire'; return; }
     if(v === p.n){ selectCyl(p.n, false, p.id); return; }
     const old = p.n; p.n = v; save(); sync('save',[p]); drawPins(); selCyl = v; selPin = p.id; refreshIcons(); renderSide();
     toast(`${old} → ${v} modifié`);
@@ -1276,9 +1276,9 @@ map.on('click', e => {
   box.innerHTML = `<div class="hint" style="margin-bottom:4px">📍 ${lvName(LV)}${nl?` · près de : ${esc(nl.t)}`:''}</div><b>N° du cylindre</b><input list="cylList" placeholder="ex. 913" autocomplete="off"><div class="hint"></div>
     <div class="row" style="margin-top:4px"><button class="btn primary" style="height:30px">Poser</button></div>`;
   const inp = box.querySelector('input'), hint = box.querySelector('.hint'), ok = box.querySelector('button');
-  const upd = () => { const c = CYL[inp.value.trim()]; const already = pins.filter(p=>p.n===inp.value.trim()).length;
+  const upd = () => { const kk = cylKey(inp.value), c = kk && CYL[kk]; const already = kk ? pins.filter(p=>p.n===kk).length : 0;
     hint.textContent = c ? (label(c)||'—') + (already?` · déjà ${already} repère${already>1?'s':''}`:'') : (inp.value? 'Numéro absent du plan NHKN' : ''); };
-  const go = () => { const v = inp.value.trim(); if(!v) return; if(!CYL[v]){ hint.textContent='Numéro absent du plan NHKN'; return; } map.closePopup(); addPin(v, e.latlng); };
+  const go = () => { if(!inp.value.trim()) return; const v = cylKey(inp.value); if(!v){ hint.textContent='Numéro absent du plan NHKN et de l\'inventaire'; return; } map.closePopup(); addPin(v, e.latlng); };
   inp.addEventListener('input', upd);
   inp.addEventListener('keydown', ev => { if(ev.key==='Enter') go(); if(ev.key==='Escape') map.closePopup(); });
   ok.onclick = go;
@@ -1353,17 +1353,57 @@ function invBlock(c){
       <div class="row" style="margin-top:6px"><button class="btn light" data-inv="${esc(v.id)}" style="height:30px">Ouvrir la fiche</button><button class="btn primary" data-rem="${esc(v.id)}" style="height:30px">📤 Remettre…</button></div>
     </div>`).join('') + (L.some(pcs) ? '' : `<div class="row" style="margin-top:2px"><button class="btn light" id="addPcsBtn" style="height:30px">+ Ajouter aussi au PC sécurité</button></div>`) + passes;
 }
-/* numéros ajoutés à l'inventaire de l'appli après la création du plan : acceptés comme « hors NHKN » */
-function mergeInv(){
-  let added = 0;
-  for(const k of Object.keys(INV||{})){
-    if(!k || CYL[k] || DATA.cyl.some(c=>nk(c.n)===k)) continue;
-    const L = INV[k] || [];
-    if(L.every(v => v.lieu === 'PC sécurité')) continue; // références des trousseaux du PCC : seulement sur les cylindres déjà connus
-    const c = {n:k, d:'', q:0, k:[], x:1, i:L.map(v=>[v.espace, v.acces].filter(Boolean).join(' – ')).filter(Boolean)};
-    if(!c.i.length) delete c.i;
-    DATA.cyl.push(c); CYL[k] = c; added++;
+/* ---------- fusion des n° de l'inventaire ----------
+   - un même n° écrit avec ou sans espaces (« ZENITH 81 257 » / « ZENITH81257 ») = une seule clef
+   - « NHKN 260 » (registre du PC sécurité) = le cylindre 260 du plan NHKN ; « NHKN 608 + NHKN 1100 » = les deux */
+const sq = s => nk(s).replace(/\s+/g,'');
+const ALIAS = {};   // forme compacte → n° du plan (CYL)
+function cylKey(v){ v = String(v||'').trim(); if(!v) return null; if(CYL[v]) return v; return ALIAS[sq(v)] || null; }
+let INV_GROUPS = [];   // [{n: n° affiché, vs:[variantes], L:[fiches]}] hors NHKN
+function fuseInv(raw){
+  const byC = {}; for(const c of DATA.cyl) if(!c.x) byC[sq(c.n)] = c.n;
+  const toCyl = k => {   // n° du plan NHKN visé par cette référence, ou null
+    const parts = String(k).split('+').map(x => sq(x)).filter(Boolean); if(!parts.length) return null;
+    const r = parts.map(x => byC[x] || (/^NHKN./.test(x) ? byC[x.slice(4)] : null));
+    return r.every(Boolean) ? r : null;
+  };
+  const out = {}, groups = {};
+  const add = (key, L) => { const a = out[key] || (out[key] = []); for(const v of L) if(!a.some(x => x.id === v.id)) a.push(v); return a; };
+  for(const k of Object.keys(raw || {})){
+    if(!k) continue;
+    const L = raw[k] || [], cs = toCyl(k);
+    if(cs){ for(const n of cs){ add(nk(n), L); ALIAS[sq(n)] = n; } if(cs.length === 1) ALIAS[sq(k)] = cs[0]; continue; }
+    const g = groups[sq(k)] || (groups[sq(k)] = {vs:[], L:[]});
+    g.vs.push(k); for(const v of L) if(!g.L.some(x => x.id === v.id)) g.L.push(v);
   }
+  INV_GROUPS = [];
+  for(const [c, g] of Object.entries(groups)){
+    // n° affiché : celui déjà posé sur le plan, sinon la forme avec espaces (plus lisible)
+    const n = g.vs.find(v => CYL[v]) || (pins.find(p => sq(p.n) === c) || {}).n || g.vs.find(v => /\s/.test(v)) || g.vs[0];
+    const L = add(nk(n), g.L);
+    for(const v of g.vs) out[nk(v)] = L;   // toutes les variantes renvoient aux mêmes fiches
+    INV_GROUPS.push({n, vs:g.vs, L});
+  }
+  return out;
+}
+/* numéros ajoutés à l'inventaire de l'appli après la création du plan (armoire Bâtiment et PC sécurité) : acceptés comme « hors NHKN » */
+function mergeInv(){
+  let added = 0, opts = '';
+  for(const g of INV_GROUPS){
+    const k = g.n;
+    if(!CYL[k]){
+      const c = DATA.cyl.find(c=>sq(c.n)===sq(k));
+      if(c){ CYL[k] = c; }
+      else {
+        const nc = {n:k, d:'', q:0, k:[], x:1, i:[...new Set(g.L.map(v=>[v.espace, v.acces].filter(Boolean).join(' – ')).filter(Boolean))]};
+        if(!nc.i.length) delete nc.i;
+        DATA.cyl.push(nc); CYL[k] = nc; added++;
+        opts += `<option value="${esc(k)}">${esc(label(nc))}</option>`;
+      }
+    }
+    for(const v of g.vs) if(!CYL[v]) ALIAS[sq(v)] = CYL[k].n;
+  }
+  if(opts) dl.insertAdjacentHTML('beforeend', opts);
   if(added){
     EXTRA_N += added;
     const o = document.querySelector(`#keySel option[value="${XKEY}"]`) || [...document.querySelectorAll('option')].find(o=>o.value===XKEY);
@@ -1376,12 +1416,12 @@ window.addEventListener('message', e => {
   const d = e.data;
   if(d.clefsData){
     pins = (d.clefsData.pins || []).map(p => ({id:p.id, n:String(p.n), x:+p.x, y:+p.y, lv:p.lv || 'R0'}));
-    INV = d.clefsData.inv || {};
+    INV = fuseInv(d.clefsData.inv || {});
     mergeInv();
     drawPins();
     if(!searchShown) renderSide();
   }
-  if(d.clefsFocus){ searchShown = false; selectCyl(String(d.clefsFocus), true); }
+  if(d.clefsFocus){ searchShown = false; selectCyl(cylKey(d.clefsFocus) || String(d.clefsFocus), true); }
 });
 if(EMBED){
   document.body.classList.add('embed');
