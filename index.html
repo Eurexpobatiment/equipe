@@ -399,6 +399,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .clhd .sub{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:2px}
 .cln{font-size:20px;color:var(--navy);min-width:34px;text-align:right}
 .cltbl{min-width:0}.cltbl td{padding:6px 8px}.cltbl .c,.btbl th.c,.btbl td.c{text-align:center}
+.cltag{display:inline-block;font:600 11px/1.5 system-ui,sans-serif;padding:0 6px;border-radius:9px;white-space:nowrap;vertical-align:1px;margin-left:4px}.clbat{background:#e8eef9;color:#1d3f7a}.clpcs{background:#fdecec;color:#9c1c1c}
 .clrend{display:block;margin-top:2px;font-size:12px;color:#1f7a4d}.clrend b{font-weight:600}
 .clpret{width:100%;table-layout:fixed}.clpret .cpn{width:130px}.clpret .cpq{width:100px}.clpret .cpa{width:230px}
 .clpret .clnum{white-space:normal;overflow-wrap:anywhere}.clpret .clact{white-space:nowrap;text-align:right}.clpret .clact .clrd{min-width:96px;justify-content:center;text-align:center}
@@ -848,7 +849,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '31'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '32'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -3696,6 +3697,14 @@ const clFactLe=p=>/^\d{4}-\d{2}-\d{2}$/.test(p.finDemontage||'')?addDays(p.finDe
 const clLong=p=>(p.finDemontage||'')==='RAS'; // prêt longue durée (prestataire, employé) : pas de fin de démontage ni de facturation ; sinon prêt courte durée (salon)
 const clRetard=p=>clOuvert(p)&&clFactLe(p)&&today()>=clFactLe(p);
 const clDes=c=>[c.espace,c.acces].filter(Boolean).join(' - ');
+// armoire où la clef est rangée : armoire du service Bâtiment (par défaut) ou armoire du PC sécurité (prêts aux entreprises en travaux)
+const CL_LIEUX=[['Bâtiment','🏢 Armoire Bâtiment'],['PC sécurité','🛡️ PC sécurité']];
+const clLieu=c=>c&&c.lieu==='PC sécurité'?'PC sécurité':'Bâtiment';
+const clTag=c=>c?(clLieu(c)==='PC sécurité'?'<span class="cltag clpcs" title="Armoire du PC sécurité">🛡️ PC sécu</span>':'<span class="cltag clbat" title="Armoire du service Bâtiment">🏢 Bâtiment</span>'):'';
+const clTagId=id=>clTag(D.Clefs.find(x=>x.id===id));
+// références d'une clef : un trousseau du PCC (« DOM PP 17 + NHKN 460 / 1057 ») donne PP17, 460, 1057 ; espaces et marque DOM / NHKN retirés pour comparer
+const clRef=v=>{let t=String(v||'').toUpperCase().replace(/\(.*?\)/g,' ').replace(/\b\d+\s*(CLEFS?|TROUSSEAUX?)\b/g,' ').trim().replace(/^DOM\s+/,'');t=t.replace(/^NHKN?\s*(?=[A-Z]?\s?\d)/,'');return t.replace(/\s+/g,'')};
+const clRefs=c=>[...new Set(String(c.numero||'').split(/\s\+\s|\+|\s\/\s|\s-\s/).map(clRef).filter(x=>x&&x.length<=24&&!/^(NHKN?|DOM)$/.test(x)))];
 const clNomP=p=>[p.prenom,p.nom].filter(Boolean).join(' ');
 // journal des retours d'une ligne (qui a rendu, quand, combien) : JSON [{le,n,par,rec,at}] ; anciennes lignes sans journal : un retour reconstitué
 function clRetours(p){let R=[];try{R=JSON.parse(p.retours||'[]')}catch(e){R=[]}if(!Array.isArray(R))R=[];
@@ -3712,7 +3721,8 @@ const clAddRetour=(p,r)=>JSON.stringify([...clRetours(p).map(({old,...x})=>x),{.
 const clNumIdx=()=>{const m={};D.Clefs.forEach(c=>{const k=String(c.numero||'').trim().toUpperCase();if(k)(m[k]=m[k]||[]).push(c)});return m};
 // clef de l'inventaire liée à une remise (par son identifiant, sinon par un n° qui n'existe qu'une fois)
 function clClefOf(p,idx){if(p.clefId){const c=D.Clefs.find(x=>x.id===p.clefId);if(c)return c}
-  const L=(idx||clNumIdx())[String(p.numero||'').trim().toUpperCase()];return L&&L.length===1?L[0]:null}
+  const L=(idx||clNumIdx())[String(p.numero||'').trim().toUpperCase()];if(!L)return null;if(L.length===1)return L[0];
+  const B=L.filter(c=>clLieu(c)==='Bâtiment');return B.length===1?B[0]:null} // anciennes remises sans lien : armoire Bâtiment
 function clEnPret(){const m={},idx=clNumIdx();D.ClefsPrets.forEach(p=>{const n=clDehors(p);if(!n)return;const c=clClefOf(p,idx);if(c)m[c.id]=(m[c.id]||0)+n});return m}
 function clLots(L){const m=new Map();L.forEach(p=>{const k=p.lot||p.id;if(!m.has(k))m.set(k,[]);m.get(k).push(p)});
   return [...m].map(([lot,l])=>{l.sort((a,b)=>String(a.designation).localeCompare(String(b.designation),'fr'));const h=l[0];
@@ -3723,10 +3733,12 @@ const clOpts=L=>[...new Set(L.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'f
 const clSocietes=()=>[...new Set(D.ClefsPrets.map(p=>p.societe).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
 
 FORMS.Clefs=[
+  {k:'lieu',l:'Armoire',t:'select',o:['Bâtiment','PC sécurité']},
+  {k:'crochet',l:'N° dans l\'armoire (crochet)'},
   {k:'espace',l:'Espace (bâtiment, hall…)',t:'dl',dl:'dl-clesp',full:1},
   {k:'acces',l:'Accès / local',req:1,full:1},
-  {k:'numero',l:'N° de clef (ou marque + n°)'},
-  {k:'stock',l:'Au tableau (quantité)',t:'qte'},
+  {k:'numero',l:'N° de clef (ou marque + n° ; trousseau : n° séparés par +)',full:1},
+  {k:'stock',l:'Dans l\'armoire (quantité)',t:'qte'},
   {k:'reserve',l:'Archivées (réserve)',t:'qte'},
   {k:'commentaire',l:'Commentaire',t:'textarea',rows:2}];
 FORMS.ClefsPrets=[
@@ -3819,6 +3831,7 @@ function clVuePret(el){
   if(st.fd)G=G.filter(g=>st.fd==='long'?clLong(g.h):!clLong(g.h));
   if(st.fs)G=G.filter(g=>g.h.societe===st.fs);
   if(st.fp)G=G.filter(g=>g.h.remisPar===st.fp);
+  if(st.fa)G=G.filter(g=>g.l.some(p=>clOuvert(p)&&clLieu(clClefOf(p))===st.fa&&clClefOf(p)));
   const fin=g=>g.h.finDemontage||'';
   if(st.fe)G=G.filter(g=>({fact:g.retard,bientot:!g.retard&&g.fact,sans:!fin(g),ras:clLong(g.h)})[st.fe]);
   const T={fact:(a,b)=>(b.retard-a.retard)||(a.fact||'9').localeCompare(b.fact||'9')||b.date.localeCompare(a.date),
@@ -3827,7 +3840,7 @@ function clVuePret(el){
     fin:(a,b)=>(/^\d/.test(fin(a))?fin(a):'9').localeCompare(/^\d/.test(fin(b))?fin(b):'9')||b.date.localeCompare(a.date),
     soc:(a,b)=>String(a.h.societe).localeCompare(String(b.h.societe),'fr')||b.date.localeCompare(a.date)};
   G.sort(T[st.tri]||T.fact);
-  const nf=[st.fs,st.fp,st.fe,st.fd].filter(Boolean).length;
+  const nf=[st.fs,st.fp,st.fe,st.fd,st.fa].filter(Boolean).length;
   el.innerHTML=`<div class="kpis kc"><div class="kpi"><span>Clefs dehors</span><b>${tot}</b><small>${open.length} ligne${open.length>1?'s':''}</small></div>
       <div class="kpi"><span>Remises en cours</span><b>${clLots(open).length}</b><small>sociétés / personnes</small></div>
       <div class="kpi ${nRet?'neg':''}"><span>À facturer</span><b>${nRet}</b><small>démontage + ${CL_FACT_J} j dépassé</small></div>
@@ -3837,8 +3850,9 @@ function clVuePret(el){
       <label class="chk">Trier <select class="sel" onchange="UI.cl.tri=this.value;lsSet('equipe.cltri',this.value);render()">${[['fact','À facturer d\'abord'],['recent','Remise : plus récentes'],['ancien','Remise : plus anciennes'],['fin','Fin de démontage (la plus proche)'],['soc','Société A → Z']].map(([k,l])=>`<option value="${k}" ${st.tri===k?'selected':''}>${l}</option>`).join('')}</select></label></div>
     <div class="bar chf"><select class="sel" onchange="UI.cl.fs=this.value;render()"><option value="">Toutes les sociétés / salons</option>${socs.map(x=>`<option ${x===st.fs?'selected':''}>${esc(x)}</option>`).join('')}</select>
       <select class="sel" onchange="UI.cl.fp=this.value;render()"><option value="">Remises par : tous</option>${pars.map(x=>`<option ${x===st.fp?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.cl.fa=this.value;render()"><option value="">Toutes les armoires</option>${CL_LIEUX.map(([k,l])=>`<option value="${k}" ${st.fa===k?'selected':''}>${l}</option>`).join('')}</select>
       <select class="sel" onchange="UI.cl.fe=this.value;render()">${[['','Tous les états'],['fact','💶 À facturer'],['bientot','Facturables plus tard'],['sans','Salon sans fin de démontage'],['ras','Longue durée (pas de facturation)']].map(([k,l])=>`<option value="${k}" ${st.fe===k?'selected':''}>${l}</option>`).join('')}</select>
-      ${nf||q?`<button class="btn sm" onclick="Object.assign(UI.cl,{q:'',fs:'',fp:'',fe:'',fd:''});render()">✕ Effacer les filtres</button><span class="hint" style="margin:0">${G.length} remise${G.length>1?'s':''} sur ${Gall.length}</span>`:''}</div>
+      ${nf||q?`<button class="btn sm" onclick="Object.assign(UI.cl,{q:'',fs:'',fp:'',fe:'',fd:'',fa:''});render()">✕ Effacer les filtres</button><span class="hint" style="margin:0">${G.length} remise${G.length>1?'s':''} sur ${Gall.length}</span>`:''}</div>
     ${G.map(clCarte).join('')||`<p class="empty">${q||nf?'Aucun résultat.':'Aucune clef dehors 👍'}</p>`}
     <p class="hint">Facturation des clefs non rendues à partir de la fin de démontage + ${CL_FACT_J} jours (prêts aux salons). Les prêts longue durée (prestataires, employés) ne sont pas facturés. Touche une ligne pour la corriger.</p>`;
 }
@@ -3850,7 +3864,7 @@ function clCarte(g){
       ${fin==='RAS'?'<span class="cllong">🔑 Prêt longue durée</span>':fin?`<span>🎪 salon · 🏁 fin de démontage ${fD(fin,{day:'numeric',month:'short'})}</span>`:'<span class="negt">fin de démontage non renseignée</span>'}
       ${g.retard?`<span class="negt">💶 à facturer depuis le ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:g.fact?`<span>facturable à partir du ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:''}</div></div>
       <span class="sp"></span><b class="cln">${g.dehors}</b></div>
-    <table class="btbl cltbl clpret"><colgroup><col class="cpn"><col><col class="cpq"><col class="cpa"></colgroup><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}${clDejaRendues(p)}</td>
+    <table class="btbl cltbl clpret"><colgroup><col class="cpn"><col><col class="cpq"><col class="cpa"></colgroup><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${clTag(clClefOf(p))}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}${clDejaRendues(p)}</td>
       <td class="c">${+p.rendu?`<b>${clDehors(p)}</b> dehors<small style="display:block;color:var(--muted)">${p.rendu}/${p.qte} rendue${+p.rendu>1?'s':''}</small>`:`× ${p.qte}`}</td>
       <td class="clact"><button class="btn sm" onclick="event.stopPropagation();clPartiel('${p.id}')" title="Saisir un retour : qui rend, quand, combien">↩️ Rendu partiel</button> <button class="btn sm clrd" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
     <div class="acts"><button class="btn sm" onclick="clBon('${g.lot}')">🖨️ Bon de remise</button><button class="btn sm" onclick="clEditLot('${g.lot}')">✏️ Modifier / ajouter</button><span class="sp"></span>
@@ -3920,11 +3934,14 @@ function clRendre(lot){
 let CL={lot:'',lines:[],conf:''};
 function clNew(pre={}){clLotForm('',[],{datePrepa:today(),remisPar:me,...pre})}
 function clEditLot(lot){const L=D.ClefsPrets.filter(p=>(p.lot||p.id)===lot);if(L.length)clLotForm(lot,L,L[0])}
+function clSetLieu(k){CL.lieu=k;document.querySelectorAll('#cl_lieu button').forEach(b=>b.classList.toggle('on',b.dataset.l===k));clSearch()}
 function clType(long){$('#cl_ras').checked=!!long;$('#cl_finw').style.display=long?'none':'';$('#cl_longh').style.display=long?'':'none';
   document.querySelectorAll('#cl_type button').forEach(b=>b.classList.toggle('on',(b.dataset.t==='long')===!!long))}
 function clLotForm(lot,L,h){
   clDatalists();
-  CL={lot:lot||('l'+Math.random().toString(16).slice(2,12)),lines:L.map(p=>({...p})),conf:'',isNew:!lot};
+  // armoire proposée : celle des clefs déjà dans la remise si elles viennent toutes de la même, sinon les deux
+  const LL=[...new Set(L.map(p=>clClefOf(p)).filter(Boolean).map(clLieu))];
+  CL={lot:lot||('l'+Math.random().toString(16).slice(2,12)),lines:L.map(p=>({...p})),conf:'',isNew:!lot,lieu:h.lieu!=null?h.lieu:LL.length===1?LL[0]:''};
   const fin=h.finDemontage||'';
   modal(`<h2>${lot?'Remise · '+esc(h.societe):'Nouvelle remise de clefs'}</h2>
     <div class="cllay"><div class="clcolg"><div class="cldrop">📥 Glisse ici le <b>formulaire Excel</b> de demande de clefs, <button class="link" type="button" onclick="$('#clxf').value='';$('#clxf').click()">ou choisis le fichier</button>, ou colle (Ctrl+V) des lignes copiées depuis Excel
@@ -3945,6 +3962,7 @@ function clLotForm(lot,L,h){
       <p class="hint" id="cl_longh" style="grid-column:1/-1;margin:0;${fin==='RAS'?'':'display:none'}">Prêt longue durée : pas de fin de démontage, les clefs ne sont pas facturées.</p>
       <label class="fl full"><span>Commentaire</span><textarea id="cl_com" rows="2">${esc(L.length===1||!lot?h.commentaire||'':'')}</textarea></label></div></div>
     <div class="coms clcold"><h3>Clefs remises · <span id="cltot"></span></h3>
+      <div class="seg-ctl" id="cl_lieu" style="margin-bottom:8px" title="Armoire où sont prises les clefs (pour la recherche)">${[['','Les 2 armoires'],...CL_LIEUX].map(([k,l])=>`<button type="button" data-l="${k}" class="${(CL.lieu||'')===k?'on':''}" onclick="clSetLieu('${k}')">${l}</button>`).join('')}</div>
       <div id="cllines"></div>
       <input class="search" id="clq" type="search" placeholder="Ajouter une clef : n°, espace, local…" style="max-width:none;width:100%;margin-top:8px" autocomplete="off">
       <div id="clres"></div>
@@ -4004,8 +4022,8 @@ function clXRows(rows){
       numero=jn>=0?cells[jn]:'';des=jd>=0?cells[jd]:'';qte=jq>=0?parseInt(cells[jq],10):1;fin=cells.map(clXDate).find(Boolean)||''}
     if(numero==='0')numero='';if(des==='0')des='';if(!numero&&!des)return;
     if(hi>=0&&'qte' in map&&!(qte>0)&&!des)return; // bas du formulaire (signatures, dates)
-    const N=numero.toUpperCase(),Dd=clXN(des),byN=idx[N]||[];
-    const c=byN.find(k=>clXN(clDes(k))===Dd)||(byN.length===1?byN[0]:null)||(byD[Dd]||[]).find(k=>!numero||clXN(k.numero)===clXN(numero))||((byD[Dd]||[]).length===1?byD[Dd][0]:null);
+    const N=numero.toUpperCase(),Dd=clXN(des),pref=a=>{const f=a.filter(k=>clLieu(k)===(CL.lieu||'Bâtiment'));return f.length?f:a},byN=pref(idx[N]||[]),bD=pref(byD[Dd]||[]);
+    const c=byN.find(k=>clXN(clDes(k))===Dd)||(byN.length===1?byN[0]:null)||bD.find(k=>!numero||clXN(k.numero)===clXN(numero))||(bD.length===1?bD[0]:null);
     lines.push({societe:soc||top.societe||'',prenom:pre,nom,fin,l:c?{clefId:c.id,numero:c.numero,designation:clDes(c),qte:String(qte>0?qte:1),rendu:'0'}
       :{clefId:'',numero,designation:des,qte:String(qte>0?qte:1),rendu:'0',libre:1,xko:1}})});
   if(top.personne&&!lines.some(x=>x.prenom||x.nom)){const w=top.personne.split(' '),k=w.findIndex(x=>x.length>1&&x===x.toUpperCase()&&/[A-Z]/.test(x));
@@ -4072,10 +4090,10 @@ function clSearch(){
   const box=$('#clres'),q=($('#clq').value||'').trim().toLowerCase();if(!q){box.innerHTML='';return}
   const E=clEnPret(),words=q.split(/\s+/);
   const rk=c=>{const n=String(c.numero||'').toLowerCase();return n===q?0:n.startsWith(q)?1:clDes(c).toLowerCase().includes(q)?2:3};
-  const R=D.Clefs.filter(c=>{const s=(c.numero+' '+clDes(c)).toLowerCase();return words.every(w=>s.includes(w))}).sort((a,b)=>rk(a)-rk(b)||clDes(a).localeCompare(clDes(b),'fr')).slice(0,25);
+  const R=D.Clefs.filter(c=>{const s=(c.numero+' '+clDes(c)+' '+clLieu(c)+' '+clRefs(c).join(' ')+(c.crochet?' crochet '+c.crochet:'')).toLowerCase();return (!CL.lieu||clLieu(c)===CL.lieu)&&words.every(w=>s.includes(w))}).sort((a,b)=>rk(a)-rk(b)||clDes(a).localeCompare(clDes(b),'fr')||clLieu(a).localeCompare(clLieu(b))).slice(0,25);
   box.innerHTML=R.length?`<div class="eqlist clres">${R.map(c=>{const dis=(+c.stock||0)-(E[c.id]||0)-CL.lines.filter(l=>l.clefId===c.id&&!l.id).reduce((a,l)=>a+(+l.qte||0),0);
-    return `<div class="eqrow" style="cursor:pointer" onclick="clAdd('${c.id}')"><span><b>${esc(c.numero||'—')}</b> ${esc(clDes(c))}</span><span class="sp"></span><small class="${dis<=0?'negt':'hint'}" style="margin:0">${dis} dispo</small></div>`}).join('')}</div>`
-    :`<p class="empty">Aucune clef trouvée. <button class="link" type="button" onclick="clAddLibre()">Ajouter une clef hors inventaire</button></p>`;
+    return `<div class="eqrow" style="cursor:pointer" onclick="clAdd('${c.id}')"><span><b>${esc(c.numero||'—')}</b> ${esc(clDes(c))}${clTag(c)}</span><span class="sp"></span><small class="${dis<=0?'negt':'hint'}" style="margin:0">${dis} dispo</small></div>`}).join('')}</div>`
+    :`<p class="empty">Aucune clef trouvée${CL.lieu?' dans l\'armoire '+esc(CL.lieu)+` (<button class="link" type="button" onclick="clSetLieu('')">chercher dans les 2</button>)`:''}. <button class="link" type="button" onclick="clAddLibre()">Ajouter une clef hors inventaire</button></p>`;
 }
 function clAdd(id){const c=D.Clefs.find(x=>x.id===id);if(!c)return;
   const ex=CL.lines.find(l=>l.clefId===id&&!(+l.rendu));if(ex)ex.qte=String((+ex.qte||0)+1);else CL.lines.push({clefId:id,numero:c.numero,designation:clDes(c),qte:'1',rendu:'0'});
@@ -4090,7 +4108,7 @@ function clLines(){
     const autres=CL.lines.filter((x,j)=>j!==i&&c&&x.clefId===c.id).reduce((a,x)=>a+Math.max(0,(+x.qte||0)-(+x.rendu||0)),0)-CL.lines.filter((x,j)=>j!==i&&c&&x.clefId===c.id&&x.id).reduce((a,x)=>a+clDehors(D.ClefsPrets.find(p=>p.id===x.id)||{}),0);
     const dis=c?(+c.stock||0)-(E[c.id]||0)+mine-autres:null, ko=dis!==null&&(+l.qte||0)-(+l.rendu||0)>dis;
     return `<tr class="${ko?'clko':l.xko?'clwarn':''}"><td class="clnum">${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="N°" value="${esc(l.numero||'')}" oninput="CL.lines[${i}].numero=this.value">`:esc(l.numero||'—')}</td>
-      <td>${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="Désignation (espace - local)" value="${esc(l.designation||'')}" oninput="CL.lines[${i}].designation=this.value" style="width:100%">`:esc(l.designation||'')}
+      <td>${l.libre||!l.clefId&&!c?`<input class="clin" placeholder="Désignation (espace - local)" value="${esc(l.designation||'')}" oninput="CL.lines[${i}].designation=this.value" style="width:100%">`:esc(l.designation||'')+clTag(c)}
         ${+l.rendu?`<small class="hint" style="display:block;margin:0">${l.rendu} déjà rendue${+l.rendu>1?'s':''}</small>`:''}</td>
       <td class="c" style="white-space:nowrap"><input class="pvn" type="number" min="1" inputmode="numeric" value="${esc(l.qte)}" oninput="CL.lines[${i}].qte=this.value;CL.conf='';clTot()">${dis!==null?`<small class="${ko?'negt':''}">/${Math.max(0,dis)}</small>`:''}</td>
       <td class="c"><button class="btn sm" type="button" title="Retirer" onclick="CL.lines.splice(${i},1);CL.conf='';clLines()">✕</button></td></tr>`}).join('')}</tbody></table></div>`
@@ -4110,9 +4128,9 @@ async function clLotSave(){
   if(lines.some(l=>!(+l.qte>=1)))return err('Quantité d\'au moins 1 pour chaque clef');
   // contrôle des disponibles : on prévient, un 2e clic enregistre quand même
   const E=clEnPret(),need={};lines.forEach(l=>{if(l.clefId)need[l.clefId]=(need[l.clefId]||0)+Math.max(0,(+l.qte||0)-(+l.rendu||0))-(l.id?clDehors(D.ClefsPrets.find(p=>p.id===l.id)||{}):0)});
-  const manque=Object.keys(need).map(id=>{const c=D.Clefs.find(x=>x.id===id);const dis=(+c.stock||0)-(E[id]||0);return need[id]>dis?`${c.numero||clDes(c)} (${dis} dispo)`:''}).filter(Boolean);
+  const manque=Object.keys(need).map(id=>{const c=D.Clefs.find(x=>x.id===id);const dis=(+c.stock||0)-(E[id]||0);return need[id]>dis?`${c.numero||clDes(c)} (${dis} dispo ${clLieu(c)==='PC sécurité'?'au PC sécurité':'armoire Bâtiment'})`:''}).filter(Boolean);
   const sig=manque.join('|');
-  if(manque.length&&CL.conf!==sig){CL.conf=sig;return err('⚠️ Plus de clefs que disponibles au tableau : '+manque.join(', ')+'. Clique encore sur Enregistrer pour enregistrer quand même.')}
+  if(manque.length&&CL.conf!==sig){CL.conf=sig;return err('⚠️ Plus de clefs que disponibles dans l\'armoire : '+manque.join(', ')+'. Clique encore sur Enregistrer pour enregistrer quand même.')}
   const old=D.ClefsPrets.filter(p=>(p.lot||p.id)===CL.lot), keep=new Set(lines.filter(l=>l.id).map(l=>l.id));
   const items=lines.map(l=>{const o={...l,...h};delete o.libre;delete o.xko;o.commentaire=(!l.id||lines.length===1)?com:(com||l.commentaire||'');return o});
   const b=$('#clgo');b.disabled=true;b.textContent='Enregistrement…';
@@ -4124,7 +4142,8 @@ async function clLotSave(){
 /* ----- bon de remise (à faire signer) ----- */
 function clBon(lot){
   const L=D.ClefsPrets.filter(p=>(p.lot||p.id)===lot);if(!L.length)return toast('Enregistre d\'abord la remise',1);const h=L[0];
-  const f=h.finDemontage, fact=clFactLe(h);
+  const f=h.finDemontage, fact=clFactLe(h), LI=L.map(p=>{const c=clClefOf(p);return c?clLieu(c):''}), pcs=LI.includes('PC sécurité'), bat=LI.some(x=>x!=='PC sécurité');
+  const ou=pcs&&!bat?'au PC sécurité':pcs?'à l\'armoire indiquée (service Bâtiment ou PC sécurité)':'au service Bâtiment';
   const w=window.open('','_blank');if(!w)return toast('Fenêtre bloquée par le navigateur : autorise les fenêtres pour ce site',1);
   w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bon de remise de clefs - ${esc(h.societe)}</title>
   <style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:14px}@media print{body{margin:0}}h1{font-size:20px;margin:0 0 4px}.top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14213d;padding-bottom:10px;margin-bottom:16px}
@@ -4135,43 +4154,120 @@ function clBon(lot){
   <div class="g"><div><b>Société / salon :</b> ${esc(h.societe)}</div><div><b>Remise le :</b> ${h.datePrepa?fD(h.datePrepa,{day:'2-digit',month:'2-digit',year:'numeric'}):''}</div>
   <div><b>Remise à :</b> ${esc(clNomP(h))}${h.contact?' · '+esc(h.contact):''}</div><div><b>Remise par :</b> ${esc(h.remisPar||'')}</div>
   <div>${f==='RAS'?'<b>Prêt longue durée</b>':`<b>Fin de démontage :</b> ${f?fD(f,{day:'2-digit',month:'2-digit',year:'numeric'}):''}`}</div></div>
-  <table><thead><tr><th style="width:150px">N° de clef</th><th>Désignation</th><th class="c">Qté</th><th class="c">Rendue</th></tr></thead>
-  <tbody>${L.map(p=>`<tr><td>${esc(p.numero||'')}</td><td>${esc(p.designation||'')}</td><td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu?esc(p.rendu):''}</td></tr>`).join('')}
-  <tr><th colspan="2" style="text-align:right">Total</th><th class="c">${L.reduce((a,p)=>a+(+p.qte||0),0)}</th><th></th></tr></tbody></table>
-  <p class="note">${f==='RAS'?'Les clefs sont à rendre au service Bâtiment dès la fin du besoin ou sur simple demande.':'Les clefs sont à rendre au service Bâtiment au plus tard à la fin du démontage.'}${fact?` Les clefs non rendues seront facturées à partir du ${fD(fact,{day:'2-digit',month:'2-digit',year:'numeric'})}.`:''}</p>
+  <table><thead><tr><th style="width:150px">N° de clef</th><th>Désignation</th>${pcs?'<th style="width:120px">Armoire</th>':''}<th class="c">Qté</th><th class="c">Rendue</th></tr></thead>
+  <tbody>${L.map((p,i)=>`<tr><td>${esc(p.numero||'')}</td><td>${esc(p.designation||'')}</td>${pcs?`<td>${esc(LI[i])}</td>`:''}<td class="c">${esc(p.qte)}</td><td class="c">${+p.rendu?esc(p.rendu):''}</td></tr>`).join('')}
+  <tr><th colspan="${pcs?3:2}" style="text-align:right">Total</th><th class="c">${L.reduce((a,p)=>a+(+p.qte||0),0)}</th><th></th></tr></tbody></table>
+  <p class="note">${f==='RAS'?`Les clefs sont à rendre ${ou} dès la fin du besoin ou sur simple demande.`:`Les clefs sont à rendre ${ou} au plus tard à la fin du démontage.`}${fact?` Les clefs non rendues seront facturées à partir du ${fD(fact,{day:'2-digit',month:'2-digit',year:'numeric'})}.`:''}</p>
   <div class="sig"><div>Signature du bénéficiaire (remise)</div><div>Signature au retour des clefs</div></div>
   <p><button onclick="print()">🖨️ Imprimer</button></p></body></html>`);
   w.document.close();setTimeout(()=>{try{w.print()}catch(e){}},400);
 }
 
 /* ----- inventaire ----- */
-function clNewClef(pre={}){clDatalists();openForm('Clefs',{stock:'1',reserve:'0',espace:UI.cl&&UI.cl.ie||'',...pre},'Nouvelle clef')}
+function clNewClef(pre={}){clDatalists();openForm('Clefs',{lieu:UI.cl&&UI.cl.il||'Bâtiment',stock:'1',reserve:'0',espace:UI.cl&&UI.cl.ie||'',...pre},'Nouvelle clef')}
 function clEditClef(id){const c=D.Clefs.find(x=>x.id===id);if(!c)return;clDatalists();const idx=clNumIdx();
-  const P=D.ClefsPrets.filter(p=>clOuvert(p)&&clClefOf(p,idx)===c);
-  openForm('Clefs',c,(c.numero?'Clef '+c.numero+' · ':'')+clDes(c),{extra:`<div class="coms"><h3>Dehors en ce moment (${P.reduce((a,p)=>a+clDehors(p),0)})</h3>
+  const P=D.ClefsPrets.filter(p=>clOuvert(p)&&clClefOf(p,idx)===c),E=clEnPret();
+  const autre=clLieu(c)==='PC sécurité'?'Bâtiment':'PC sécurité',RC=new Set(clRefs(c)),O=RC.size?D.Clefs.filter(x=>x!==c&&clRefs(x).some(r=>RC.has(r))):[];
+  const ailleurs=`<div class="coms"><h3>Ailleurs</h3>${O.map(x=>`<div class="eqrow" style="cursor:pointer" onclick="closeModal();clEditClef('${x.id}')"><span>${clTag(x)} ${esc(clDes(x))} <small class="clnum">${esc(x.numero||'')}</small>${x.crochet?` <small class="hint" style="margin:0">crochet ${esc(x.crochet)}</small>`:''}</span><span class="sp"></span><small class="hint" style="margin:0"><b>${(+x.stock||0)-(E[x.id]||0)}</b> dispo / ${+x.stock||0}</small></div>`).join('')||'<p class="empty" style="margin:4px 0">Cette clef n\'est que dans cette armoire.</p>'}
+    ${O.some(x=>clLieu(x)===autre)?'':`<button class="btn sm" type="button" onclick='closeModal();clNewClef(${JSON.stringify({lieu:autre,espace:c.espace||'',acces:c.acces||'',numero:c.numero||'',stock:'1',reserve:'0'}).replace(/'/g,"&#39;")})'>+ Ajouter aussi ${autre==='PC sécurité'?'au PC sécurité':'à l\'armoire Bâtiment'}</button>`}</div>`;
+  openForm('Clefs',c,(c.numero?'Clef '+c.numero+' · ':'')+clDes(c)+' · '+(clLieu(c)==='PC sécurité'?'PC sécurité':'armoire Bâtiment'),{extra:ailleurs+`<div class="coms"><h3>Dehors en ce moment (${P.reduce((a,p)=>a+clDehors(p),0)})</h3>
     ${P.map(p=>`<div class="eqrow"><span><b>${esc(p.societe)}</b> ${esc(clNomP(p))} · ×${clDehors(p)}</span><span class="sp"></span><small class="hint" style="margin:0">depuis le ${fD(p.datePrepa,{day:'numeric',month:'short'})}</small></div>`).join('')||'<p class="empty">Aucune.</p>'}
     ${c.numero?`<div class="bar" style="margin-top:8px"><button class="btn sm" type="button" onclick="closeModal();clpGo('${esc(String(c.numero)).replace(/'/g,"\\'")}')">📍 ${clpPosees()[clK(c.numero)]?'Voir sur le plan':'Poser sur le plan'}</button></div>`:''}
     ${c.majPar?`<div class="made">Dernière modification par ${esc(c.majPar)}</div>`:''}</div>`})}
 function clVueInv(el){
   const st=UI.cl,q=(st.iq||'').toLowerCase(),E=clEnPret(),PL=clpPosees();
   const esp=[...new Set(D.Clefs.map(c=>c.espace).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
-  let L=D.Clefs.filter(c=>(!st.ie||c.espace===st.ie)&&(!q||(c.numero+' '+clDes(c)+' '+(c.commentaire||'')).toLowerCase().includes(q))&&(!st.ip||E[c.id]));
-  L.sort((a,b)=>(!a.espace&&!a.acces)-(!b.espace&&!b.acces)||String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')||String(a.numero).localeCompare(String(b.numero),'fr',{numeric:true}));
-  const sum=k=>D.Clefs.reduce((a,c)=>a+(+c[k]||0),0), pret=Object.values(E).reduce((a,v)=>a+v,0), neg=D.Clefs.filter(c=>(+c.stock||0)-(E[c.id]||0)<0).length;
-  el.innerHTML=`<div class="kpis kc"><div class="kpi"><span>Références</span><b>${D.Clefs.length}</b><small>${esp.length} espaces</small></div>
-      <div class="kpi"><span>Au tableau</span><b>${sum('stock')}</b><small>clefs</small></div>
-      <div class="kpi ${neg?'neg':''}"><span>En prêt</span><b>${pret}</b><small>${neg?neg+' réf. plus sorties qu\'au tableau':''}</small></div>
+  const A=D.Clefs.filter(c=>!st.il||clLieu(c)===st.il), nL=k=>D.Clefs.filter(c=>clLieu(c)===k).length;
+  let L=A.filter(c=>(!st.ie||c.espace===st.ie)&&(!q||(c.numero+' '+clDes(c)+' '+(c.commentaire||'')+' '+(c.crochet?'crochet '+c.crochet:'')+' '+clRefs(c).join(' ')).toLowerCase().includes(q))&&(!st.ip||E[c.id]));
+  L.sort((a,b)=>(!a.espace&&!a.acces)-(!b.espace&&!b.acces)||String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')||String(a.numero).localeCompare(String(b.numero),'fr',{numeric:true})||clLieu(a).localeCompare(clLieu(b)));
+  const sum=k=>A.reduce((a,c)=>a+(+c[k]||0),0), pret=A.reduce((a,c)=>a+(E[c.id]||0),0), neg=A.filter(c=>(+c.stock||0)-(E[c.id]||0)<0).length;
+  const sL=k=>D.Clefs.filter(c=>clLieu(c)===k).reduce((a,c)=>a+(+c.stock||0),0);
+  el.innerHTML=`<div class="bar chf"><div class="seg-ctl">${[['','Les 2 armoires',D.Clefs.length],...CL_LIEUX.map(([k,l])=>[k,l,nL(k)])].map(([k,l,n])=>`<button class="${(st.il||'')===k?'on':''}" onclick="UI.cl.il='${k}';render()">${l} (${n})</button>`).join('')}</div></div>
+    <div class="kpis kc"><div class="kpi"><span>Références</span><b>${A.length}</b><small>${esp.length} espaces</small></div>
+      <div class="kpi"><span>En armoire</span><b>${sum('stock')}</b><small>${st.il?'clefs':`🏢 ${sL('Bâtiment')} · 🛡️ ${sL('PC sécurité')}`}</small></div>
+      <div class="kpi ${neg?'neg':''}"><span>En prêt</span><b>${pret}</b><small>${neg?neg+' réf. plus sorties qu\'en armoire':''}</small></div>
       <div class="kpi"><span>Archivées</span><b>${sum('reserve')}</b><small>réserve</small></div></div>
     <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (n°, local, espace…)" value="${esc(st.iq)}" oninput="UI.cl.iq=this.value;pgRefresh()">
       <select class="sel" onchange="UI.cl.ie=this.value;render()"><option value="">Tous les espaces</option>${esp.map(e=>`<option ${e===st.ie?'selected':''}>${esc(e)}</option>`).join('')}</select>
       <label class="chk"><input type="checkbox" ${st.ip?'checked':''} onchange="UI.cl.ip=this.checked;render()"> En prêt seulement</label>
-      <span class="sp"></span><button class="btn pri" onclick="clNewClef()">+ Clef</button></div>
-    <div class="tblwrap"><table class="btbl"><thead><tr><th>Espace</th><th>Accès / local</th><th>N° de clef</th><th class="c">Au tableau</th><th class="c">En prêt</th><th class="c">Dispo</th><th class="c">Archivées</th><th>Commentaire</th><th class="c" title="Cylindre posé sur le plan des clefs">Plan</th></tr></thead>
-      <tbody>${L.slice(0,600).map(c=>{const p=E[c.id]||0,d=(+c.stock||0)-p;return `<tr onclick="clEditClef('${c.id}')"><td>${esc(c.espace)}</td><td>${c.acces?`<b>${esc(c.acces)}</b>`:'<span class="hint">(sans désignation)</span>'}</td><td class="clnum">${esc(c.numero)}</td>
+      <span class="sp"></span><button class="btn" onclick="clImpListe()" title="Ajouter une liste de clefs depuis Excel (ex. armoire du PC sécurité)">⬇️ Importer une liste</button><button class="btn pri" onclick="clNewClef()">+ Clef</button></div>
+    <div class="tblwrap"><table class="btbl"><thead><tr><th>Armoire</th><th>Espace</th><th>Accès / local</th><th>N° de clef</th><th class="c">En armoire</th><th class="c">En prêt</th><th class="c">Dispo</th><th class="c">Archivées</th><th>Commentaire</th><th class="c" title="Cylindre posé sur le plan des clefs">Plan</th></tr></thead>
+      <tbody>${L.slice(0,600).map(c=>{const p=E[c.id]||0,d=(+c.stock||0)-p;return `<tr onclick="clEditClef('${c.id}')"><td>${clTag(c)}</td><td>${esc(c.espace)}</td><td>${c.acces?`<b>${esc(c.acces)}</b>`:'<span class="hint">(sans désignation)</span>'}</td><td class="clnum">${esc(c.numero)}${c.crochet?`<small class="hint" style="display:block;margin:0;font-family:system-ui">crochet n° ${esc(c.crochet)}</small>`:''}</td>
         <td class="c">${+c.stock||''}</td><td class="c">${p||''}</td><td class="c ${d<0?'negt':''}"><b>${d}</b></td><td class="c">${+c.reserve||''}</td><td><small>${esc(c.commentaire||'')}</small></td>
         <td class="c">${c.numero?(PL[clK(c.numero)]?`<button class="btn sm" title="Voir sur le plan" onclick="event.stopPropagation();clpGo('${esc(String(c.numero)).replace(/'/g,"\\'")}')">📍</button>`:`<button class="btn sm" style="opacity:.45" title="Pas encore posé : le poser sur le plan" onclick="event.stopPropagation();clpGo('${esc(String(c.numero)).replace(/'/g,"\\'")}')">＋</button>`):''}</td></tr>`}).join('')
-        ||'<tr><td colspan="9" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
-    <p class="hint">« Dispo » = au tableau − en prêt. Touche une ligne pour corriger les quantités (clef refaite, perdue…) et voir qui l'a en ce moment. 📍 = cylindre posé sur le plan des clefs (＋ pour le poser).</p>`;
+        ||'<tr><td colspan="10" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
+    <p class="hint">2 armoires : 🏢 armoire du service Bâtiment et 🛡️ armoire du PC sécurité (clefs prêtées surtout aux entreprises en travaux). Une même clef peut être dans les deux, chacune avec sa quantité. « Dispo » = en armoire − en prêt. Touche une ligne pour corriger les quantités (clef refaite, perdue…) et voir qui l'a en ce moment. 📍 = cylindre posé sur le plan des clefs (＋ pour le poser).</p>`;
+}
+
+/* ----- import d'une liste de clefs dans une armoire (ex. armoire du PC sécurité) : fichier Excel / CSV ou lignes collées ----- */
+let CLI={lieu:'PC sécurité',rows:[]};
+function clImpListe(){
+  CLI={lieu:UI.cl&&UI.cl.il||'PC sécurité',rows:[]};
+  modal(`<h2>Importer une liste de clefs</h2>
+    <div class="fl full"><span>Armoire où sont rangées ces clefs</span><div class="seg-ctl" id="cli_lieu">${CL_LIEUX.map(([k,l])=>`<button type="button" data-l="${k}" class="${CLI.lieu===k?'on':''}" onclick="CLI.lieu='${k}';document.querySelectorAll('#cli_lieu button').forEach(b=>b.classList.toggle('on',b.dataset.l==='${k}'));clImpPrev()">${l}</button>`).join('')}</div></div>
+    <div class="cldrop" style="margin-top:10px">📥 <button class="link" type="button" onclick="$('#clif').value='';$('#clif').click()">Choisis le fichier Excel</button> de la liste, ou colle (Ctrl+V) ici des lignes copiées depuis Excel
+      <input type="file" id="clif" accept=".xlsx,.xlsm,.xls,.csv" hidden onchange="this.files[0]&&clImpFile(this.files[0])"></div>
+    <textarea id="clipaste" rows="3" placeholder="…ou colle les lignes ici" style="width:100%;margin-top:8px" oninput="clImpTxt(this.value)"></textarea>
+    <p class="hint">Le <b>registre des clefs du PCC</b> (n° de crochet, désignation, références des clefs, parties par hall) est reconnu tel quel : une fiche par trousseau, retrouvée sur le plan par chacune de ses références (NHKN, PP…). Sinon, colonnes reconnues par leur titre : <b>Espace</b>, <b>Accès / local</b> (ou Désignation), <b>N° de clef</b>, <b>Quantité</b> (ou Nombre, Stock). Sans ligne de titres : Espace · Accès · N° · Quantité dans cet ordre. Une clef déjà dans cette armoire (même n° et même local) voit sa quantité remplacée ; si seul le n° est donné, l'espace et le local sont repris de l'autre armoire.</p>
+    <div id="cliprev"></div><div class="err" id="ferr"></div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="cligo" disabled>Importer</button></div>`,true);
+  $('#cligo').onclick=clImpSave;
+}
+async function clImpFile(f){
+  try{if(/\.csv$/i.test(f.name)){const t=await f.text(),sep=(t.split('\n')[0].match(/;/g)||[]).length>=(t.split('\n')[0].match(/,/g)||[]).length?';':',';
+      CLI.rows=clImpRows(t.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.split(sep).map(c=>c.replace(/^"|"$/g,''))))}
+    else{await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{cellDates:true});
+      // onglet retenu : celui qui donne le plus de clefs
+      CLI.rows=wb.SheetNames.map(n=>clImpRows(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}))).sort((a,b)=>b.length-a.length)[0]||[]}
+    clImpPrev()}catch(e){toast(e.message,1)}
+}
+function clImpTxt(t){CLI.rows=t.trim()?clImpRows(t.replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>l.split('\t'))):[];clImpPrev()}
+function clImpRows(rows){
+  const COLS=[['crochet',/CROCHET|EMPLACEMENT|^PLACE|^POSITION/],['espace',/^ESPACE|BATIMENT|^HALL|^ZONE/],['acces',/ACCES|LOCAL|DESIGNATION|PORTE|LIBELLE/],['numero',/^N°|^NO\b|^N\s?CLE|NUMERO|CYLINDRE|^REF/],['qte',/QUANTITE|^QTE|NOMBRE|^NB\b|STOCK|TABLEAU|ARMOIRE|DISPO/],['commentaire',/COMMENTAIRE|REMARQUE|OBS/]];
+  let hi=-1,map={};
+  for(let i=0;i<Math.min(rows.length,30);i++){const m={};(rows[i]||[]).forEach((c,j)=>{const t=clXN(c);if(!t)return;const k=(COLS.find(([k,re])=>re.test(t)&&!(k in m))||[])[0];if(k)m[k]=j});
+    if('numero' in m||('acces' in m&&'qte' in m)){hi=i;map=m;break}}
+  if(hi<0)map={espace:0,acces:1,numero:2,qte:3};
+  // colonne sans titre juste avant la désignation, remplie de n° : n° de crochet (registre des clefs du PCC)
+  if(hi>=0&&!('crochet' in map)&&map.acces>0&&!clXV((rows[hi]||[])[map.acces-1])&&rows.slice(hi+1).filter(r=>r&&/^\d{1,4}$/.test(clXV(r[map.acces-1]))).length>=3)map.crochet=map.acces-1;
+  let part='';const out=[],vu=new Set();
+  rows.slice(hi+1).forEach(r=>{r=r||[];const g=k=>k in map?clXV(r[map[k]]):'';
+    let numero=g('numero'),acces=g('acces'),cro=g('crochet');if(numero==='0')numero='';if(cro==='?')cro='';
+    // ligne de titre (« HALL 7 + GALERIE 7 ») : partie du registre, reprise comme espace des clefs qui suivent
+    if(!('espace' in map)&&acces&&!numero&&!cro&&!g('qte')){part=acces;return}
+    if(!numero&&!acces)return;
+    const q=parseInt(g('qte'),10),tr=(acces+' '+numero).match(/(\d+)\s*trousseaux/i);
+    const x={crochet:cro,espace:g('espace')||part,acces,numero,qte:!isNaN(q)?Math.max(0,q):tr?+tr[1]:1,commentaire:g('commentaire')};
+    const k=clXN(x.crochet)+'|'+clXN(x.numero)+'|'+(x.crochet&&x.numero?'':clXN(x.acces));if(vu.has(k))return;vu.add(k); // même trousseau cité dans 2 parties
+    out.push(x)});
+  return out;
+}
+// ligne de la liste → clef existante de l'armoire (même n° et même local, ou même n° seul s'il n'y en a qu'un) ; sinon nouvelle clef, complétée depuis l'autre armoire
+function clImpMatch(x){
+  const N=clK(x.numero),Dd=clXN([x.espace,x.acces].filter(Boolean).join(' - '));
+  const ici=D.Clefs.filter(c=>clLieu(c)===CLI.lieu&&(N?clK(c.numero)===N:clXN(clDes(c))===Dd)&&(!x.crochet||!c.crochet||clXN(c.crochet)===clXN(x.crochet)));
+  const cur=(x.crochet?ici.find(c=>clXN(c.crochet)===clXN(x.crochet)):null)||ici.find(c=>clXN(clDes(c))===Dd)||(!x.acces&&!x.espace&&ici.length===1?ici[0]:null)||(N&&ici.length===1&&!x.acces?ici[0]:null);
+  const ref=!cur&&N&&!x.acces&&!x.espace?D.Clefs.find(c=>clK(c.numero)===N):null;
+  return {cur,ref}}
+function clImpPrev(){
+  const box=$('#cliprev');if(!box)return;const R=CLI.rows;$('#cligo').disabled=!R.length;
+  if(!R.length){box.innerHTML='';return}
+  const M=R.map(clImpMatch),nNew=M.filter(m=>!m.cur).length;
+  box.innerHTML=`<p><b>${R.length}</b> clef${R.length>1?'s':''} lue${R.length>1?'s':''} (${R.reduce((a,x)=>a+x.qte,0)} au total) pour l'armoire <b>${esc(CLI.lieu)}</b> : <b>${nNew}</b> nouvelle${nNew>1?'s':''}, <b>${R.length-nNew}</b> déjà présente${R.length-nNew>1?'s':''} (quantité mise à jour).</p>
+    <div class="tblwrap" style="max-height:260px;overflow:auto"><table class="btbl"><thead><tr><th>Crochet</th><th>Espace</th><th>Accès / local</th><th>N°</th><th class="c">Qté</th><th></th></tr></thead><tbody>${R.slice(0,300).map((x,i)=>{const m=M[i],e=m.ref?m.ref.espace:x.espace,a=m.ref?m.ref.acces:x.acces;
+      return `<tr><td class="c">${esc(x.crochet||'')}</td><td>${esc(e)}</td><td>${esc(a)}</td><td class="clnum">${esc(x.numero)}</td><td class="c"><b>${x.qte}</b>${m.cur?`<small class="hint" style="margin:0"> (avant ${+m.cur.stock||0})</small>`:''}</td><td><small>${m.cur?'mise à jour':'nouvelle'}${m.ref?' · local repris de l\'autre armoire':''}</small></td></tr>`}).join('')}</tbody></table></div>`;
+}
+async function clImpSave(){
+  const R=CLI.rows;if(!R.length)return;const b=$('#cligo'),done=setBusy(b,'Import…');
+  const items=R.map(x=>{const {cur,ref}=clImpMatch(x);
+    if(cur)return {...cur,lieu:CLI.lieu,crochet:x.crochet||cur.crochet||'',stock:String(x.qte),commentaire:x.commentaire||cur.commentaire||''};
+    return {id:'k'+Math.random().toString(16).slice(2,12),lieu:CLI.lieu,crochet:x.crochet||'',espace:ref?ref.espace:x.espace,acces:ref?ref.acces:x.acces,numero:x.numero,stock:String(x.qte),reserve:'0',commentaire:x.commentaire||''}});
+  // même clef deux fois dans la liste : une seule fiche, quantités additionnées
+  const U=new Map();items.forEach(o=>{const k=o.id;if(U.has(k))U.get(k).stock=String((+U.get(k).stock||0)+(+o.stock||0));else U.set(k,o)});
+  try{const out=await api('saveClefs',{items:[...U.values()]});
+    out.forEach(r=>{const i=D.Clefs.findIndex(x=>x.id===r.id);if(i<0)D.Clefs.push(r);else D.Clefs[i]=r});
+    closeModal(true);UI.cl.il=CLI.lieu;toast(out.length+' clefs enregistrées dans l\'armoire '+CLI.lieu+' ✓');render()}
+  catch(e){done();$('#ferr').textContent=e.message}
 }
 
 /* ----- plan des clefs (clefs-plan/) : chargé une fois, gardé d'un onglet à l'autre ; repères dans Firebase (Clefs, kind « plan ») ----- */
@@ -4182,7 +4278,7 @@ function clpWrap(){let w=$('#clefsPlanWrap');if(w)return w;
   w.innerHTML=`<div class="dvbar"><b>🔑 Gestion des clefs</b><div class="seg-ctl" id="clpSeg"></div><span class="hint" id="clpInfo"></span><span class="sp"></span>
     <button class="btn sm" onclick="clpReload()" title="Recharger le plan">🔄</button></div>
     <iframe id="clefsPlanFrame" title="Plan des clefs" allow="fullscreen"></iframe>`;
-  $('#view').after(w);w.querySelector('iframe').src='clefs-plan/?embed=1&v=1';return w}
+  $('#view').after(w);w.querySelector('iframe').src='clefs-plan/?embed=1&v=2';return w}
 function clpReload(){const f=$('#clefsPlanFrame');if(f)f.src='clefs-plan/?embed=1&t='+Date.now()}
 function clpShow(el){
   el.hidden=true;document.querySelectorAll('.appWrap').forEach(x=>x.hidden=true);
@@ -4195,8 +4291,10 @@ function clpShow(el){
 // inventaire de l'appli, par n° de clef, pour le panneau du plan
 function clpInv(){const E=clEnPret(),idx=clNumIdx(),qui={};
   D.ClefsPrets.filter(clOuvert).forEach(p=>{const c=clClefOf(p,idx);const k=c?c.id:'#'+clK(p.numero);(qui[k]=qui[k]||[]).push(p.societe+(clDehors(p)>1?' ×'+clDehors(p):''))});
-  const m={};D.Clefs.forEach(c=>{const k=clK(c.numero);if(!k)return;const pr=E[c.id]||0;
-    (m[k]=m[k]||[]).push({id:c.id,espace:c.espace||'',acces:c.acces||'',stock:+c.stock||0,pret:pr,dispo:(+c.stock||0)-pr,reserve:+c.reserve||0,qui:qui[c.id]||[],com:c.commentaire||''})});
+  const m={},bat={};D.Clefs.forEach(c=>{if(clLieu(c)!=='PC sécurité'&&c.numero)bat[clRef(c.numero)]=clK(c.numero)});
+  D.Clefs.forEach(c=>{const pcs=clLieu(c)==='PC sécurité',K=pcs?[...new Set([clK(c.numero),...clRefs(c).map(r=>bat[r]||r)])].filter(Boolean):[clK(c.numero)].filter(Boolean);if(!K.length)return;const pr=E[c.id]||0;
+    K.forEach(k=>(m[k]=m[k]||[]).push({id:c.id,lieu:clLieu(c),num:c.numero||'',crochet:c.crochet||'',espace:c.espace||'',acces:c.acces||'',stock:+c.stock||0,pret:pr,dispo:(+c.stock||0)-pr,reserve:+c.reserve||0,qui:qui[c.id]||[],com:c.commentaire||''}))});
+  Object.values(m).forEach(L=>L.sort((a,b)=>(a.lieu==='PC sécurité')-(b.lieu==='PC sécurité')));
   return m}
 function clpSend(){const f=$('#clefsPlanFrame');if(!f||!f.contentWindow||!UI.clpReady)return;
   f.contentWindow.postMessage({clefsData:{pins:(D.ClefsPlan||[]).map(p=>({id:p.id,n:p.numero,x:+p.x,y:+p.y,lv:p.niveau||'R0'})),inv:clpInv()}},'*');
@@ -4216,9 +4314,13 @@ window.addEventListener('message',e=>{const f=$('#clefsPlanFrame');if(!f||e.sour
   if(d.clefsReady){UI.clpReady=1;clpSend()}
   if(d.clefsPins&&Array.isArray(d.clefsPins.pins))clpPins(d.clefsPins.op,d.clefsPins.pins);
   if(d.clefsOpen)clEditClef(String(d.clefsOpen));
+  if(d.clefsAddPcs){const c=(clNumIdx()[clK(d.clefsAddPcs)]||[])[0];clNewClef({lieu:'PC sécurité',numero:String(d.clefsAddPcs),espace:c?c.espace||'':'',acces:c?c.acces||'':''})}
   if(d.clefsAdd)clNewClef({numero:String(d.clefsAdd.numero||''),acces:String(d.clefsAdd.acces||'')});
-  if(d.clefsRemise){const n=String(d.clefsRemise),c=(clNumIdx()[clK(n)]||[])[0];
-    clNew({});if(c)clAdd(c.id);else{CL.lines.push({clefId:'',numero:n,designation:'',qte:'1',rendu:'0',libre:1});clLines()}}
+  if(d.clefsRemise){const r=d.clefsRemise,E=clEnPret();
+    // remise depuis une armoire précise (id), sinon l'armoire qui en a de disponibles (Bâtiment d'abord)
+    const L=typeof r==='object'&&r.id?D.Clefs.filter(x=>x.id===String(r.id)):(clNumIdx()[clK(r)]||[]).slice().sort((a,b)=>(((+b.stock||0)-(E[b.id]||0))>0)-(((+a.stock||0)-(E[a.id]||0))>0)||(clLieu(a)==='PC sécurité')-(clLieu(b)==='PC sécurité'));
+    const c=L[0],n=String(typeof r==='object'?(c&&c.numero)||r.numero||'':r);
+    clNew(c?{lieu:clLieu(c)}:{});if(c)clAdd(c.id);else{CL.lines.push({clefId:'',numero:n,designation:'',qte:'1',rendu:'0',libre:1});clLines()}}
 });
 
 /* ----- historique ----- */
@@ -4307,13 +4409,13 @@ async function clExport(){
     suivi('Suivi des remises','SUIVI DE REMISE DES CLEFS',D.ClefsPrets.slice().sort(byD));
     // Onglet « Références » : inventaire du tableau à clefs, en-têtes bleus comme dans le classeur
     const ws=wb.addWorksheet('Références',{views:[{state:'frozen',ySplit:1,showGridLines:false}],pageSetup:{orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:1'}});
-    const RC=[['ESPACE',21,'0070C0'],['ACCES',30,'0070C0'],['N° CLEF',18,'0070C0'],['DESIGNATION',44,'0070C0'],['AU TABLEAU',8,'808080'],['EN PRÊT',8,'FF0000'],['DISPO',8,'000000'],['ARCHIVÉ',8,'FF8021'],['COMMENTAIRE',32,'0070C0']];
+    const RC=[['ESPACE',21,'0070C0'],['ACCES',30,'0070C0'],['N° CLEF',18,'0070C0'],['DESIGNATION',44,'0070C0'],['EN ARMOIRE',8,'808080'],['EN PRÊT',8,'FF0000'],['DISPO',8,'000000'],['ARCHIVÉ',8,'FF8021'],['COMMENTAIRE',32,'0070C0'],['ARMOIRE',14,'0070C0']];
     ws.columns=RC.map(([,w])=>({width:w}));
     const h=ws.getRow(1);h.height=57.6;RC.forEach(([l,,c],i)=>{const x=h.getCell(i+1);x.value=l;x.fill=fill(c);x.font={name:F,size:9,bold:true,color:{argb:'FFFFFFFF'}};x.alignment={horizontal:[0,1,3,8].includes(i)?'left':'center',vertical:'middle',wrapText:true}});
     const C=D.Clefs.slice().sort((a,b)=>String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr'));
     C.forEach((c,j)=>{const st=+c.stock||0,ep=E[c.id]||0,dp=st-ep,r=ws.getRow(2+j);r.height=20.25;
-      [c.espace,c.acces,c.numero,clDes(c),st,ep||null,dp,+c.reserve||null,c.commentaire].forEach((v,i)=>{const x=r.getCell(i+1);x.value=v===''||v==null?null:v;
-        x.alignment={horizontal:[0,1,3,8].includes(i)?'left':'center',vertical:'middle'};x.font={name:F,size:9,bold:[2,4,5,6,7].includes(i),color:i===2||i===5?{argb:'FFFF0000'}:undefined};
+      [c.espace,c.acces,c.numero,clDes(c),st,ep||null,dp,+c.reserve||null,c.commentaire,clLieu(c)].forEach((v,i)=>{const x=r.getCell(i+1);x.value=v===''||v==null?null:v;
+        x.alignment={horizontal:[0,1,3,8,9].includes(i)?'left':'center',vertical:'middle'};x.font={name:F,size:9,bold:[2,4,5,6,7].includes(i),color:i===2||i===5?{argb:'FFFF0000'}:undefined};
         x.border={bottom:{style:'hair',color:{argb:'FFBFBFBF'}}};
         if(i===6&&dp<0){x.fill=fill('FFC7CE');x.font={name:F,size:9,bold:true,color:{argb:'FF9C0006'}}}})});
     ws.autoFilter={from:{row:1,column:1},to:{row:1+Math.max(1,C.length),column:RC.length}};
@@ -4773,6 +4875,7 @@ function demoHandle(a,p){
   if(a==='importDrapeaux'){if(DB.Drapeaux.length)throw new Error("L'inventaire contient déjà des drapeaux : reprise refusée");DB.Drapeaux=p.items.map((x,i)=>({...x,id:Math.random().toString(36).slice(2,10),ordre:String(i+1)}));return {lignes:DB.Drapeaux.length}}
   if(a==='importBudget'){const id=()=>Math.random().toString(36).slice(2,10);p.data.lignes.forEach(l=>{const o={...l,id:id()};delete o.mvts;DB.BudgetLignes.push(o);(l.mvts||[]).forEach(m=>DB.BudgetMvts.push({...m,id:id(),ligneId:o.id,montant:String(m.montant)}))});(p.data.inventaire||[]).forEach(x=>DB.Inventaire.push({...x,id:id()}));(p.data.sap||[]).forEach(x=>DB.SAP.push({...x,id:id()}));return {ok:1}}
   if(a==='importClefs'){if(DB.Clefs.length||DB.ClefsPrets.length)throw new Error('Les clefs sont déjà reprises : reprise refusée');DB.Clefs=p.data.clefs.map(x=>({...x}));DB.ClefsPrets=p.data.prets.map(x=>({...x,datePrepa:x.datePrepa||x.renduLe||'2025-01-01'}));return {clefs:DB.Clefs.length,prets:DB.ClefsPrets.length}}
+  if(a==='saveClefs')return p.items.map(it=>demoHandle('save',{sheet:'Clefs',user:p.user,item:{lieu:'Bâtiment',...it}}));
   if(a==='saveClefsLot')return p.items.map(it=>{const o={...it};if(+o.rendu>0&&!o.renduLe)o.renduLe=today();if(+o.rendu>=+o.qte)o.statut='';if(!o.lot)o.lot=o.id;return demoHandle('save',{sheet:'ClefsPrets',user:p.user,item:o})});
   if(!DB.Projets){DB.Projets=[];DB.ProjetMvts=[]}
   if(!DB.Benchmarks){DB.Benchmarks=[];DB.BenchOffres=[]}

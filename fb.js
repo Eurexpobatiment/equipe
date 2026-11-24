@@ -19,7 +19,7 @@ async function acJeton() {
   if (!acInst) return '';
   try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
 }
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=19';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=20';
 
 let app, auth, db, st, CFG;
 let me = '', meEmail = '', meAcc = null;
@@ -402,6 +402,20 @@ async function saveClefsLot(items) {
   return out.map(x => x[0]);
 }
 
+// Plusieurs clefs de l'inventaire d'un coup (import d'une liste, ex. armoire du PC sécurité), en un seul envoi
+async function saveClefs(items) {
+  if (!Array.isArray(items) || !items.length) throw new Error('Aucune clef');
+  if (items.length > 450) throw new Error('450 clefs au plus par import');
+  const L = D_.Clefs || [];
+  const out = items.map(it => { const cur = it.id ? L.find(x => x.id === String(it.id)) || null : null; return [prepare('Clefs', it, me, cur, L, {}), cur]; });
+  const b = F.writeBatch(db);
+  out.forEach(([o]) => b.set(ref('Clefs', o.id), o));
+  await wrap(b.commit());
+  const n = out.filter(x => !x[1]).length;
+  journal('ajout', 'Clefs', '', n + ' clefs ajoutées, ' + (out.length - n) + ' mises à jour (import ' + (out[0][0].lieu || '') + ')');
+  return out.map(x => x[0]);
+}
+
 // Même interface que l'ancien api(action, p) de l'appli
 export async function api(action, p = {}) {
   switch (action) {
@@ -413,6 +427,7 @@ export async function api(action, p = {}) {
     case 'importBudget': return importBudget(p.data);
     case 'importClefs': return importClefs(p.data);
     case 'saveClefsLot': return saveClefsLot(p.items);
+    case 'saveClefs': return saveClefs(p.items);
     default: throw new Error('Action inconnue : ' + action);
   }
 }

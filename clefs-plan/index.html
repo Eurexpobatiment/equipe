@@ -1101,7 +1101,8 @@ function renderCyl(n){
   const z=document.getElementById('zoomBtn'); if(z) z.onclick=()=>{ setLevel(lvOf(mine[0])); map.flyTo(rc(mine[0].x,mine[0].y), Math.max(map.getZoom(),5)); };
   const a=document.getElementById('armBtn'); if(a) a.onclick=()=>arm(n);
   side.querySelectorAll('[data-inv]').forEach(el=>el.onclick=()=>parent.postMessage({clefsOpen:el.dataset.inv}, '*'));
-  const rb=document.getElementById('remBtn'); if(rb) rb.onclick=()=>parent.postMessage({clefsRemise:n}, '*');
+  side.querySelectorAll('[data-rem]').forEach(el=>el.onclick=()=>parent.postMessage({clefsRemise:{id:el.dataset.rem, numero:n}}, '*'));
+  const pb=document.getElementById('addPcsBtn'); if(pb) pb.onclick=()=>parent.postMessage({clefsAddPcs:n}, '*');
   const ab=document.getElementById('addInvBtn'); if(ab) ab.onclick=()=>parent.postMessage({clefsAdd:{numero:n, acces:label(c)}}, '*');
   document.getElementById('back').onclick=()=>selectCyl(null);
 }
@@ -1331,16 +1332,26 @@ function removePins(test, n){
 function invBlock(c){
   if(!EMBED || !INV) return '';
   const L = INV[nk(c.n)] || [];
+  // passes (clefs de groupe PPG, PP-1…) qui ouvrent aussi ce cylindre : où les trouver
+  const PS = (c.k || []).map(g => ({g, L:INV[nk(String(g).replace(/-/g,''))] || INV[nk(g)] || []})).filter(x => x.L.length);
+  const passes = PS.length ? `<h3 style="margin-top:10px">Passes qui l'ouvrent aussi</h3>` + PS.map(x => `<div style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:6px"><b>${esc(x.g)}</b>`
+    + x.L.map(v => `<div class="sub" style="color:var(--ink);display:flex;gap:6px;align-items:center">${v.lieu === 'PC sécurité' ? '🛡️ PC sécurité' : '🏢 Bâtiment'}${v.crochet ? ' · crochet ' + esc(v.crochet) : ''} · <b style="color:${v.dispo>0?'var(--ok)':'#b42318'}">${v.dispo} dispo</b> / ${v.stock}<span style="flex:1"></span><button class="btn light" data-rem="${esc(v.id)}" style="height:26px">📤</button></div>`).join('') + `</div>`).join('') : '';
   if(!L.length) return `<h3>Inventaire de l'appli</h3><p class="sub">Ce n° n'est pas dans l'inventaire des clefs.</p>
-    <div class="row" style="margin-top:6px"><button class="btn light" id="addInvBtn">+ Ajouter à l'inventaire</button></div>`;
-  return `<h3>Inventaire de l'appli</h3>` + L.map(v => `
-    <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+    <div class="row" style="margin-top:6px"><button class="btn light" id="addInvBtn">+ Ajouter à l'inventaire</button></div>` + passes;
+  // une fiche par armoire : 🏢 armoire du service Bâtiment, 🛡️ armoire du PC sécurité
+  const pcs = v => v.lieu === 'PC sécurité';
+  const tot = k => L.filter(v => (k ? pcs(v) : !pcs(v))).reduce((a, v) => a + Math.max(0, v.dispo), 0);
+  const res = `<div class="sub" style="color:var(--ink);margin:2px 0 8px">Où la trouver : <b>🏢 Bâtiment ${L.some(v=>!pcs(v)) ? tot(0) + ' dispo' : '—'}</b> · <b>🛡️ PC sécurité ${L.some(pcs) ? tot(1) + ' dispo' : '—'}</b></div>`;
+  return `<h3>Inventaire de l'appli</h3>` + res + L.map(v => `
+    <div style="border:1px solid var(--line);border-left:4px solid ${pcs(v)?'#c0392b':'#1d3f7a'};border-radius:8px;padding:8px 10px;margin-bottom:6px">
+      <div style="font-size:12px;font-weight:700;color:${pcs(v)?'#9c1c1c':'#1d3f7a'};text-transform:uppercase;letter-spacing:.03em">${pcs(v)?'🛡️ Armoire PC sécurité':'🏢 Armoire Bâtiment'}</div>
       <div style="font-size:14px;font-weight:600">${esc([v.espace, v.acces].filter(Boolean).join(' – ') || '(sans désignation)')}</div>
-      <div class="stat" style="margin:6px 0"><div><b>${v.stock}</b>au tableau</div><div><b style="color:${v.pret?'var(--warn)':'inherit'}">${v.pret}</b>en prêt</div><div><b style="color:${v.dispo<0?'#b42318':v.dispo>0?'var(--ok)':'inherit'}">${v.dispo}</b>dispo</div>${v.reserve?`<div><b>${v.reserve}</b>archivées</div>`:''}</div>
+      ${pcs(v) ? `<div class="sub" style="color:var(--ink)">${v.crochet ? `<b>Crochet n° ${esc(v.crochet)}</b> · ` : ''}trousseau : ${esc(v.num || '—')}</div>` : ''}
+      <div class="stat" style="margin:6px 0"><div><b>${v.stock}</b>en armoire</div><div><b style="color:${v.pret?'var(--warn)':'inherit'}">${v.pret}</b>en prêt</div><div><b style="color:${v.dispo<0?'#b42318':v.dispo>0?'var(--ok)':'inherit'}">${v.dispo}</b>dispo</div>${v.reserve?`<div><b>${v.reserve}</b>archivées</div>`:''}</div>
       ${v.qui && v.qui.length ? `<div class="sub" style="color:var(--ink)">🔑 Chez : ${v.qui.map(esc).join(' · ')}</div>` : ''}
       ${v.com ? `<div class="sub">${esc(v.com)}</div>` : ''}
-      <div class="row" style="margin-top:6px"><button class="btn light" data-inv="${esc(v.id)}" style="height:30px">Ouvrir la fiche</button></div>
-    </div>`).join('') + `<div class="row" style="margin-top:2px"><button class="btn primary" id="remBtn" style="height:30px">📤 Remettre cette clef…</button></div>`;
+      <div class="row" style="margin-top:6px"><button class="btn light" data-inv="${esc(v.id)}" style="height:30px">Ouvrir la fiche</button><button class="btn primary" data-rem="${esc(v.id)}" style="height:30px">📤 Remettre…</button></div>
+    </div>`).join('') + (L.some(pcs) ? '' : `<div class="row" style="margin-top:2px"><button class="btn light" id="addPcsBtn" style="height:30px">+ Ajouter aussi au PC sécurité</button></div>`) + passes;
 }
 /* numéros ajoutés à l'inventaire de l'appli après la création du plan : acceptés comme « hors NHKN » */
 function mergeInv(){
@@ -1348,6 +1359,7 @@ function mergeInv(){
   for(const k of Object.keys(INV||{})){
     if(!k || CYL[k] || DATA.cyl.some(c=>nk(c.n)===k)) continue;
     const L = INV[k] || [];
+    if(L.every(v => v.lieu === 'PC sécurité')) continue; // références des trousseaux du PCC : seulement sur les cylindres déjà connus
     const c = {n:k, d:'', q:0, k:[], x:1, i:L.map(v=>[v.espace, v.acces].filter(Boolean).join(' – ')).filter(Boolean)};
     if(!c.i.length) delete c.i;
     DATA.cyl.push(c); CYL[k] = c; added++;

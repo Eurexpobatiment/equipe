@@ -20,7 +20,7 @@ export const SCHEMA = {
   Pavoisements: ['id', 'titre', 'lieu', 'dateDebut', 'dateFin', 'statut', 'responsable', 'liste', 'note', 'creeLe', 'majLe', 'majPar'],
   Memos:        ['id', 'type', 'titre', 'niveau', 'texte', 'decisions', 'lieu', 'jusquau', 'epingle', 'statut', 'dateReunion', 'participants',
                  'salon', 'source', 'dateBulletin', 'dateDebut', 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar'],
-  Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
+  Clefs:        ['id', 'lieu', 'crochet', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],  // lieu : armoire où la clef est rangée (Bâtiment ou PC sécurité) · crochet : n° d'emplacement dans l'armoire (registre du PCC)
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
                  'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'retours', 'creeLe', 'majPar'],
   Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar'],
@@ -258,6 +258,8 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       break;
     case 'Clefs':
       if (!o.numero && !o.acces) throw new Error('N° de clef ou accès obligatoire');
+      if (!o.lieu) o.lieu = 'Bâtiment';
+      if (['Bâtiment', 'PC sécurité'].indexOf(o.lieu) < 0) throw new Error('Armoire inconnue : ' + o.lieu);
       o.stock = qte_(o.stock, 'stock'); o.reserve = qte_(o.reserve, 'archivées');
       o.majPar = user;
       break;
@@ -406,7 +408,7 @@ export function summary_(name, o) {
     case 'Inventaire': return (o.designation || '').slice(0, 80) + ' ' + o.montant;
     case 'SAP': return o.societe + ' ' + o.sap;
     case 'Memos': return o.type + ' · ' + o.titre + (o.niveau ? ' · ' + o.niveau : '') + ' · ' + o.statut;
-    case 'Clefs': return (o.numero ? 'n° ' + o.numero + ' ' : '') + o.espace + ' - ' + o.acces + ' · stock ' + o.stock;
+    case 'Clefs': return (o.lieu === 'PC sécurité' ? '[PC sécurité] ' : '') + (o.numero ? 'n° ' + o.numero + ' ' : '') + o.espace + ' - ' + o.acces + ' · stock ' + o.stock;
     case 'ClefsPrets': return o.societe + ' · ' + [o.prenom, o.nom].filter(Boolean).join(' ') + ' · ' + (o.numero || o.designation) + ' · ' + o.rendu + '/' + o.qte + ' rendue(s)' + (o.statut ? ' · ' + o.statut : '');
     case 'Documents': return o.titre + ' · ' + o.categorie + (o.espaces ? ' · ' + o.espaces : '') + ' · ' + o.source;
     case 'Projets': return 'Projet de ' + o.proprio + (o.partage ? ' (partagé)' : '');
