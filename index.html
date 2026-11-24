@@ -3677,6 +3677,11 @@ const clLong=p=>(p.finDemontage||'')==='RAS'; // prêt longue durée (prestatair
 const clRetard=p=>clOuvert(p)&&clFactLe(p)&&today()>=clFactLe(p);
 const clDes=c=>[c.espace,c.acces].filter(Boolean).join(' - ');
 const clNomP=p=>[p.prenom,p.nom].filter(Boolean).join(' ');
+// journal des retours d'une ligne (qui a rendu, quand, combien) : JSON [{le,n,par,rec,at}] ; anciennes lignes sans journal : un retour reconstitué
+function clRetours(p){let R=[];try{R=JSON.parse(p.retours||'[]')}catch(e){R=[]}if(!Array.isArray(R))R=[];
+  if(!R.length&&+p.rendu>0)R=[{le:p.renduLe||'',n:+p.rendu,par:p.renduPar||'',rec:p.recuperePar||'',old:1}];return R}
+// ajoute un retour au journal de la ligne (les retours déjà reconstitués sont gardés)
+const clAddRetour=(p,r)=>JSON.stringify([...clRetours(p).map(({old,...x})=>x),{...r,at:new Date().toISOString().slice(0,16),saisi:me}]);
 const clNumIdx=()=>{const m={};D.Clefs.forEach(c=>{const k=String(c.numero||'').trim().toUpperCase();if(k)(m[k]=m[k]||[]).push(c)});return m};
 // clef de l'inventaire liée à une remise (par son identifiant, sinon par un n° qui n'existe qu'une fois)
 function clClefOf(p,idx){if(p.clefId){const c=D.Clefs.find(x=>x.id===p.clefId);if(c)return c}
@@ -3820,14 +3825,38 @@ function clCarte(g){
       <span class="sp"></span><b class="cln">${g.dehors}</b></div>
     <table class="btbl cltbl"><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}</td>
       <td class="c">${+p.rendu?`${p.rendu}/${p.qte} rendue${+p.rendu>1?'s':''}`:`× ${p.qte}`}</td>
-      <td class="c"><button class="btn sm" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
+      <td class="c" style="white-space:nowrap"><button class="btn sm" onclick="event.stopPropagation();clPartiel('${p.id}')" title="Saisir un retour : qui rend, quand, combien">↩️ Rendu partiel</button> <button class="btn sm" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
     <div class="acts"><button class="btn sm" onclick="clBon('${g.lot}')">🖨️ Bon de remise</button><button class="btn sm" onclick="clEditLot('${g.lot}')">✏️ Modifier / ajouter</button><span class="sp"></span>
       <button class="btn sm pri" onclick="clRendre('${g.lot}')">✅ Retour des clefs…</button></div></div>`;
 }
 function clLigne(id){const p=D.ClefsPrets.find(x=>x.id===id);if(!p)return;clDatalists();
   openForm('ClefsPrets',p,'Clef '+(p.numero||'')+' · '+(p.societe||''),{extra:p.majPar?`<div class="made">Dernière modification par ${esc(p.majPar)}</div>`:''})}
 async function clRenduLigne(id,btn){const p=D.ClefsPrets.find(x=>x.id===id);if(!p)return;const done=setBusy(btn,'…');
-  try{await clSaveLot([{...p,rendu:p.qte,renduLe:today(),recuperePar:me}]);toast('Clef '+(p.numero||'')+' rendue ✓')}catch(e){done();toast(e.message,1)}}
+  try{await clSaveLot([{...p,rendu:p.qte,renduLe:today(),recuperePar:me,retours:clAddRetour(p,{le:today(),n:clDehors(p),par:'',rec:me})}]);toast('Clef '+(p.numero||'')+' rendue ✓')}catch(e){done();toast(e.message,1)}}
+// Rendu partiel d'une ligne : qui rend la clef, quand, combien (gardé dans l'historique des retours)
+function clPartiel(id){const p=D.ClefsPrets.find(x=>x.id===id);if(!p)return;const d=clDehors(p);if(!d)return;
+  const R=clRetours(p);
+  modal(`<h2>↩️ Rendu partiel · ${esc(p.numero||'')} ${esc(p.designation||'')}</h2>
+    <p class="hint" style="margin-top:-8px">${esc(p.societe||'')}${clNomP(p)?' — '+esc(clNomP(p)):''} · ${d} clef${d>1?'s':''} encore dehors sur ${esc(p.qte)}</p>
+    <div class="form">
+      <label class="fl"><span>Combien de clefs rendues</span><input type="number" id="clpn" min="1" max="${d}" inputmode="numeric" value="1"></label>
+      <label class="fl"><span>Rendues le</span><input type="date" id="clple" value="${today()}"></label>
+      <label class="fl full"><span>Rendues par (qui ramène la clef)</span><input id="clpby" autocomplete="off" value="${esc(clNomP(p))}" placeholder="Nom de la personne"></label>
+      ${fieldHtml({k:'clprec',l:'Récupérées par',t:'person'},me)}</div>
+    ${R.length?`<h3 style="margin:14px 0 6px">Retours déjà enregistrés</h3><ul class="hint" style="margin:0;padding-left:18px">${R.map(r=>`<li>${r.le?fD(r.le,{day:'numeric',month:'short',year:'numeric'}):'—'} : ${r.n} clef${r.n>1?'s':''}${r.par?' rendue'+(r.n>1?'s':'')+' par <b>'+esc(r.par)+'</b>':''}${r.rec?' · récupérée'+(r.n>1?'s':'')+' par '+esc(r.rec):''}</li>`).join('')}</ul>`:''}
+    <div class="err" id="ferr"></div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="clpgo">Enregistrer</button></div>`);
+  $('#clpgo').onclick=async()=>{
+    const n=parseInt($('#clpn').value,10)||0,le=$('#clple').value||today(),by=$('#clpby').value.trim(),rec=$('#f_clprec').value;
+    if(n<1)return $('#ferr').textContent='Indique combien de clefs sont rendues';
+    if(n>d)return $('#ferr').textContent=`Seulement ${d} clef${d>1?'s':''} encore dehors`;
+    if(!by)return $('#ferr').textContent='Indique qui rend la clef';
+    const b=$('#clpgo');b.disabled=true;b.textContent='Enregistrement…';
+    try{await clSaveLot([{...p,rendu:String((+p.rendu||0)+n),renduLe:le,renduPar:by,recuperePar:rec,retours:clAddRetour(p,{le,n,par:by,rec})}]);closeModal();
+      toast(n+' clef'+(n>1?'s':'')+' rendue'+(n>1?'s':'')+' par '+by+' ✓')}
+    catch(e){$('#ferr').textContent=e.message;b.disabled=false;b.textContent='Enregistrer'}
+  };
+}
 async function clSaveLot(items){
   const R=await api('saveClefsLot',{items});
   R.forEach(r=>{const i=D.ClefsPrets.findIndex(x=>x.id===r.id);if(i<0)D.ClefsPrets.push(r);else D.ClefsPrets[i]=r});
@@ -3851,7 +3880,7 @@ function clRendre(lot){
     const le=$('#clrle').value||today(),par=$('#f_clrpar').value,by=$('#clrby').value.trim(),items=[];
     for(const p of L){const n=Math.max(0,Math.min(clDehors(p),parseInt($(`.clr[data-id="${p.id}"]`).value,10)||0)),s=$(`.cls[data-id="${p.id}"]`).value;
       if(!n&&!s)continue;const r=(+p.rendu||0)+n;
-      items.push({...p,rendu:String(r),statut:r<+p.qte?s:'',renduLe:n?le:p.renduLe,recuperePar:n?par:p.recuperePar,renduPar:n?by:p.renduPar})}
+      items.push({...p,rendu:String(r),statut:r<+p.qte?s:'',renduLe:n?le:p.renduLe,recuperePar:n?par:p.recuperePar,renduPar:n?by:p.renduPar,...(n?{retours:clAddRetour(p,{le,n,par:by||clNomP(p),rec:par})}:{})})}
     if(!items.length)return $('#ferr').textContent='Rien à enregistrer';
     const b=$('#clrgo');b.disabled=true;b.textContent='Enregistrement…';
     try{await clSaveLot(items);closeModal();const n=items.reduce((a,x)=>a+(+x.rendu-(+L.find(p=>p.id===x.id).rendu||0)),0);toast(n+' clef'+(n>1?'s':'')+' rendue'+(n>1?'s':'')+' ✓')}
@@ -4166,6 +4195,8 @@ window.addEventListener('message',e=>{const f=$('#clefsPlanFrame');if(!f||e.sour
 /* ----- historique ----- */
 function clVueHist(el){
   const st=UI.cl,q=(st.hq||'').toLowerCase();
+  const seg=`<div class="seg-ctl" style="margin-bottom:10px">${[['','📤 Remises'],['ret','↩️ Retours (qui a ramené les clefs)']].map(([k,l])=>`<button class="${(st.hv||'')===k?'on':''}" onclick="UI.cl.hv='${k}';render()">${l}</button>`).join('')}</div>`;
+  if(st.hv==='ret')return clVueRetours(el,seg);
   const ans=[...new Set(D.ClefsPrets.map(p=>(p.datePrepa||'').slice(0,4)).filter(Boolean))].sort().reverse();
   const etat=p=>clOuvert(p)?'Dehors':p.statut||'Rendue';
   const socs=clOpts(D.ClefsPrets.map(p=>p.societe)), pars=clOpts(D.ClefsPrets.map(p=>p.remisPar));
@@ -4174,7 +4205,7 @@ function clVueHist(el){
   const dk=p=>st.htri==='rendu'?(p.renduLe||''):(p.datePrepa||'');
   L.sort((a,b)=>(st.htri==='asc'?dk(a).localeCompare(dk(b)):dk(b).localeCompare(dk(a)))||String(a.societe).localeCompare(String(b.societe),'fr'));
   const col={'Dehors':'#e09a2b','Rendue':'#2a9d5c','Perdue':'#c0392b','Facturée':'#8e5bd1'};
-  el.innerHTML=`<div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°…)" value="${esc(st.hq)}" oninput="UI.cl.hq=this.value;pgRefresh()">
+  el.innerHTML=seg+`<div class="bar chf"><input class="search" type="search" placeholder="Rechercher (société, personne, n°…)" value="${esc(st.hq)}" oninput="UI.cl.hq=this.value;pgRefresh()">
       <select class="sel" onchange="UI.cl.hy=this.value;render()"><option value="">Toutes les années</option>${ans.map(a=>`<option ${a===st.hy?'selected':''}>${a}</option>`).join('')}</select>
       <div class="seg-ctl">${['Tous','Dehors','Rendue','Perdue','Facturée'].map(k=>`<button class="${st.he===k?'on':''}" onclick="UI.cl.he='${k}';render()">${k}</button>`).join('')}</div></div>
     <div class="bar chf"><select class="sel" onchange="UI.cl.hs=this.value;render()"><option value="">Toutes les sociétés / salons</option>${socs.map(x=>`<option ${x===st.hs?'selected':''}>${esc(x)}</option>`).join('')}</select>
@@ -4187,6 +4218,28 @@ function clVueHist(el){
       <td>${p.renduLe?fD(p.renduLe,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td>${p.finDemontage==='RAS'?'Longue durée':p.finDemontage?fD(p.finDemontage,{day:'2-digit',month:'2-digit',year:'2-digit'}):''}</td><td><small>${esc(p.remisPar||'')}</small></td></tr>`}).join('')
       ||'<tr><td colspan="11" class="empty">Aucun résultat.</td></tr>'}</tbody></table></div>
     <p class="hint">${L.length} ligne${L.length>1?'s':''}${L.length>400?' (400 premières affichées : affine la recherche, ou ⬇️ Excel pour tout avoir)':''}.</p>`;
+}
+// Historique des retours : un retour par ligne (qui a ramené les clefs, quand, combien, récupérées par qui)
+function clVueRetours(el,seg){
+  const st=UI.cl,q=(st.hq||'').toLowerCase();
+  const E=[];D.ClefsPrets.forEach(p=>clRetours(p).forEach(r=>E.push({p,r,par:r.par||clNomP(p)})));
+  const ans=[...new Set(E.map(x=>(x.r.le||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const socs=clOpts(E.map(x=>x.p.societe)),pars=clOpts(E.map(x=>x.par));
+  let L=E.filter(x=>(!st.hy||(x.r.le||'').startsWith(st.hy))&&(!st.hs||x.p.societe===st.hs)&&(!st.hr||x.par===st.hr)
+    &&(!q||[x.p.societe,clNomP(x.p),x.par,x.r.rec,x.p.numero,x.p.designation].join(' ').toLowerCase().includes(q)));
+  L.sort((a,b)=>String(b.r.le||'').localeCompare(String(a.r.le||''))||String(b.r.at||'').localeCompare(String(a.r.at||'')));
+  const tot=L.reduce((a,x)=>a+(+x.r.n||0),0);
+  el.innerHTML=seg+`<div class="bar chf"><input class="search" type="search" placeholder="Rechercher (qui a rendu, société, n°…)" value="${esc(st.hq)}" oninput="UI.cl.hq=this.value;pgRefresh()">
+      <select class="sel" onchange="UI.cl.hy=this.value;render()"><option value="">Toutes les années</option>${ans.map(a=>`<option ${a===st.hy?'selected':''}>${a}</option>`).join('')}</select></div>
+    <div class="bar chf"><select class="sel" onchange="UI.cl.hs=this.value;render()"><option value="">Toutes les sociétés / salons</option>${socs.map(x=>`<option ${x===st.hs?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      <select class="sel" onchange="UI.cl.hr=this.value;render()"><option value="">Rendues par : tous</option>${pars.map(x=>`<option ${x===st.hr?'selected':''}>${esc(x)}</option>`).join('')}</select>
+      ${st.hs||st.hr||st.hy||q?`<button class="btn sm" onclick="Object.assign(UI.cl,{hq:'',hy:'',hs:'',hr:''});render()">✕ Effacer les filtres</button>`:''}</div>
+    <div class="tblwrap"><table class="btbl"><thead><tr><th>Rendue le</th><th>Rendue par</th><th class="c">Qté</th><th>N°</th><th>Désignation</th><th>Société / salon</th><th>Récupérée par</th><th class="c">Reste dehors</th></tr></thead>
+    <tbody>${L.slice(0,400).map(x=>`<tr onclick="clLigne('${x.p.id}')"><td>${x.r.le?fD(x.r.le,{day:'2-digit',month:'2-digit',year:'2-digit'}):'—'}</td><td><b>${esc(x.par||'—')}</b></td><td class="c">${+x.r.n||''}</td>
+      <td class="clnum">${esc(x.p.numero||'')}</td><td>${esc(x.p.designation||'')}</td><td>${esc(x.p.societe||'')}${clNomP(x.p)&&clNomP(x.p)!==x.par?`<small class="hint" style="display:block;margin:0">prêt : ${esc(clNomP(x.p))}</small>`:''}</td>
+      <td><small>${esc(x.r.rec||'')}</small></td><td class="c">${clDehors(x.p)||''}</td></tr>`).join('')
+      ||'<tr><td colspan="8" class="empty">Aucun retour.</td></tr>'}</tbody></table></div>
+    <p class="hint">${L.length} retour${L.length>1?'s':''} · ${tot} clef${tot>1?'s':''} rendue${tot>1?'s':''}${L.length>400?' (400 premiers affichés)':''}. Les retours enregistrés avant cette mise à jour apparaissent en une seule fois (date et personne du dernier retour).</p>`;
 }
 async function loadExcelJS(){if(window.ExcelJS)return;toast('Préparation du fichier…');await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';s.onload=res;s.onerror=()=>rej(new Error('Export indisponible (pas de connexion ?)'));document.head.appendChild(s)})}
 // Export Excel des clefs avec le visuel du classeur « CLEFS - Inventaire & suivi » (en-têtes, couleurs S / R, bordures, filtres, volets figés)

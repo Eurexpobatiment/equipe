@@ -22,7 +22,7 @@ export const SCHEMA = {
                  'salon', 'source', 'dateBulletin', 'dateDebut', 'luPar', 'creePar', 'creeLe', 'majLe', 'majPar'],
   Clefs:        ['id', 'espace', 'acces', 'numero', 'stock', 'reserve', 'commentaire', 'majPar'],
   ClefsPrets:   ['id', 'lot', 'societe', 'prenom', 'nom', 'contact', 'clefId', 'numero', 'designation', 'qte', 'rendu', 'statut',
-                 'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'creeLe', 'majPar'],
+                 'remisPar', 'remisA', 'datePrepa', 'retireLe', 'renduLe', 'recuperePar', 'renduPar', 'finDemontage', 'commentaire', 'retours', 'creeLe', 'majPar'],
   Documents:    ['id', 'titre', 'categorie', 'espaces', 'equipement', 'lien', 'apercu', 'source', 'dateDoc', 'version', 'motsCles', 'note', 'creePar', 'creeLe', 'majLe', 'majPar'],
   // Suivi financier de projets : visibles par leur propriétaire (proprio) et les membres avec qui il les partage (partage)
   // + champ acces (liste : propriétaire + partage), ajouté à l'enregistrement, qui sert aux règles Firebase
@@ -121,7 +121,7 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
   if (!user) throw new Error('Connexion nécessaire');
   const o = cur ? Object.assign({}, cur) : {};
   SCHEMA[name].forEach(k => {
-    if (k in item && k !== 'id') o[k] = clean_(item[k], name === 'Memos' && k === 'texte' ? 30000 : k === 'lignes' ? 400000 : LONG_FIELDS.indexOf(k) >= 0 ? 5000 : k === 'scores' || k === 'criteres' ? 2000 : 300);
+    if (k in item && k !== 'id') o[k] = clean_(item[k], name === 'Memos' && k === 'texte' ? 30000 : k === 'lignes' ? 400000 : k === 'retours' ? 20000 : LONG_FIELDS.indexOf(k) >= 0 ? 5000 : k === 'scores' || k === 'criteres' ? 2000 : 300);
   });
   o.id = cur ? cur.id : (item.id && opts.keepId ? String(item.id) : newId());
   const now = now_();
