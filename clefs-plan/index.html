@@ -727,6 +727,13 @@ aside h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(-
 .list li.cur{background:#fdece6;box-shadow:inset 3px 0 0 var(--accent)}
 .lowzoom .pin{font-size:0;padding:0;width:9px;height:9px;border-radius:50%}
 .lowzoom .pin.sel{width:13px;height:13px}
+.pin .cro{display:inline-block;margin-left:4px;padding:1px 3px;border-radius:3px;background:#c0392b;color:#fff;font-size:10px;font-weight:700}
+.pin.closed .cro{background:#7a7a7a}
+.lowzoom .pin .cro,.nocro .pin .cro{display:none}
+.trs{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.trs button{border:1px solid var(--line);background:#fff;border-radius:4px;padding:2px 6px;font-size:12px;font-weight:700;cursor:pointer}
+.trs button.here{background:var(--accent);color:#fff;border-color:var(--accent)}
+.trs button.off{opacity:.55;font-weight:400}
 .leaflet-div-icon{background:none;border:0}
 .leaflet-container{font-family:inherit}
 .editing #map{cursor:crosshair}
@@ -780,6 +787,7 @@ aside h3{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(-
   <div class="ctl"><select id="keySel"><option value="">Toutes les clés</option></select></div>
   <div class="lvseg" id="lvSeg"></div>
   <label class="chk"><input type="checkbox" id="hallChk" checked> Halls</label>
+  <label class="chk" id="croLbl" hidden title="Afficher à côté des cylindres le n° de crochet du trousseau dans l'armoire du PC sécurité"><input type="checkbox" id="croChk" checked> Crochets PC</label>
   <label class="chk" title="Épaisseur des traits du plan quand on zoome">Traits <input type="range" id="lwR" min="0.1" max="1" step="0.05" style="width:80px"></label>
   <div class="grow"></div>
   <span id="prog"></span>
@@ -1001,15 +1009,16 @@ function flash(x, y){ const m = L.marker(rc(x,y), {icon:L.divIcon({className:'',
 map.on('zoomend', setZoomClass); setZoomClass();
 
 /* ---------- état ---------- */
-let editing = false, selKey = '', selCyl = null, selPin = null, armedN = null;
+let editing = false, selKey = '', selCyl = null, selPin = null, armedN = null, selCro = null;
 
 function pinClass(p){
   let cls = 'pin';
-  if(selKey){ const c = CYL[p.n]; cls += opens(c, selKey) ? ' open' : ' closed'; }
+  if(selCro){ cls += croCyls(selCro).has(p.n) ? ' open' : ' closed'; }
+  else if(selKey){ const c = CYL[p.n]; cls += opens(c, selKey) ? ' open' : ' closed'; }
   if(selCyl === p.n) cls += (!selPin || selPin === p.id) ? ' sel' : ' same';
   return cls;
 }
-function iconFor(p){ return L.divIcon({className:'', html:`<span class="${pinClass(p)}">${p.n}</span>`, iconSize:null}); }
+function iconFor(p){ const cr = pinCro(p.n); return L.divIcon({className:'', html:`<span class="${pinClass(p)}">${esc(p.n)}${cr.length?`<i class="cro" title="Crochet PC sécurité">${cr.map(esc).join('·')}</i>`:''}</span>`, iconSize:null}); }
 
 function drawPins(){
   layer.clearLayers();
@@ -1025,7 +1034,7 @@ function drawPins(){
   }
   updateProg();
 }
-function refreshIcons(){ for(const p of pins){ const m = markers[p.id]; if(m){ m.setIcon(iconFor(p)); m.setZIndexOffset(selCyl===p.n?(selPin && selPin!==p.id?900:1000):(selKey && opens(CYL[p.n], selKey)?500:0)); } } }
+function refreshIcons(){ for(const p of pins){ const m = markers[p.id]; if(m){ m.setIcon(iconFor(p)); m.setZIndexOffset(selCyl===p.n?(selPin && selPin!==p.id?900:1000):((selCro ? croCyls(selCro).has(p.n) : selKey && opens(CYL[p.n], selKey))?500:0)); } } }
 
 function placedSet(){ return new Set(pins.map(p=>p.n)); }
 function updateProg(){
@@ -1045,6 +1054,7 @@ function renderHome(){
     <div class="stat"><div><b>${NHKN_N}</b>cylindres NHKN</div><div><b>${EXTRA_N}</b>autres n° (inventaire)</div><div><b>${s.size}</b>posés sur le plan</div></div>
     <div class="help">
       <p><b>Trouver une porte :</b> tape le n° du cylindre en haut, ou clique sur un repère. Le panneau affiche les clés qui l'ouvrent.</p><p><b>Trouver un local :</b> tape son nom (« CTA », « réserve », « 4.20 »…) : le plan zoome dessus. Pratique pour poser les cylindres.</p>
+      ${EMBED ? `<p><b>Trousseaux du PC sécurité :</b> le n° rouge à côté d'un cylindre est son crochet dans l'armoire du PC sécurité. Tape « crochet 12 » pour voir toutes les portes d'un trousseau (utile quand il faut plusieurs clefs pour une porte).</p>` : ''}
       <p><b>Voir ce qu'ouvre une clé :</b> choisis PPG, PP-1, PP-2… dans la liste. Les repères en vert sont ouverts par cette clé, les gris non.</p>
       <p><b>Modifier un cylindre posé :</b> clique dessus puis « ✏️ Modifier » pour corriger son n° ou le déplacer sur le plan.</p>
       <p><b>Poser les cylindres :</b> active « Poser des cylindres », clique sur la porte, puis tape son n°. Les repères se déplacent en les faisant glisser. Pour supprimer un cylindre posé, clique dessus puis « Supprimer » (ou touche Suppr).</p>
@@ -1102,6 +1112,8 @@ function renderCyl(n){
   const a=document.getElementById('armBtn'); if(a) a.onclick=()=>arm(n);
   side.querySelectorAll('[data-inv]').forEach(el=>el.onclick=()=>parent.postMessage({clefsOpen:el.dataset.inv}, '*'));
   side.querySelectorAll('[data-rem]').forEach(el=>el.onclick=()=>parent.postMessage({clefsRemise:{id:el.dataset.rem, numero:n}}, '*'));
+  side.querySelectorAll('[data-trn]').forEach(el=>el.onclick=()=>selectCyl(el.dataset.trn, true));
+  side.querySelectorAll('[data-cro]').forEach(el=>el.onclick=()=>selectCro(el.dataset.cro));
   const pb=document.getElementById('addPcsBtn'); if(pb) pb.onclick=()=>parent.postMessage({clefsAddPcs:n}, '*');
   const ab=document.getElementById('addInvBtn'); if(ab) ab.onclick=()=>parent.postMessage({clefsAdd:{numero:n, acces:label(c)}}, '*');
   document.getElementById('back').onclick=()=>selectCyl(null);
@@ -1126,11 +1138,11 @@ function renderKey(k){
   document.getElementById('clr').onclick=()=>setKey('');
 }
 
-function renderSide(){ searchShown = false; if(selCyl) renderCyl(selCyl); else if(selKey) renderKey(selKey); else renderHome(); }
+function renderSide(){ searchShown = false; if(selCro) renderCro(selCro); else if(selCyl) renderCyl(selCyl); else if(selKey) renderKey(selKey); else renderHome(); }
 
 /* ---------- actions ---------- */
 function setKey(k){
-  selKey = k; document.getElementById('keySel').value = k;
+  selKey = k; if(k) selCro = null; document.getElementById('keySel').value = k;
   refreshIcons();
   if(k && !selCyl){
     const pts = pins.filter(p=>lvOf(p)===LV && opens(CYL[p.n], k)).map(p=>rc(p.x,p.y));
@@ -1139,7 +1151,7 @@ function setKey(k){
   if(selCyl) renderCyl(selCyl); else renderSide();
 }
 function selectCyl(n, fly, pinId){
-  selCyl = n; selPin = (n && pinId) ? pinId : null; refreshIcons(); renderSide();
+  selCro = null; selCyl = n; selPin = (n && pinId) ? pinId : null; refreshIcons(); renderSide();
   if(n && fly){
     let mine = pins.filter(p=>p.n===n);
     if(mine.length && !mine.some(p=>lvOf(p)===LV)) setLevel(lvOf(mine[0]));
@@ -1163,6 +1175,8 @@ function findCyl(v){
 }
 function doSearch(){
   const v = q.value.trim(); if(!v) return;
+  const mc = v.match(/^(?:crochet|cro|c)\s*n?°?\s*(\S+)$/i);
+  if(mc && CRO[nk(mc[1])]){ selectCro(nk(mc[1])); q.blur(); return; }
   const r = findCyl(v);
   if(typeof r === 'string'){ selectCyl(r, true); q.blur(); return; }
   const cyls = Array.isArray(r) ? r : [];
@@ -1346,7 +1360,7 @@ function invBlock(c){
     <div style="border:1px solid var(--line);border-left:4px solid ${pcs(v)?'#c0392b':'#1d3f7a'};border-radius:8px;padding:8px 10px;margin-bottom:6px">
       <div style="font-size:12px;font-weight:700;color:${pcs(v)?'#9c1c1c':'#1d3f7a'};text-transform:uppercase;letter-spacing:.03em">${pcs(v)?'🛡️ Armoire PC sécurité':'🏢 Armoire Bâtiment'}</div>
       <div style="font-size:14px;font-weight:600">${esc([v.espace, v.acces].filter(Boolean).join(' – ') || '(sans désignation)')}</div>
-      ${pcs(v) ? `<div class="sub" style="color:var(--ink)">${v.crochet ? `<b>Crochet n° ${esc(v.crochet)}</b> · ` : ''}trousseau : ${esc(v.num || '—')}</div>` : ''}
+      ${pcs(v) ? `<div class="sub" style="color:var(--ink)">${v.crochet ? `<b>Crochet n° ${esc(v.crochet)}</b> · ` : ''}trousseau : ${esc(v.num || '—')}</div>${trsBlock(v, c.n)}` : ''}
       <div class="stat" style="margin:6px 0"><div><b>${v.stock}</b>en armoire</div><div><b style="color:${v.pret?'var(--warn)':'inherit'}">${v.pret}</b>en prêt</div><div><b style="color:${v.dispo<0?'#b42318':v.dispo>0?'var(--ok)':'inherit'}">${v.dispo}</b>dispo</div>${v.reserve?`<div><b>${v.reserve}</b>archivées</div>`:''}</div>
       ${v.qui && v.qui.length ? `<div class="sub" style="color:var(--ink)">🔑 Chez : ${v.qui.map(esc).join(' · ')}</div>` : ''}
       ${v.com ? `<div class="sub">${esc(v.com)}</div>` : ''}
@@ -1410,6 +1424,61 @@ function mergeInv(){
     if(o) o.textContent = `Hors NHKN – inventaire (${EXTRA_N})`;
   }
 }
+/* ---------- trousseaux de l'armoire du PC sécurité ----------
+   un trousseau (« NHKN 460 + 1057 ») = un crochet de l'armoire ; il peut porter plusieurs clefs pour la même porte.
+   TRS[id fiche] = {v, ns:[n° du plan]} · CRO[n° de crochet] = [id fiche…] */
+let TRS = {}, CRO = {}, PCRO = {};
+const pcsV = v => v.lieu === 'PC sécurité';
+function buildCro(){
+  TRS = {}; CRO = {}; PCRO = {};
+  for(const [k, L] of Object.entries(INV || {})) for(const v of L){
+    if(!pcsV(v)) continue;
+    const n = cylKey(k) || (CYL[k] ? k : null) || (Object.keys(CYL).find(x => nk(x) === k)); if(!n) continue;
+    const t = TRS[v.id] || (TRS[v.id] = {v, ns:[]}); if(!t.ns.includes(n)) t.ns.push(n);
+  }
+  for(const [id, t] of Object.entries(TRS)){
+    t.ns.sort((a,b)=>String(a).localeCompare(String(b),'fr',{numeric:true}));
+    if(t.v.crochet){ const c = nk(t.v.crochet); (CRO[c] = CRO[c] || []).push(id); }
+    for(const n of t.ns) if(t.v.crochet){ const a = PCRO[n] || (PCRO[n] = []); if(!a.includes(t.v.crochet)) a.push(t.v.crochet); }
+  }
+  for(const a of Object.values(PCRO)) a.sort((x,y)=>String(x).localeCompare(String(y),'fr',{numeric:true}));
+}
+const pinCro = n => PCRO[n] || [];
+function croCyls(c){ const s = new Set(); for(const id of CRO[c] || []) for(const n of TRS[id].ns) s.add(n); return s; }
+/* clefs du trousseau, cliquables : celles posées sur le plan en plein, les autres grisées */
+function trsBlock(v, cur){
+  const t = TRS[v.id]; if(!t) return '';
+  const s = placedSet();
+  return `${t.ns.length > 1 ? `<div class="sub" style="color:var(--ink);margin-top:4px">Ce trousseau porte <b>${t.ns.length} clefs</b> :</div>` : ''}
+    <div class="trs">${t.ns.length > 1 ? t.ns.map(n => `<button data-trn="${esc(n)}" class="${n===cur?'here':s.has(n)?'':'off'}" title="${s.has(n)?'Voir sur le plan':'Pas encore posé sur le plan'}">${esc(n)}</button>`).join('') : ''}
+    ${v.crochet ? `<button data-cro="${esc(nk(v.crochet))}" title="Montrer sur le plan toutes les portes de ce crochet">🛡️ Crochet ${esc(v.crochet)} sur le plan</button>` : ''}</div>`;
+}
+function selectCro(c){
+  selCro = c; selCyl = null; selPin = null; selKey = ''; document.getElementById('keySel').value = '';
+  refreshIcons(); renderCro(c);
+  const ns = croCyls(c); let mine = pins.filter(p => ns.has(p.n));
+  if(mine.length && !mine.some(p=>lvOf(p)===LV)) setLevel(lvOf(mine[0]));
+  mine = mine.filter(p=>lvOf(p)===LV);
+  if(mine.length===1) map.flyTo(rc(mine[0].x,mine[0].y), Math.max(map.getZoom(),5));
+  else if(mine.length>1) map.flyToBounds(L.latLngBounds(mine.map(p=>rc(p.x,p.y))).pad(0.4), {maxZoom:5});
+}
+function renderCro(c){
+  const ids = CRO[c] || [], s = placedSet();
+  side.innerHTML = `<p class="sub">🛡️ Armoire PC sécurité</p><h2>Crochet n° ${esc(ids.length ? TRS[ids[0]].v.crochet : c)}</h2>
+    ${ids.map(id => { const {v, ns} = TRS[id]; return `<div style="border:1px solid var(--line);border-left:4px solid #c0392b;border-radius:8px;padding:8px 10px;margin-bottom:6px">
+      <div style="font-size:14px;font-weight:600">${esc([v.espace, v.acces].filter(Boolean).join(' – ') || '(sans désignation)')}</div>
+      <div class="sub" style="color:var(--ink)">trousseau : ${esc(v.num || '—')} · <b style="color:${v.dispo>0?'var(--ok)':'#b42318'}">${v.dispo} dispo</b> / ${v.stock}</div>
+      ${v.qui && v.qui.length ? `<div class="sub" style="color:var(--ink)">🔑 Chez : ${v.qui.map(esc).join(' · ')}</div>` : ''}
+      <h3>Clefs du trousseau (${ns.length})</h3>
+      <ul class="list">${ns.map(n => `<li data-n="${esc(n)}" class="${s.has(n)?'':'unplaced'}"><span class="n">${esc(n)}</span><span class="d">${esc(label(CYL[n]||{}))}</span>${s.has(n)?'':'<span class="tag warn">à poser</span>'}</li>`).join('')}</ul>
+      <div class="row" style="margin-top:6px"><button class="btn light" data-inv="${esc(v.id)}" style="height:30px">Ouvrir la fiche</button><button class="btn primary" data-rem="${esc(v.id)}" style="height:30px">📤 Remettre…</button></div></div>`; }).join('')}
+    <p class="sub">Les portes de ce crochet sont en vert sur le plan.</p>
+    <div class="row"><button class="btn light" id="back">← Retour</button></div>`;
+  side.querySelectorAll('[data-n]').forEach(el=>el.onclick=()=>selectCyl(el.dataset.n, true));
+  side.querySelectorAll('[data-inv]').forEach(el=>el.onclick=()=>parent.postMessage({clefsOpen:el.dataset.inv}, '*'));
+  side.querySelectorAll('[data-rem]').forEach(el=>el.onclick=()=>parent.postMessage({clefsRemise:{id:el.dataset.rem, numero:[...croCyls(c)][0]||''}}, '*'));
+  document.getElementById('back').onclick=()=>{ selCro = null; refreshIcons(); renderSide(); };
+}
 let searchShown = false;
 window.addEventListener('message', e => {
   if(!EMBED || e.source !== parent || !e.data) return;
@@ -1418,6 +1487,7 @@ window.addEventListener('message', e => {
     pins = (d.clefsData.pins || []).map(p => ({id:p.id, n:String(p.n), x:+p.x, y:+p.y, lv:p.lv || 'R0'}));
     INV = fuseInv(d.clefsData.inv || {});
     mergeInv();
+    buildCro();
     drawPins();
     if(!searchShown) renderSide();
   }
@@ -1425,6 +1495,10 @@ window.addEventListener('message', e => {
 });
 if(EMBED){
   document.body.classList.add('embed');
+  const croC = document.getElementById('croChk'); document.getElementById('croLbl').hidden = false;
+  try{ if(localStorage.getItem('planCles.cro') === '0') croC.checked = false; }catch(e){}
+  const croApply = () => document.getElementById('map').classList.toggle('nocro', !croC.checked);
+  croC.onchange = () => { croApply(); try{ localStorage.setItem('planCles.cro', croC.checked ? '1' : '0'); }catch(e){} }; croApply();
   parent.postMessage({clefsReady:1}, '*');
   document.getElementById('prog').title = 'Repères partagés avec toute l\'équipe (enregistrés dans l\'appli)';
 }
