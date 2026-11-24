@@ -1584,12 +1584,12 @@ function layoutLabels(P, o){
   (o.obst || []).forEach(b => add(b));
   const R2 = (H0*4)**2;                                  // les cylindres les plus entourés sont placés d'abord
   const order = P.map(p => [p, P.reduce((n, q) => n + ((q.x-p.x)**2 + (q.y-p.y)**2 < R2), 0)]).sort((a, b) => b[1] - a[1]);
-  const [S1, S2] = o.scales, phases = [[0,S1],[1,S1],[0,S2],[1,S2]];
+  const [S1, S2] = o.scales, phases = o.force ? [[1,S1],[1,S2]] : [[0,S1],[1,S1],[0,S2],[1,S2]];   // force : jamais sur la porte
   for(let k = 2; k <= o.rings; k++) phases.push([k, S1]);
   for(let k = 2; k <= o.rings; k++) phases.push([k, S2]);
   const cand = (p, ring, w, h) => {
     if(!ring) return [[p.x, p.y]];
-    const gp = r + h*0.2, dx = w/2 + gp, dy = h/2 + gp;
+    const gp = r + h*(o.force ? 0.9 : 0.2), dx = w/2 + gp, dy = h/2 + gp;   // force : trait de rappel bien visible
     if(ring === 1) return [[dx,0],[-dx,0],[0,-dy],[0,dy],[dx,-dy],[-dx,-dy],[dx,dy],[-dx,dy]].map(([a,b]) => [p.x+a, p.y+b]);
     const e = (ring-1)*h*1.2, out = [];
     for(let i = 0; i < 16; i++){ const a = i*Math.PI/8; out.push([p.x + (dx+e)*Math.cos(a), p.y + (dy+e)*Math.sin(a)]); }
@@ -1615,7 +1615,7 @@ const pdfCirc = (x, y, r) => { const c = 0.5523*r;
   return `${f1(x+r)} ${f1(y)} m ${f1(x+r)} ${f1(y+c)} ${f1(x+c)} ${f1(y+r)} ${f1(x)} ${f1(y+r)} c ${f1(x-c)} ${f1(y+r)} ${f1(x-r)} ${f1(y+c)} ${f1(x-r)} ${f1(y)} c ${f1(x-r)} ${f1(y-c)} ${f1(x-c)} ${f1(y-r)} ${f1(x)} ${f1(y-r)} c ${f1(x+c)} ${f1(y-r)} ${f1(x+r)} ${f1(y-c)} ${f1(x+r)} ${f1(y)} c h`; };
 
 /* ---------- PDF ---------- */
-async function buildPDF(levels, paper, optPins, optHalls, optSpread, optCro){
+async function buildPDF(levels, paper, optPins, optHalls, optSpread, optCro, optLead){
   const [mmW, mmH] = PAPER[paper], pw = mmW*PT, ph = mmH*PT;
   const u = mmW/420;                                   // 1 en A3, 2,8 en A0
   const m = 10*PT, band = 14*PT*Math.sqrt(u);
@@ -1675,7 +1675,7 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optCro){
       const P = outPins(lv), fillOf = p => p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : p.isCro ? rg(RED) : rg(BR);
       // largeur : partie n° + partie crochet(s) rouge
       const parts = (p, f) => { const a = pinMain(p), c = pinCroTxt(p, optCro), wa = tw(a, f, true) + f*0.7, wc = c ? tw(c, f*0.9, true) + f*0.6 : 0; return {a, c, wa, wc}; };
-      const L = optSpread ? layoutLabels(P, {size: (p, k) => { const z = parts(p, fs*k); return [z.wa + z.wc, fs*k*1.3]; }, dot: fs*0.32, obst: hallB, scales: [1, 0.8], rings: 6}) : null;
+      const L = (optSpread || optLead) ? layoutLabels(P, {size: (p, k) => { const z = parts(p, fs*k); return [z.wa + z.wc, fs*k*1.3]; }, dot: fs*0.32, obst: hallB, scales: [1, 0.8], rings: 6, force: optLead}) : null;
       // traits de rappel et points d'abord, étiquettes par-dessus
       for(const p of P){ const q = L && L.get(p.id); if(!q || !q.lead) continue;
         const [ex, ey] = edgePt(p, q);
@@ -1764,7 +1764,7 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optCro){
 }
 
 /* ---------- DXF (AutoCAD R12, lisible par toutes les versions) ---------- */
-async function buildDXF(levels, optPins, optHalls, optSpread, optCro){
+async function buildDXF(levels, optPins, optHalls, optSpread, optCro, optLead){
   const H = TILES.H, X = v => f2(v), Y = v => f2(H - v);
   const PIN_H = 12;   // hauteur du numéro ; cadre de largeur fixe calée sur le numéro le plus long
   const PIN_W = Math.max(0, ...pins.map(p => tw(pinMain(p), PIN_H/0.72, true))) + PIN_H*0.9, PIN_HH = PIN_H*2;
@@ -1804,7 +1804,7 @@ async function buildDXF(levels, optPins, optHalls, optSpread, optCro){
       const k = selKey ? (selKey === XKEY ? 'HORS_NHKN' : selKey.replace(/[^A-Za-z0-9_-]/g,'_')) : '';
       const P = outPins(lv), CH = PIN_H*0.9, cW = p => { const c = pinCroTxt(p, optCro); return c ? tw(c, CH/0.72, true) + PIN_H*0.8 : 0; };
       const hallB = optHalls ? PLACES.h.map(h => { const w = tw(h.t, 60/0.72); return [h.x-w/2-10, h.y-40, h.x+w/2+10, h.y+40]; }) : [];
-      const L = optSpread ? layoutLabels(P, {size: (p, kk) => [(PIN_W + cW(p))*kk, PIN_HH*kk], dot: PIN_H*0.3, obst: hallB, scales: [1, 0.8], rings: 8}) : null;
+      const L = (optSpread || optLead) ? layoutLabels(P, {size: (p, kk) => [(PIN_W + cW(p))*kk, PIN_HH*kk], dot: PIN_H*0.3, obst: hallB, scales: [1, 0.8], rings: 8, force: optLead}) : null;
       for(const p of P){
         let l = p.st==='o' ? lay(`${lv}_CYLINDRES_${k}_OUVRE`, 3) : p.st==='c' ? lay(`${lv}_CYLINDRES_AUTRES`, 8)
           : p.isCro ? lay(`${lv}_TROUSSEAUX_PC_SECURITE`, 1) : lay(`${lv}_CYLINDRES`, 5);
@@ -1861,6 +1861,7 @@ function outDialog(){
     <div class="fld"><b>Niveaux</b><select id="oLv"><option value="cur">${esc(lvName(LV))} (niveau affiché)</option><option value="all">Tous les niveaux</option></select></div>
     <div class="fld"><label><input type="checkbox" id="oPins" checked> Repères des cylindres</label>
       <label><input type="checkbox" id="oSpread" checked> Écarter les numéros qui se chevauchent</label>
+      <label title="Le numéro est posé à côté de la porte, avec un trait qui la pointe : la porte reste visible sur le plan"><input type="checkbox" id="oLead" checked> Décaler tous les numéros avec un trait vers la porte</label>
       <label><input type="checkbox" id="oCro" ${document.getElementById('croChk').checked ? 'checked' : ''}> N° de crochet du PC sécurité en rouge (comme sur le plan)</label>
       <label><input type="checkbox" id="oHalls" ${document.getElementById('hallChk').checked?'checked':''}> Noms des halls</label></div>
     <p class="sub" id="oNote"></p>
@@ -1870,7 +1871,7 @@ function outDialog(){
     const pdf = dlg.querySelector('[name=ofmt]:checked').value === 'pdf', all = dlg.querySelector('#oLv').value === 'all';
     dlg.querySelector('#oPaperF').style.display = pdf ? '' : 'none';
     dlg.querySelector('#oNote').textContent = (pdf
-      ? (all ? 'Une page par niveau. ' : '') + (dlg.querySelector('#oSpread').checked ? 'Les numéros serrés sont décalés avec un trait de rappel ; s\'il n\'y a vraiment pas la place, une pastille renvoie à une page de renvois. ' : '') + (kf ? `Filtre ${kf} : les cylindres qu'elle ouvre en vert, les autres en gris.` : '')
+      ? (all ? 'Une page par niveau. ' : '') + (dlg.querySelector('#oLead').checked ? 'Chaque numéro est posé à côté de sa porte, relié par un trait. ' : '') + (dlg.querySelector('#oSpread').checked ? 'Les numéros serrés sont décalés avec un trait de rappel ; s\'il n\'y a vraiment pas la place, une pastille renvoie à une page de renvois. ' : '') + (kf ? `Filtre ${kf} : les cylindres qu'elle ouvre en vert, les autres en gris.` : '')
       : `Un calque par niveau (traits, textes, cylindres${kf ? `, avec un calque pour ceux qu'ouvre la ${kf}` : ''} ; ceux restés sans place sur un calque « A_VERIFIER »). Coordonnées en unités du plan : à recaler sur le DWG d'origine si besoin (ALIGN).`);
   };
   dlg.querySelectorAll('input,select').forEach(el => el.onchange = note); note();
@@ -1879,11 +1880,11 @@ function outDialog(){
   dlg.querySelector('#oGo').onclick = async () => {
     const pdf = dlg.querySelector('[name=ofmt]:checked').value === 'pdf';
     const levels = dlg.querySelector('#oLv').value === 'all' ? OUT_ORDER : [LV];
-    const paper = dlg.querySelector('#oPaper').value, oP = dlg.querySelector('#oPins').checked, oH = dlg.querySelector('#oHalls').checked, oS = dlg.querySelector('#oSpread').checked, oA = dlg.querySelector('#oCro').checked;
+    const paper = dlg.querySelector('#oPaper').value, oP = dlg.querySelector('#oPins').checked, oH = dlg.querySelector('#oHalls').checked, oS = dlg.querySelector('#oSpread').checked, oA = dlg.querySelector('#oCro').checked, oL = dlg.querySelector('#oLead').checked;
     const b = dlg.querySelector('#oGo'); b.disabled = true; b.textContent = 'Préparation…';
     await new Promise(r => setTimeout(r, 30));
     try{
-      const blob = pdf ? await buildPDF(levels, paper, oP, oH, oS, oA) : await buildDXF(levels, oP, oH, oS, oA);
+      const blob = pdf ? await buildPDF(levels, paper, oP, oH, oS, oA, oL) : await buildDXF(levels, oP, oH, oS, oA, oL);
       const name = `plan-cles-${levels.length > 1 ? 'tous-niveaux' : lvName(levels[0]).replace(/\s+/g,'')}${selKey ? '-' + (selKey===XKEY?'hors-NHKN':selKey) : ''}${pdf ? '-' + paper : ''}-${new Date().toISOString().slice(0,10)}.${pdf ? 'pdf' : 'dxf'}`;
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 20000);
