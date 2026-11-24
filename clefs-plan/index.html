@@ -1544,19 +1544,13 @@ const pdfTxt = s => '(' + cp1252(s).replace(/[\\()]/g, '\\$&').replace(/\r?\n/g,
 let _mc; function tw(s, size, bold){ _mc = _mc || document.createElement('canvas').getContext('2d'); _mc.font = `${bold?'bold ':''}${size}px Arial, Helvetica, sans-serif`; return _mc.measureText(String(s)).width; }
 
 /* repères d'un niveau, avec leur couleur selon la clé filtrée */
-/* armoire où se trouve la clef : 'b' Bâtiment, 'p' PC sécurité, 'bp' les deux, '' pas dans l'inventaire */
-function armOf(n){
-  const c = CYL[n]; if(c && c.cro) return 'p';                   // repère de trousseau (crochet du PC sécurité)
-  const L = (INV && INV[nk(n)]) || [];
-  const b = L.some(v => !pcsV(v)), s = L.some(pcsV) || pinCro(n).length > 0;
-  return b && s ? 'bp' : b ? 'b' : s ? 'p' : '';
-}
-const ARM_HEX = {b:'#1d3f7a', p:'#c0392b', '':'#6b7280'};          // mêmes couleurs que les fiches armoire de l'appli
-const ARM_TXT = {b:'Clef armoire Bâtiment', p:'Clef armoire PC sécurité', '':'Pas dans l\'inventaire'};
-/* split : une clef présente dans les deux armoires donne deux étiquettes, une bleue (Bâtiment) et une rouge (PC sécurité) */
-function outPins(lv, split){
-  return pins.filter(p=>lvOf(p)===lv).map(p=>({...p, arm: armOf(p.n), st: !selKey ? 'n' : (opens(CYL[p.n], selKey) ? 'o' : 'c')}))
-    .flatMap(p => split && p.arm === 'bp' ? [{...p, arm:'b', id:p.id+'·b'}, {...p, arm:'p', id:p.id+'·p'}] : [p.arm === 'bp' ? {...p, arm:'b'} : p])
+/* même présentation que le plan de l'appli : n° du cylindre sur fond bleu, suivi en rouge du/des
+   n° de crochet du PC sécurité ; un trousseau posé seul (« Crochet 12 ») est une étiquette rouge « PC 12 » */
+const CRO_HEX = '#c0392b';
+const pinMain = p => { const c = CYL[p.n]; return c && c.cro ? 'PC ' + String(c.cro).trim() : String(p.n); };
+const pinCroTxt = (p, on) => { const c = CYL[p.n]; return !on || (c && c.cro) ? '' : pinCro(p.n).join('·'); };
+function outPins(lv){
+  return pins.filter(p=>lvOf(p)===lv).map(p=>({...p, isCro: !!(CYL[p.n] && CYL[p.n].cro), st: !selKey ? 'n' : (opens(CYL[p.n], selKey) ? 'o' : 'c')}))
     .sort((a,b)=>(a.st==='o')-(b.st==='o'));   // ouverts dessinés par-dessus
 }
 /* position de chaque ligne d'un texte du plan (même règle que l'affichage) */
@@ -1621,7 +1615,7 @@ const pdfCirc = (x, y, r) => { const c = 0.5523*r;
   return `${f1(x+r)} ${f1(y)} m ${f1(x+r)} ${f1(y+c)} ${f1(x+c)} ${f1(y+r)} ${f1(x)} ${f1(y+r)} c ${f1(x-c)} ${f1(y+r)} ${f1(x-r)} ${f1(y+c)} ${f1(x-r)} ${f1(y)} c ${f1(x-r)} ${f1(y-c)} ${f1(x-c)} ${f1(y-r)} ${f1(x)} ${f1(y-r)} c ${f1(x+c)} ${f1(y-r)} ${f1(x+r)} ${f1(y-c)} ${f1(x+r)} ${f1(y)} c h`; };
 
 /* ---------- PDF ---------- */
-async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
+async function buildPDF(levels, paper, optPins, optHalls, optSpread, optCro){
   const [mmW, mmH] = PAPER[paper], pw = mmW*PT, ph = mmH*PT;
   const u = mmW/420;                                   // 1 en A3, 2,8 en A0
   const m = 10*PT, band = 14*PT*Math.sqrt(u);
@@ -1633,7 +1627,7 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
   const s = Math.min((pw-2*m)/BW, (ph-2*m-band)/BH);
   const ox = (pw - BW*s)/2 - bx0*s, oy = ph - m - ((ph-2*m-band) - BH*s)/2 + by0*s;   // origine du plan
   const BR = hexRgb(cssv('--brand')||'#0b3d6e'), OK = hexRgb(cssv('--ok')||'#1f9d55');
-  const byArm = optArm && !selKey, AC = {b: hexRgb(ARM_HEX.b), p: hexRgb(ARM_HEX.p), '': hexRgb(ARM_HEX[''])};
+  const RED = hexRgb(CRO_HEX);
   const rg = c => c.map(f2).join(' ');
   const pages = [];
   for(const lv of levels){
@@ -1678,8 +1672,10 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
     const refs = [];
     if(optPins){
       const fs = 3.6*Math.sqrt(u)/s;              // ≈ 3,6 pt en A3, 6 pt en A0
-      const P = outPins(lv, byArm), fillOf = p => p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : byArm ? rg(AC[p.arm]) : rg(BR);
-      const L = optSpread ? layoutLabels(P, {size: (p, k) => [tw(p.n, fs*k, true) + fs*k*0.7, fs*k*1.3], dot: fs*0.32, obst: hallB, scales: [1, 0.8], rings: 6}) : null;
+      const P = outPins(lv), fillOf = p => p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : p.isCro ? rg(RED) : rg(BR);
+      // largeur : partie n° + partie crochet(s) rouge
+      const parts = (p, f) => { const a = pinMain(p), c = pinCroTxt(p, optCro), wa = tw(a, f, true) + f*0.7, wc = c ? tw(c, f*0.9, true) + f*0.6 : 0; return {a, c, wa, wc}; };
+      const L = optSpread ? layoutLabels(P, {size: (p, k) => { const z = parts(p, fs*k); return [z.wa + z.wc, fs*k*1.3]; }, dot: fs*0.32, obst: hallB, scales: [1, 0.8], rings: 6}) : null;
       // traits de rappel et points d'abord, étiquettes par-dessus
       for(const p of P){ const q = L && L.get(p.id); if(!q || !q.lead) continue;
         const [ex, ey] = edgePt(p, q);
@@ -1689,9 +1685,12 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
         const q = L && L.get(p.id);
         if(q && q.ref){ refs.push(p); continue; }
         const k = q ? q.k : 1, f = fs*k, cx = q ? q.cx : p.x, cy = q ? q.cy : p.y;
-        const w = tw(p.n, f, true), pw_ = w + f*0.7, hh = f*1.3, x0 = cx - pw_/2, y0 = cy - hh/2;
-        out.push(`${fillOf(p)} rg 1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re B`);
-        out.push(`BT 1 1 1 rg /F2 ${f2(f)} Tf 1 0 0 -1 ${f1(cx-w/2)} ${f1(cy+f*0.36)} Tm ${pdfTxt(p.n)} Tj ET`);
+        const z = parts(p, f), pw_ = z.wa + z.wc, hh = f*1.3, x0 = cx - pw_/2, y0 = cy - hh/2;
+        out.push(`${fillOf(p)} rg ${f1(x0)} ${f1(y0)} ${f1(z.wa)} ${f1(hh)} re f`);
+        if(z.wc) out.push(`${p.st==='c' ? '0.48 0.48 0.48' : rg(RED)} rg ${f1(x0+z.wa)} ${f1(y0)} ${f1(z.wc)} ${f1(hh)} re f`);
+        out.push(`1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re S`);
+        out.push(`BT 1 1 1 rg /F2 ${f2(f)} Tf 1 0 0 -1 ${f1(x0+f*0.35)} ${f1(cy+f*0.36)} Tm ${pdfTxt(z.a)} Tj ET`);
+        if(z.wc) out.push(`BT 1 1 1 rg /F2 ${f2(f*0.9)} Tf 1 0 0 -1 ${f1(x0+z.wa+f*0.3)} ${f1(cy+f*0.33)} Tm ${pdfTxt(z.c)} Tj ET`);
       }
       // renvois : pastille numérotée sur le cylindre, détail en page suivante
       refs.forEach((p, i) => { const t = String(i+1), f = fs*0.85, w = tw(t, f, true), rr = Math.max(fs*0.6, w/2 + fs*0.25);
@@ -1707,10 +1706,9 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
     out.push(`BT ${rg(BR)} rg /F2 ${f2(tf)} Tf ${f2(m)} ${f2(by+sf*0.9)} Td ${pdfTxt('EUREXPO LYON  ·  Plan des clés  ·  ' + lvName(lv))} Tj ET`);
     out.push(`BT 0.35 0.38 0.43 rg /F1 ${f2(sf)} Tf ${f2(m)} ${f2(by-sf*0.6)} Td ${pdfTxt(`Plan de fermeture NHKN  ·  ${n} repère${n>1?'s':''} posé${n>1?'s':''}  ·  extrait le ${new Date().toLocaleDateString('fr-FR')}  ·  format ${paper}${refs.length ? `  ·  ${refs.length} renvoi${refs.length>1?'s':''} (pastilles) : voir page suivante` : ''}`)} Tj ET`);
     if(optPins){
-      const present = new Set(outPins(lv, true).map(p => p.arm));
-      const lg = selKey ? [[OK, kf + ' : ouvre'], [[0.79,0.8,0.84], 'n\'ouvre pas']]
-        : byArm ? ['b', 'p', ''].filter(a => present.has(a)).map(a => [AC[a], ARM_TXT[a]])
-        : [[BR, 'Cylindre (n° de clé)']];
+      const anyCro = outPins(lv).some(p => p.isCro || pinCroTxt(p, optCro));
+      const lg = (selKey ? [[OK, kf + ' : ouvre'], [[0.79,0.8,0.84], 'n\'ouvre pas']] : [[BR, 'N° de clé (cylindre)']])
+        .concat(anyCro ? [[RED, 'N° de crochet – armoire PC sécurité']] : []);
       let lx = pw - m;
       const items = lg.map(([c, t]) => ({c, t, w: tw(t, sf) + sf*2.2})).reverse();
       for(const it of items){ lx -= it.w + sf;
@@ -1766,10 +1764,10 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
 }
 
 /* ---------- DXF (AutoCAD R12, lisible par toutes les versions) ---------- */
-async function buildDXF(levels, optPins, optHalls, optSpread, optArm){
+async function buildDXF(levels, optPins, optHalls, optSpread, optCro){
   const H = TILES.H, X = v => f2(v), Y = v => f2(H - v);
   const PIN_H = 12;   // hauteur du numéro ; cadre de largeur fixe calée sur le numéro le plus long
-  const PIN_W = Math.max(0, ...pins.map(p => tw(String(p.n), PIN_H/0.72, true))) + PIN_H*0.9, PIN_HH = PIN_H*2;
+  const PIN_W = Math.max(0, ...pins.map(p => tw(pinMain(p), PIN_H/0.72, true))) + PIN_H*0.9, PIN_HH = PIN_H*2;
   const layers = new Map([['0', 7]]);   // nom -> couleur ACI (calque 0 : contenu du bloc)
   const lay = (n, c) => { if(!layers.has(n)) layers.set(n, c); return n; };
   const E = [];
@@ -1804,13 +1802,12 @@ async function buildDXF(levels, optPins, optHalls, optSpread, optArm){
     if(optHalls){ const hl = lay(`${lv}_HALLS`, 5); for(const h of PLACES.h) text(hl, h.x, h.y, 60, h.t, 0, 1, 2); }
     if(optPins){
       const k = selKey ? (selKey === XKEY ? 'HORS_NHKN' : selKey.replace(/[^A-Za-z0-9_-]/g,'_')) : '';
-      const P = outPins(lv, optArm && !selKey);
+      const P = outPins(lv), CH = PIN_H*0.9, cW = p => { const c = pinCroTxt(p, optCro); return c ? tw(c, CH/0.72, true) + PIN_H*0.8 : 0; };
       const hallB = optHalls ? PLACES.h.map(h => { const w = tw(h.t, 60/0.72); return [h.x-w/2-10, h.y-40, h.x+w/2+10, h.y+40]; }) : [];
-      const L = optSpread ? layoutLabels(P, {size: (p, kk) => [PIN_W*kk, PIN_HH*kk], dot: PIN_H*0.3, obst: hallB, scales: [1, 0.8], rings: 8}) : null;
+      const L = optSpread ? layoutLabels(P, {size: (p, kk) => [(PIN_W + cW(p))*kk, PIN_HH*kk], dot: PIN_H*0.3, obst: hallB, scales: [1, 0.8], rings: 8}) : null;
       for(const p of P){
         let l = p.st==='o' ? lay(`${lv}_CYLINDRES_${k}_OUVRE`, 3) : p.st==='c' ? lay(`${lv}_CYLINDRES_AUTRES`, 8)
-          : optArm ? lay(`${lv}_CYLINDRES_${{b:'BATIMENT', p:'PC_SECURITE', '':'HORS_INVENTAIRE'}[p.arm]}`, {b:5, p:1, '':8}[p.arm])
-          : lay(`${lv}_CYLINDRES`, 1);
+          : p.isCro ? lay(`${lv}_TROUSSEAUX_PC_SECURITE`, 1) : lay(`${lv}_CYLINDRES`, 5);
         const q = L && L.get(p.id);
         let cx = p.x, cy = p.y, kk = 1;
         if(q && q.ref){ l = lay(`${lv}_CYLINDRES_A_VERIFIER`, 6); kk = 0.8; }      // pas de place : à déplacer à la main
@@ -1818,15 +1815,20 @@ async function buildDXF(levels, optPins, optHalls, optSpread, optArm){
           if(q.lead){ const [ex, ey] = edgePt(p, q);
             E.push(`0\nLINE\n8\n${l}\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n11\n${X(ex)}\n21\n${Y(ey)}\n31\n0\n`);
             E.push(`0\nCIRCLE\n8\n${l}\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n40\n${f2(PIN_H*0.3)}\n`); } }
+        // n° de crochet du PC sécurité, en rouge à droite du cadre (calque à part)
+        const cw = cW(p) * kk; if(cw){ const bx = cx - cw/2 + PIN_W*kk/2 + PIN_H*0.4*kk;
+          text(lay(`${lv}_CROCHETS_PC_SECURITE`, 1), bx, cy, CH*kk, pinCroTxt(p, optCro), 0, 0, 2); }
+        cx -= cw/2;
         // une étiquette = un bloc CYLINDRE (cadre + attribut NUM), posé sur le calque du cylindre
         E.push(`0\nINSERT\n8\n${l}\n66\n1\n2\nCYLINDRE\n10\n${X(cx)}\n20\n${Y(cy)}\n30\n0\n` + (kk !== 1 ? `41\n${f2(kk)}\n42\n${f2(kk)}\n43\n${f2(kk)}\n` : '')
-          + `0\nATTRIB\n8\n${l}\n10\n${X(cx)}\n20\n${Y(cy)}\n30\n0\n40\n${f2(PIN_H*kk)}\n1\n${cp1252(String(p.n)).replace(/\r?\n/g,' ')}\n2\nNUM\n70\n0\n72\n1\n74\n2\n11\n${X(cx)}\n21\n${Y(cy)}\n31\n0\n`
+          + `0\nATTRIB\n8\n${l}\n10\n${X(cx)}\n20\n${Y(cy)}\n30\n0\n40\n${f2(PIN_H*kk)}\n1\n${cp1252(pinMain(p)).replace(/\r?\n/g,' ')}\n2\nNUM\n70\n0\n72\n1\n74\n2\n11\n${X(cx)}\n21\n${Y(cy)}\n31\n0\n`
           + `0\nSEQEND\n8\n${l}\n`);
       }
     }
   }
-  const head = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$DWGCODEPAGE\n3\nANSI_1252\n9\n$INSBASE\n10\n0\n20\n0\n30\n0\n9\n$EXTMIN\n10\n0\n20\n0\n30\n0\n9\n$EXTMAX\n10\n${TILES.W}\n20\n${TILES.H}\n30\n0\n0\nENDSEC\n`
+  const head = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n9\n$DWGCODEPAGE\n3\nANSI_1252\n9\n$INSBASE\n10\n0\n20\n0\n30\n0\n9\n$EXTMIN\n10\n0\n20\n0\n30\n0\n9\n$EXTMAX\n10\n${TILES.W}\n20\n${TILES.H}\n30\n0\n9\n$LIMMIN\n10\n0\n20\n0\n9\n$LIMMAX\n10\n${TILES.W}\n20\n${TILES.H}\n9\n$VIEWCTR\n10\n${f2(TILES.W/2)}\n20\n${f2(TILES.H/2)}\n9\n$VIEWSIZE\n40\n${f2(TILES.H*1.05)}\n0\nENDSEC\n`
     + `0\nSECTION\n2\nTABLES\n`
+    + `0\nTABLE\n2\nVPORT\n70\n1\n0\nVPORT\n2\n*ACTIVE\n70\n0\n10\n0\n20\n0\n11\n1\n21\n1\n12\n${f2(TILES.W/2)}\n22\n${f2(TILES.H/2)}\n13\n0\n23\n0\n14\n10\n24\n10\n15\n10\n25\n10\n16\n0\n26\n0\n36\n1\n17\n0\n27\n0\n37\n0\n40\n${f2(TILES.H*1.05)}\n41\n${f2(TILES.W/TILES.H)}\n42\n50\n43\n0\n44\n0\n50\n0\n51\n0\n71\n0\n72\n100\n73\n1\n74\n3\n75\n0\n76\n0\n77\n0\n78\n0\n0\nENDTAB\n`
     + `0\nTABLE\n2\nLTYPE\n70\n1\n0\nLTYPE\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n0\nENDTAB\n`
     + `0\nTABLE\n2\nLAYER\n70\n${layers.size}\n` + [...layers].map(([n,c])=>`0\nLAYER\n2\n${n}\n70\n0\n62\n${c}\n6\nCONTINUOUS\n`).join('') + `0\nENDTAB\n`
     + `0\nTABLE\n2\nSTYLE\n70\n1\n0\nSTYLE\n2\nSTANDARD\n70\n0\n40\n0.0\n41\n1.0\n50\n0.0\n71\n0\n42\n2.5\n3\narial.ttf\n4\n\n0\nENDTAB\n`
@@ -1859,7 +1861,7 @@ function outDialog(){
     <div class="fld"><b>Niveaux</b><select id="oLv"><option value="cur">${esc(lvName(LV))} (niveau affiché)</option><option value="all">Tous les niveaux</option></select></div>
     <div class="fld"><label><input type="checkbox" id="oPins" checked> Repères des cylindres</label>
       <label><input type="checkbox" id="oSpread" checked> Écarter les numéros qui se chevauchent</label>
-      <label ${INV ? '' : 'hidden'}><input type="checkbox" id="oArm" ${INV ? 'checked' : ''}> Couleur selon l'armoire : <b style="color:${ARM_HEX.b}">Bâtiment</b> / <b style="color:${ARM_HEX.p}">PC sécurité</b></label>
+      <label><input type="checkbox" id="oCro" ${document.getElementById('croChk').checked ? 'checked' : ''}> N° de crochet du PC sécurité en rouge (comme sur le plan)</label>
       <label><input type="checkbox" id="oHalls" ${document.getElementById('hallChk').checked?'checked':''}> Noms des halls</label></div>
     <p class="sub" id="oNote"></p>
     <div class="row" style="justify-content:flex-end"><button class="btn light" id="oCancel">Annuler</button><button class="btn primary" id="oGo">Télécharger</button></div>
@@ -1868,7 +1870,7 @@ function outDialog(){
     const pdf = dlg.querySelector('[name=ofmt]:checked').value === 'pdf', all = dlg.querySelector('#oLv').value === 'all';
     dlg.querySelector('#oPaperF').style.display = pdf ? '' : 'none';
     dlg.querySelector('#oNote').textContent = (pdf
-      ? (all ? 'Une page par niveau. ' : '') + (kf && dlg.querySelector('#oArm').checked ? 'Avec le filtre de clé, les couleurs vert/gris du filtre remplacent celles des armoires. ' : '') + (dlg.querySelector('#oSpread').checked ? 'Les numéros serrés sont décalés avec un trait de rappel ; s\'il n\'y a vraiment pas la place, une pastille renvoie à une page de renvois. ' : '') + (kf ? `Filtre ${kf} : les cylindres qu'elle ouvre en vert, les autres en gris.` : '')
+      ? (all ? 'Une page par niveau. ' : '') + (dlg.querySelector('#oSpread').checked ? 'Les numéros serrés sont décalés avec un trait de rappel ; s\'il n\'y a vraiment pas la place, une pastille renvoie à une page de renvois. ' : '') + (kf ? `Filtre ${kf} : les cylindres qu'elle ouvre en vert, les autres en gris.` : '')
       : `Un calque par niveau (traits, textes, cylindres${kf ? `, avec un calque pour ceux qu'ouvre la ${kf}` : ''} ; ceux restés sans place sur un calque « A_VERIFIER »). Coordonnées en unités du plan : à recaler sur le DWG d'origine si besoin (ALIGN).`);
   };
   dlg.querySelectorAll('input,select').forEach(el => el.onchange = note); note();
@@ -1877,7 +1879,7 @@ function outDialog(){
   dlg.querySelector('#oGo').onclick = async () => {
     const pdf = dlg.querySelector('[name=ofmt]:checked').value === 'pdf';
     const levels = dlg.querySelector('#oLv').value === 'all' ? OUT_ORDER : [LV];
-    const paper = dlg.querySelector('#oPaper').value, oP = dlg.querySelector('#oPins').checked, oH = dlg.querySelector('#oHalls').checked, oS = dlg.querySelector('#oSpread').checked, oA = dlg.querySelector('#oArm').checked;
+    const paper = dlg.querySelector('#oPaper').value, oP = dlg.querySelector('#oPins').checked, oH = dlg.querySelector('#oHalls').checked, oS = dlg.querySelector('#oSpread').checked, oA = dlg.querySelector('#oCro').checked;
     const b = dlg.querySelector('#oGo'); b.disabled = true; b.textContent = 'Préparation…';
     await new Promise(r => setTimeout(r, 30));
     try{
