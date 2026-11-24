@@ -401,7 +401,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .cltbl{min-width:0}.cltbl td{padding:6px 8px}.cltbl .c,.btbl th.c,.btbl td.c{text-align:center}
 .clrend{display:block;margin-top:2px;font-size:12px;color:#1f7a4d}.clrend b{font-weight:600}
 .clpret{width:100%;table-layout:fixed}.clpret .cpn{width:130px}.clpret .cpq{width:100px}.clpret .cpa{width:230px}
-.clpret .clnum{white-space:normal;overflow-wrap:anywhere}.clpret .clact{white-space:nowrap;text-align:right}
+.clpret .clnum{white-space:normal;overflow-wrap:anywhere}.clpret .clact{white-space:nowrap;text-align:right}.clpret .clact .clrd{min-width:96px;justify-content:center;text-align:center}
 @media(max-width:700px){.clpret{table-layout:auto}.clpret col{width:auto!important}.clpret .clact{white-space:normal}.clpret .clact .btn{margin:2px 0}}
 .clnum{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;white-space:nowrap}
 .clcard .acts{margin-top:8px}
@@ -3859,9 +3859,9 @@ function clCarte(g){
       <span class="sp"></span><b class="cln">${g.dehors}</b></div>
     <table class="btbl cltbl clpret"><colgroup><col class="cpn"><col><col class="cpq"><col class="cpa"></colgroup><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}${clDejaRendues(p)}</td>
       <td class="c">${+p.rendu?`<b>${clDehors(p)}</b> dehors<small style="display:block;color:var(--muted)">${p.rendu}/${p.qte} rendue${+p.rendu>1?'s':''}</small>`:`× ${p.qte}`}</td>
-      <td class="clact"><button class="btn sm" onclick="event.stopPropagation();clPartiel('${p.id}')" title="Saisir un retour : qui rend, quand, combien">↩️ Rendu partiel</button> <button class="btn sm" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
+      <td class="clact"><button class="btn sm" onclick="event.stopPropagation();clPartiel('${p.id}')" title="Saisir un retour : qui rend, quand, combien">↩️ Rendu partiel</button> <button class="btn sm clrd" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
     <div class="acts"><button class="btn sm" onclick="clBon('${g.lot}')">🖨️ Bon de remise</button><button class="btn sm" onclick="clEditLot('${g.lot}')">✏️ Modifier / ajouter</button><span class="sp"></span>
-      <button class="btn sm pri" onclick="clRendre('${g.lot}')">✅ Retour des clefs…</button></div></div>`;
+      <button class="btn sm pri" onclick="clRendre('${g.lot}')">✅ RETOUR TOTAL DES CLEFS</button></div></div>`;
 }
 function clLigne(id){const p=D.ClefsPrets.find(x=>x.id===id);if(!p)return;clDatalists();
   const R=clRetours(p);
@@ -4133,7 +4133,7 @@ function clBon(lot){
   const f=h.finDemontage, fact=clFactLe(h);
   const w=window.open('','_blank');if(!w)return toast('Fenêtre bloquée par le navigateur : autorise les fenêtres pour ce site',1);
   w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bon de remise de clefs - ${esc(h.societe)}</title>
-  <style>body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:14px}h1{font-size:20px;margin:0 0 4px}.top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14213d;padding-bottom:10px;margin-bottom:16px}
+  <style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:14px}@media print{body{margin:0}}h1{font-size:20px;margin:0 0 4px}.top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14213d;padding-bottom:10px;margin-bottom:16px}
   .top img{height:44px}table{width:100%;border-collapse:collapse;margin:14px 0}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#eef1f6}td.c,th.c{text-align:center;width:70px}
   .g{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px}.sig div{border:1px solid #999;height:90px;padding:6px}
   .note{font-size:12px;color:#444;margin-top:12px}@media print{button{display:none}}</style></head><body>
