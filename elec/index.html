@@ -92,7 +92,7 @@ mark{background:#fff1a8;color:inherit;border-radius:3px;padding:0 1px}
 .zchip.on{background:var(--green);color:#fff;border-color:var(--green)}.zchip.on small{color:#cfe5d9}
 .tchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px}.tchips .tl{font:600 12px Inter,sans-serif;color:var(--muted);margin-right:2px}
 .tchip{border:1px solid #e3c3c0;background:#fff;border-radius:999px;padding:5px 11px;cursor:pointer;font:600 12.5px Inter,sans-serif;color:#b42318}.tchip:hover{border-color:#b42318}.tchip small{font-weight:500;opacity:.75;margin-left:4px}
-.tchip.on{background:#b42318;color:#fff;border-color:#b42318}.tchips .tren{margin-left:auto;padding:5px 10px;font-size:12.5px}
+.tchip.on{background:#b42318;color:#fff;border-color:#b42318}.tchips .tren{margin-left:auto}.tchips .tren .btn{padding:5px 10px;font-size:12.5px}
 .otbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
 .otbar input{flex:1;min-width:220px;font:500 14px Inter,sans-serif;padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;outline:none}
 .otbar input:focus{border-color:var(--green)}
@@ -1228,7 +1228,7 @@ function drawSchema(focus,toHit){
   if(TGS&&!TGL.some(x=>x.id===TGS))TGS='';
   lsSet('elecTgbt',TGS);
   $('tChips').innerHTML=TGL.length>1?`<span class="tl">TGBT :</span><button class="tchip${TGS?'':' on'}" data-t="">Tous</button>`+TGL.map(t=>`<button class="tchip${t.id===TGS?' on':''}" data-t="${esc(t.id)}" title="${esc([t.r,t.l,t.c].filter(Boolean).join(' · '))}">${esc(t.l)}<small>${desc(t).length}</small></button>`).join(''):'';
-  if(ROLE==='bat'&&TGL.length)$('tChips').innerHTML=($('tChips').innerHTML||'<span class="tl">TGBT :</span>')+'<button class="btn tren" id="tgRen" title="Modifier les noms des TGBT de cette zone">✏️ Renommer les TGBT</button>';
+  if(ROLE==='bat')$('tChips').innerHTML=($('tChips').innerHTML||(TGL.length?'<span class="tl">TGBT :</span>':''))+'<span class="tren" style="display:flex;gap:6px"><button class="btn" id="zRen" title="Modifier le nom de cette zone">✏️ Renommer la zone</button>'+(TGL.length?'<button class="btn" id="tgRen" title="Modifier les noms des TGBT de cette zone">✏️ Renommer les TGBT</button>':'')+'</span>';
   const root=TGS?N.get(TGS):N.get('F:'+ZONE),CNT=new Map(),cnt=n=>{if(CNT.has(n.id))return CNT.get(n.id);let c=0;kids(n).forEach(k=>c+=1+cnt(k));CNT.set(n.id,c);return c};
   const toks=norm($('otQ').value.trim()).split(/\s+/).filter(Boolean),HIT=new Set(),OPEN=new Set(EXP);
   if(toks.length)desc(root).forEach(n=>{if(toks.every(t=>(n._own||'').includes(t))){HIT.add(n.id);anc(n).slice(0,-1).forEach(a=>OPEN.add(a.id))}});
@@ -1257,7 +1257,7 @@ function tgRename(){
     return mutate([fid],Z=>{ch.forEach(t=>{const x=Z[fid].find(y=>y.id===t.id);if(x)x.l=clean(o[t.id],400)})},'TGBT renommé'+(ch.length>1?'s':''),ch.map(t=>t.l+' → '+clean(o[t.id],400)).join(' ; '))});
   m.querySelector('.frm').insertAdjacentHTML('beforebegin','<div class="muted" style="margin-bottom:8px">Nom affiché pour chaque TGBT (schéma, liste, recherche, plan). Les noms abrégés et repères ne changent pas.</div>');
 }
-$('tChips').addEventListener('click',e=>{if(e.target.closest('#tgRen'))return tgRename();const b=e.target.closest('.tchip');if(!b)return;TGS=b.dataset.t;
+$('tChips').addEventListener('click',e=>{if(e.target.closest('#zRen'))return zoneAction('ren',ZONE);if(e.target.closest('#tgRen'))return tgRename();const b=e.target.closest('.tchip');if(!b)return;TGS=b.dataset.t;
   if(TGS){const t=N.get(TGS);EXP.add(TGS);CLOSED.delete(TGS);kids(t).forEach(k=>{if(kids(k).length&&!CLOSED.has(k.id))EXP.add(k.id)})}
   $('otWrap').scrollTo(0,0);drawSchema()});
 let otT;$('otQ').addEventListener('input',()=>{clearTimeout(otT);otT=setTimeout(()=>{CLOSED.clear();drawSchema(false,true)},150)});
