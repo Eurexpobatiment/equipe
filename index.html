@@ -4180,6 +4180,8 @@ function clVueInv(el){
   const A=D.Clefs.filter(c=>!st.il||clLieu(c)===st.il), nL=k=>D.Clefs.filter(c=>clLieu(c)===k).length;
   let L=A.filter(c=>(!st.ie||c.espace===st.ie)&&(!q||(c.numero+' '+clDes(c)+' '+(c.commentaire||'')+' '+(c.crochet?'crochet '+c.crochet:'')+' '+clRefs(c).join(' ')).toLowerCase().includes(q))&&(!st.ip||E[c.id]));
   L.sort((a,b)=>(!a.espace&&!a.acces)-(!b.espace&&!b.acces)||String(a.espace).localeCompare(String(b.espace),'fr')||String(a.acces).localeCompare(String(b.acces),'fr')||String(a.numero).localeCompare(String(b.numero),'fr',{numeric:true})||clLieu(a).localeCompare(clLieu(b)));
+  // armoire du PC sécurité : dans l'ordre des crochets (1, 2, 3…), crochets inconnus à la fin
+  if(st.il==='PC sécurité')L.sort((a,b)=>(!a.crochet)-(!b.crochet)||String(a.crochet).localeCompare(String(b.crochet),'fr',{numeric:true})||clDes(a).localeCompare(clDes(b),'fr'));
   const sum=k=>A.reduce((a,c)=>a+(+c[k]||0),0), pret=A.reduce((a,c)=>a+(E[c.id]||0),0), neg=A.filter(c=>(+c.stock||0)-(E[c.id]||0)<0).length;
   const sL=k=>D.Clefs.filter(c=>clLieu(c)===k).reduce((a,c)=>a+(+c.stock||0),0);
   el.innerHTML=`<div class="bar chf"><div class="seg-ctl">${[['','Les 2 armoires',D.Clefs.length],...CL_LIEUX.map(([k,l])=>[k,l,nL(k)])].map(([k,l,n])=>`<button class="${(st.il||'')===k?'on':''}" onclick="UI.cl.il='${k}';render()">${l} (${n})</button>`).join('')}</div></div>
