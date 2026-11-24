@@ -1250,7 +1250,7 @@ $('zChips').addEventListener('click',e=>{const b=e.target.closest('.zchip');if(!
 // Renommer les TGBT de la zone en une fois (libellé affiché partout : schéma, liste, recherche, plan)
 function tgRename(){
   const fid=ZONE,TGL=desc(N.get('F:'+fid)).filter(x=>x.t==='tgbt');if(!TGL.length)return;
-  const fields=TGL.map(t=>({k:t.id,l:[t.r,t.c].filter(Boolean).join(' · ')||'TGBT',full:true}));
+  const fields=TGL.map(t=>({k:t.id,l:'Nom actuel : '+[t.l,t.c,t.r].filter(Boolean).join(' · ')+' ('+desc(t).length+' éléments en aval)',full:true}));
   const m=openForm('Renommer les TGBT – '+(FEU.find(f=>f.id===fid)||{}).nom,fields,Object.fromEntries(TGL.map(t=>[t.id,t.l])),o=>{
     const ch=TGL.filter(t=>clean(o[t.id],400)&&clean(o[t.id],400)!==t.l);
     if(!ch.length)return true;
