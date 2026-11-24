@@ -19,7 +19,7 @@ async function acJeton() {
   if (!acInst) return '';
   try { const r = await Promise.race([AC.getToken(acInst, false), new Promise(ok => setTimeout(() => ok(null), 4000))]); return (r && r.token) || ''; } catch (e) { return ''; }
 }
-import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=18';
+import { SCHEMA, prepare, summary_, nouveauxAttribues, normaliserReprise, list_, estPerso_, accesProjet_, checkNacelle_, now_, newId, money_, HORS_SHEET } from './logic.js?v=19';
 
 let app, auth, db, st, CFG;
 let me = '', meEmail = '', meAcc = null;

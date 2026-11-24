@@ -27,7 +27,7 @@ export const SCHEMA = {
   // Suivi financier de projets : visibles par leur propriétaire (proprio) et les membres avec qui il les partage (partage)
   // + champ acces (liste : propriétaire + partage), ajouté à l'enregistrement, qui sert aux règles Firebase
   Projets:      ['id', 'titre', 'entreprise', 'ligne', 'budget', 'statut', 'dateDebut', 'dateFin', 'note', 'proprio', 'partage', 'creeLe', 'majLe', 'majPar'],
-  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'montant', 'libelle', 'proprio', 'creePar', 'creeLe', 'majPar'],
+  ProjetMvts:   ['id', 'projetId', 'date', 'nature', 'numero', 'fournisseur', 'ligne', 'tgbt', 'montant', 'libelle', 'proprio', 'creePar', 'creeLe', 'majPar'],
   // Benchmark de devis : même partage que les projets (proprio / partage / acces)
   // criteres : « Prix 60 ; Technique 30 ; Délai 10 » · lignes : JSON [{d,q,u,pu,t}] lues dans le devis · scores : JSON {critère: note sur 10}
   Benchmarks:   ['id', 'titre', 'objet', 'budget', 'statut', 'retenu', 'criteres', 'dateLimite', 'note', 'proprio', 'partage', 'creeLe', 'majLe', 'majPar'],
@@ -315,6 +315,7 @@ export function prepare(name, item, user, cur, rows, opts = {}) {
       if (!RE_DATE.test(o.date || '')) throw new Error('Date obligatoire');
       if (NAT_PROJET.indexOf(o.nature) < 0) throw new Error('Nature inconnue : ' + o.nature);
       if (o.nature !== 'BDC') o.ligne = ''; // la ligne budgétaire se porte sur les BDC
+      o.tgbt = String(o.tgbt || '').trim().slice(0, 120); // TGBT concerné(s), séparés par des virgules
       o.montant = money_(o.montant, 'Montant');
       if (Number(o.montant) < 0) throw new Error('Montant positif (pour une déduction, choisis « Avoir »)');
       if (!cur) { o.creeLe = now; o.creePar = user; }

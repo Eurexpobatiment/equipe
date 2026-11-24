@@ -290,6 +290,8 @@ table.eq select{border:1px solid #d5d9e2;border-radius:6px;padding:5px}
 .n-BDC{background:#e6eefa;color:#2b5c99}.n-Facture{background:#e4f5ea;color:#1e7a45}.n-Avoir{background:#fff1dc;color:#9a5a00}.n-Devis{background:#efeaf8;color:#5b3f99}
 .pjrow{cursor:pointer}.pjrow td small{display:block;color:var(--muted,#6b7280);font-size:.78em}.pjst{font-size:.8em;white-space:nowrap}
 .mvadd .wide2{flex:1 1 160px}
+.pjtg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}.pjtgl{font-size:12.5px;color:var(--muted)}.pjtg .seg-ctl{flex-wrap:wrap}.pjtg .seg-ctl small{opacity:.7}
+.pjtgsum{background:#f4f6fa;border-radius:8px;padding:7px 10px;margin:0 0 8px;font-size:13px}.pjtgsum small{display:block;color:var(--muted);margin-top:2px}.tgp{font-size:11px;padding:1px 6px;margin-left:4px}
 .pjmv{cursor:pointer}.pjmv:hover td{background:rgba(0,0,0,.03)}.pjmv.ed td{background:#fff6dc}
 .mvt .x{border:0;background:none;color:var(--muted);cursor:pointer}.mvt .x.arm{color:#fff;background:var(--red);border-radius:6px;font-size:11px}
 .mvadd{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -837,7 +839,7 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '30'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '31'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
 let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
@@ -2719,6 +2721,14 @@ const pjAcc=p=>[p.proprio,...espList(p.partage)].filter((x,i,a)=>x&&a.indexOf(x)
 const pjMine=()=>D.Projets.filter(p=>pjAcc(p).includes(me)); // mes projets + ceux partagés avec moi
 const pjShare=p=>p.proprio!==me?`🤝 partagé par ${p.proprio}`:(p.partage?`🤝 partagé avec ${espList(p.partage).join(', ')}`:'');
 const pjLignes=id=>[...new Set(D.ProjetMvts.filter(m=>m.projetId===id&&m.nature==='BDC'&&m.ligne).map(m=>m.ligne))]; // lignes budgétaires des BDC du projet
+// TGBT d'une ligne : champ « TGBT » saisi, sinon déduit du libellé (« Compteurs TGBT 5.2 », « GTC TGBT 2.1 et 213 »)
+const pjTgNorm=v=>String(v).trim().replace(/^tgbt\s*/i,'').replace(/\s+/g,' ').toUpperCase();
+function pjTgbts(m){
+  let t=String(m.tgbt||'').trim();
+  if(!t){const x=String([m.libelle,m.numero].join(' ')).match(/\bTGBT\s*((?:[\w.\-]+)(?:\s*(?:,|;|\/|\+|&|\bet\b)\s*(?:TGBT\s*)?[\w.\-]+)*)/i);if(x)t=x[1]}
+  return [...new Set(t.split(/\s*(?:,|;|\/|\+|&|\bet\b)\s*/i).map(pjTgNorm).filter(Boolean))];
+}
+const pjTgSort=(a,b)=>a.localeCompare(b,'fr',{numeric:true});
 function pjCalc(p){
   let dev=0,bdc=0,fac=0;
   D.ProjetMvts.forEach(m=>{if(m.projetId!==p.id)return;const v=num(m.montant);
@@ -2733,7 +2743,7 @@ function vProjets(el){
   const all=pjMine(), act=p=>!['Clôturé','Annulé'].includes(p.statut), nPart=all.filter(p=>p.proprio!==me).length;
   let L=all.filter(p=>st.f==='tous'||(st.f==='actifs'?act(p):!act(p)));
   if(st.w==='miens')L=L.filter(p=>p.proprio===me); else if(st.w==='partages')L=L.filter(p=>p.proprio!==me);
-  if(q) L=L.filter(p=>[p.titre,p.entreprise,p.note].join(' ').toLowerCase().includes(q)||D.ProjetMvts.some(m=>m.projetId===p.id&&[m.numero,m.fournisseur,m.ligne,m.libelle].join(' ').toLowerCase().includes(q)));
+  if(q) L=L.filter(p=>[p.titre,p.entreprise,p.note].join(' ').toLowerCase().includes(q)||D.ProjetMvts.some(m=>m.projetId===p.id&&[m.numero,m.fournisseur,m.ligne,m.libelle,m.tgbt].join(' ').toLowerCase().includes(q)));
   L.sort((a,b)=>Object.keys(PJ_ST).indexOf(a.statut)-Object.keys(PJ_ST).indexOf(b.statut)||(a.dateFin||'9999').localeCompare(b.dateFin||'9999')||a.titre.localeCompare(b.titre,'fr'));
   const s={bud:0,dev:0,bdc:0,fac:0}; L.filter(p=>p.statut!=='Annulé').forEach(p=>{const c=pjCalc(p);s.bud+=c.bud;s.dev+=c.dev;s.bdc+=c.bdc;s.fac+=c.fac});
   const rE=s.bud-s.bdc, rF=s.bdc-s.fac, pc=s.bud?s.bdc/s.bud:0;
@@ -2758,8 +2768,8 @@ function vProjets(el){
 const pjVal=o=>o.budget!==''&&!isPureNum(o.budget)?'Budget : saisis un nombre (ex. 15000 ou 1 234,56)':'';
 function pjNew(){openForm('Projets',{},'Nouveau projet',{validate:pjVal,extra:'<p class="hint">Une fois le projet enregistré, tu pourras y saisir devis, BDC, factures et avoirs.</p>',onSaved:r=>pjOpen(r.id)})}
 // Clic sur un projet : il s'ouvre directement sur ses devis, BDC, factures et avoirs (comme un benchmark) ; la fiche reste accessible par « ✏️ Fiche »
-const PM_IDS=['pm_date','pm_nat','pm_num','pm_fou','pm_lig','pm_mt','pm_lib'];
-function pjOpen(id){(UI.pj||(UI.pj={f:'actifs',q:'',w:'tous'})).open=id;UI.pjEd='';UI.pjVu='';render();window.scrollTo(0,0)}
+const PM_IDS=['pm_date','pm_nat','pm_num','pm_fou','pm_lig','pm_tgbt','pm_mt','pm_lib'];
+function pjOpen(id){(UI.pj||(UI.pj={f:'actifs',q:'',w:'tous'})).open=id;UI.pjEd='';UI.pjVu='';UI.pjTg='';render();window.scrollTo(0,0)}
 function pjFiche(id){
   const p=D.Projets.find(x=>x.id===id); if(!p) return;
   const own=p.proprio===me, F=own?FORMS.Projets:FORMS.Projets.filter(f=>f.k!=='partage');
@@ -2781,8 +2791,8 @@ function vProjetDetail(el,p){
       <div class="pjbox"><h3>Ajouter un devis, un BDC, une facture ou un avoir</h3>
         <div class="mvadd"><input type="date" id="pm_date" value="${today()}"><select id="pm_nat">${NAT_PJ.map(n=>`<option ${n==='BDC'?'selected':''}>${n}</option>`).join('')}</select>
           <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
-          <input id="pm_lig" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>
-      <div class="pjbox"><h3>Devis, BDC, factures et avoirs</h3><div id="pmlist"></div></div></div>`;
+          <input id="pm_lig" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_tgbt" list="dl-pjtgbt" placeholder="TGBT (ex. 5.2 · plusieurs : 2.1, 213)" title="TGBT concerné(s) par cette ligne, séparés par des virgules"><datalist id="dl-pjtgbt">${[...new Set(D.ProjetMvts.filter(m=>m.projetId===p.id).flatMap(pjTgbts))].sort(pjTgSort).map(v=>`<option value="${esc(v)}">`).join('')}</datalist><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>
+      <div class="pjbox"><h3>Devis, BDC, factures et avoirs</h3><div id="pmtg"></div><div id="pmlist"></div></div></div>`;
   hallsDatalist(); budgetDatalists();
   if(keep){PM_IDS.forEach(k=>$('#'+k).value=keep[k]); if(UI.pjEd){$('#pm_add').textContent='Enregistrer la modification';$('#pm_cancel').hidden=false}}
   $('#pm_add').onclick=()=>pjMvAdd(p.id); $('#pm_nat').onchange=pjLg; const lg=$('#pm_lig').value; pjLg(); if(keep&&$('#pm_nat').value==='BDC')$('#pm_lig').value=lg;
@@ -2790,26 +2800,39 @@ function vProjetDetail(el,p){
 }
 function pjMvRender(id){
   const p=D.Projets.find(x=>x.id===id); if(!p||!$('#pmlist')) return;
-  const c=pjCalc(p), sh=pjAcc(p).length>1, ms=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const c=pjCalc(p), sh=pjAcc(p).length>1, all=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  // Sélection par TGBT : filtre la liste et donne le sous-total du ou des TGBT choisis
+  const TG=[...new Set(all.flatMap(pjTgbts))].sort(pjTgSort), sans=all.some(m=>!pjTgbts(m).length);
+  if(UI.pjTg&&UI.pjTg!=='__sans'&&!TG.includes(UI.pjTg))UI.pjTg='';
+  const sel=UI.pjTg||'', ms=!sel?all:all.filter(m=>sel==='__sans'?!pjTgbts(m).length:pjTgbts(m).includes(sel));
+  if(TG.length){
+    const tot=L=>{let d=0,b=0,f=0;L.forEach(m=>{const v=num(m.montant);if(m.nature==='Devis')d+=v;else if(m.nature==='BDC')b+=v;else if(m.nature==='Facture')f+=v;else if(m.nature==='Avoir')f-=v});return {d,b,f}};
+    const chip=(k,l,n)=>`<button class="${sel===k?'on':''}" onclick="pjTgSel('${id}','${esc(k)}')">${esc(l)}${n!=null?` <small>${n}</small>`:''}</button>`;
+    const nb=k=>all.filter(m=>k==='__sans'?!pjTgbts(m).length:pjTgbts(m).includes(k)).length;
+    const t=sel?tot(ms):null, part=sel&&sel!=='__sans'&&ms.some(m=>pjTgbts(m).length>1);
+    $('#pmtg').innerHTML=`<div class="pjtg"><span class="pjtgl">Par TGBT</span><div class="seg-ctl">${chip('','Tous')}${TG.map(k=>chip(k,'TGBT '+k,nb(k))).join('')}${sans?chip('__sans','Sans TGBT',nb('__sans')):''}</div></div>
+      ${t?`<div class="pjtgsum"><b>${sel==='__sans'?'Sans TGBT':'TGBT '+esc(sel)}</b> · ${ms.length} ligne${ms.length>1?'s':''} · Devis ${eur(t.d,1)} · Engagé ${eur(t.b,1)} · Facturé ${eur(t.f,1)} · Reste à payer ${eur(t.b-t.f,1)}${part?'<small>⚠️ certaines lignes concernent plusieurs TGBT : leur montant est compté en entier ici.</small>':''}</div>`:''}`;
+  } else $('#pmtg').innerHTML='';
   $('#pmsum').innerHTML=`<div class="kpis"><div class="kpi"><span>Budget</span><b>${p.budget===''?'—':eur(c.bud,1)}</b></div><div class="kpi"><span>Devis reçus</span><b>${eur(c.dev,1)}</b></div>
     <div class="kpi"><span>Engagé (BDC)</span><b>${eur(c.bdc,1)}</b></div><div class="kpi"><span>Facturé</span><b>${eur(c.fac,1)}</b></div>
     <div class="kpi ${c.resteEng<-0.005?'neg':''}"><span>Reste à engager</span><b>${p.budget===''?'—':eur(c.resteEng,1)}</b></div><div class="kpi ${c.resteFac<-0.005?'neg':''}"><span>Reste à payer</span><b>${eur(c.resteFac,1)}</b></div>
     ${p.budget===''?'':`<div class="kpi"><span>Engagé / budget</span><b>${pctTxt(c.pct)}</b>${barHtml(c.pct)}</div>`}</div>`;
-  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${m.ligne||sh?`<small>${esc([m.ligne&&'Ligne '+m.ligne,sh&&'par '+(m.creePar||m.majPar)].filter(Boolean).join(' · '))}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
+  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${pjTgbts(m).map(k=>` <span class="pill ghost tgp">TGBT ${esc(k)}</span>`).join('')}${m.ligne||sh?`<small>${esc([m.ligne&&'Ligne '+m.ligne,sh&&'par '+(m.creePar||m.majPar)].filter(Boolean).join(' · '))}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:(all.length?'<p class="empty">Aucune ligne pour ce TGBT.</p>':'<p class="empty">Rien de saisi pour l\'instant.</p>');
 }
+function pjTgSel(id,k){UI.pjTg=k;pjMvRender(id)}
 function pjLg(){const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''}
 // Clic sur une ligne : ses valeurs passent dans la saisie, « Ajouter » devient « Enregistrer la modification »
 function pjMvEdit(mid){
   const m=D.ProjetMvts.find(x=>x.id===mid); if(!m||!$('#pm_add')) return;
   UI.pjEd=mid;
   $('#pm_date').value=m.date||today(); $('#pm_nat').value=m.nature; $('#pm_num').value=m.numero||''; $('#pm_fou').value=m.fournisseur||'';
-  $('#pm_lig').value=m.ligne||''; $('#pm_mt').value=String(m.montant||'').replace('.',','); $('#pm_lib').value=m.libelle||''; pjLg();
+  $('#pm_lig').value=m.ligne||''; $('#pm_tgbt').value=m.tgbt||pjTgbts(m).join(', '); $('#pm_mt').value=String(m.montant||'').replace('.',','); $('#pm_lib').value=m.libelle||''; pjLg();
   $('#pm_add').textContent='Enregistrer la modification'; $('#pm_cancel').hidden=false;
   pjMvRender(m.projetId); $('#pm_mt').scrollIntoView({block:'center',behavior:'smooth'}); $('#pm_mt').focus();
 }
 function pjMvReset(){
   const mid=UI.pjEd, m=D.ProjetMvts.find(x=>x.id===mid); UI.pjEd='';
-  ['pm_num','pm_mt','pm_lib','pm_lig'].forEach(k=>$('#'+k).value=''); $('#pm_date').value=today();
+  ['pm_num','pm_mt','pm_lib','pm_lig','pm_tgbt'].forEach(k=>$('#'+k).value=''); $('#pm_date').value=today();
   const p=m&&D.Projets.find(x=>x.id===m.projetId); if(p)$('#pm_fou').value=p.entreprise||'';
   $('#pm_add').textContent='Ajouter'; $('#pm_cancel').hidden=true; if(m)pjMvRender(m.projetId);
 }
@@ -2817,8 +2840,8 @@ async function pjMvAdd(id){
   const mt=$('#pm_mt').value.trim(); if(!isPureNum(mt)) return toast('Montant : saisis un nombre (ex. 1 234,56)',1);
   const b=$('#pm_add'), done=setBusy(b,'…');
   const ed=UI.pjEd;
-  try{await saveItem('ProjetMvts',{...(ed?{id:ed}:{}),projetId:id,date:$('#pm_date').value||today(),nature:$('#pm_nat').value,numero:$('#pm_num').value.trim(),fournisseur:$('#pm_fou').value.trim(),ligne:$('#pm_lig').value.trim(),montant:mt,libelle:$('#pm_lib').value.trim()});
-    done(); if(ed){pjMvReset();toast('Modifié ✓')}else{['pm_num','pm_mt','pm_lib','pm_lig'].forEach(k=>$('#'+k).value='');toast('Ajouté ✓')}}catch(e){done();toast(e.message,1)}
+  try{await saveItem('ProjetMvts',{...(ed?{id:ed}:{}),projetId:id,date:$('#pm_date').value||today(),nature:$('#pm_nat').value,numero:$('#pm_num').value.trim(),fournisseur:$('#pm_fou').value.trim(),ligne:$('#pm_lig').value.trim(),tgbt:$('#pm_tgbt').value.trim(),montant:mt,libelle:$('#pm_lib').value.trim()});
+    done(); if(ed){pjMvReset();toast('Modifié ✓')}else{['pm_num','pm_mt','pm_lib','pm_lig','pm_tgbt'].forEach(k=>$('#'+k).value='');toast('Ajouté ✓')}}catch(e){done();toast(e.message,1)}
   pjMvRender(id);
 }
 async function pjMvDel(mid,id,btn){
@@ -2831,7 +2854,7 @@ async function pjExport(){
     const r2=n=>Math.round(n*100)/100, P=pjMine(), byId=Object.fromEntries(P.map(p=>[p.id,p]));
     const pr=P.map(p=>{const c=pjCalc(p);return {'Projet':p.titre,'Propriétaire':p.proprio,'Partagé avec':p.partage||'','Statut':p.statut,'Entreprise(s)':p.entreprise,'Lignes budgétaires (BDC)':pjLignes(p.id).join(', '),'Début':p.dateDebut,'Fin prévue':p.dateFin,
       'Budget HT':p.budget===''?'':r2(c.bud),'Devis HT':r2(c.dev),'Engagé (BDC) HT':r2(c.bdc),'Facturé HT':r2(c.fac),'Reste à engager':p.budget===''?'':r2(c.resteEng),'Reste à payer':r2(c.resteFac),'% engagé':c.bud?r2(c.pct*100):'','Note':p.note}});
-    const mv=D.ProjetMvts.filter(m=>byId[m.projetId]).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(m=>({'Date':m.date,'Projet':byId[m.projetId].titre,'Nature':m.nature,'N°':m.numero,'Entreprise':m.fournisseur,'Ligne budgétaire':m.ligne,'Libellé':m.libelle,'Montant HT':r2(num(m.montant)*(m.nature==='Avoir'?-1:1))}));
+    const mv=D.ProjetMvts.filter(m=>byId[m.projetId]).sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(m=>({'Date':m.date,'Projet':byId[m.projetId].titre,'Nature':m.nature,'N°':m.numero,'Entreprise':m.fournisseur,'Ligne budgétaire':m.ligne,'TGBT':pjTgbts(m).join(', '),'Libellé':m.libelle,'Montant HT':r2(num(m.montant)*(m.nature==='Avoir'?-1:1))}));
     const wb=XLSX.utils.book_new(), add=(rows,name)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'':''}]);ws['!cols']=Object.keys(rows[0]||{a:1}).map(k=>({wch:Math.min(48,Math.max(10,k.length+2,...rows.map(r=>String(r[k]??'').length+1)))}));XLSX.utils.book_append_sheet(wb,ws,name)};
     add(pr,'Projets'); add(mv,'Devis BDC factures');
     XLSX.writeFile(wb,`Suivi projets - ${today()}.xlsx`);
