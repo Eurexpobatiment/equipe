@@ -1544,15 +1544,15 @@ const pdfTxt = s => '(' + cp1252(s).replace(/[\\()]/g, '\\$&').replace(/\r?\n/g,
 let _mc; function tw(s, size, bold){ _mc = _mc || document.createElement('canvas').getContext('2d'); _mc.font = `${bold?'bold ':''}${size}px Arial, Helvetica, sans-serif`; return _mc.measureText(String(s)).width; }
 
 /* repères d'un niveau, avec leur couleur selon la clé filtrée */
-/* armoire où se trouve la clef : 'b' Bâtiment, 'p' PC sécurité, 'bp' les deux, '' pas dans l'inventaire */
+/* armoire où se trouve la clef : 'b' Bâtiment (y compris quand elle est aussi au PC sécurité), 'p' PC sécurité seulement, '' pas dans l'inventaire */
 function armOf(n){
   const c = CYL[n]; if(c && c.cro) return 'p';                   // repère de trousseau (crochet du PC sécurité)
   const L = (INV && INV[nk(n)]) || [];
   const b = L.some(v => !pcsV(v)), s = L.some(pcsV) || pinCro(n).length > 0;
-  return b && s ? 'bp' : b ? 'b' : s ? 'p' : '';
+  return b ? 'b' : s ? 'p' : '';
 }
 const ARM_HEX = {b:'#1d3f7a', p:'#c0392b', '':'#6b7280'};          // mêmes couleurs que les fiches armoire de l'appli
-const ARM_TXT = {b:'Clef armoire Bâtiment', p:'Clef armoire PC sécurité', bp:'Clef dans les deux armoires', '':'Pas dans l\'inventaire'};
+const ARM_TXT = {b:'Clef armoire Bâtiment', p:'Clef armoire PC sécurité', '':'Pas dans l\'inventaire'};
 function outPins(lv){
   return pins.filter(p=>lvOf(p)===lv).map(p=>({...p, arm: armOf(p.n), st: !selKey ? 'n' : (opens(CYL[p.n], selKey) ? 'o' : 'c')}))
     .sort((a,b)=>(a.st==='o')-(b.st==='o'));   // ouverts dessinés par-dessus
@@ -1676,7 +1676,7 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
     const refs = [];
     if(optPins){
       const fs = 3.6*Math.sqrt(u)/s;              // ≈ 3,6 pt en A3, 6 pt en A0
-      const P = outPins(lv), fillOf = p => p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : byArm ? rg(AC[p.arm === 'bp' ? 'b' : p.arm]) : rg(BR);
+      const P = outPins(lv), fillOf = p => p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : byArm ? rg(AC[p.arm]) : rg(BR);
       const L = optSpread ? layoutLabels(P, {size: (p, k) => [tw(p.n, fs*k, true) + fs*k*0.7, fs*k*1.3], dot: fs*0.32, obst: hallB, scales: [1, 0.8], rings: 6}) : null;
       // traits de rappel et points d'abord, étiquettes par-dessus
       for(const p of P){ const q = L && L.get(p.id); if(!q || !q.lead) continue;
@@ -1688,9 +1688,7 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
         if(q && q.ref){ refs.push(p); continue; }
         const k = q ? q.k : 1, f = fs*k, cx = q ? q.cx : p.x, cy = q ? q.cy : p.y;
         const w = tw(p.n, f, true), pw_ = w + f*0.7, hh = f*1.3, x0 = cx - pw_/2, y0 = cy - hh/2;
-        if(byArm && p.arm === 'bp' && p.st === 'n')   // dans les deux armoires : moitié bleue, moitié rouge
-          out.push(`${rg(AC.b)} rg ${f1(x0)} ${f1(y0)} ${f1(pw_/2)} ${f1(hh)} re f ${rg(AC.p)} rg ${f1(x0+pw_/2)} ${f1(y0)} ${f1(pw_/2)} ${f1(hh)} re f 1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re S`);
-        else out.push(`${fillOf(p)} rg 1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re B`);
+        out.push(`${fillOf(p)} rg 1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re B`);
         out.push(`BT 1 1 1 rg /F2 ${f2(f)} Tf 1 0 0 -1 ${f1(cx-w/2)} ${f1(cy+f*0.36)} Tm ${pdfTxt(p.n)} Tj ET`);
       }
       // renvois : pastille numérotée sur le cylindre, détail en page suivante
@@ -1709,13 +1707,12 @@ async function buildPDF(levels, paper, optPins, optHalls, optSpread, optArm){
     if(optPins){
       const present = new Set(outPins(lv).map(p => p.arm));
       const lg = selKey ? [[OK, kf + ' : ouvre'], [[0.79,0.8,0.84], 'n\'ouvre pas']]
-        : byArm ? ['b', 'p', 'bp', ''].filter(a => present.has(a)).map(a => [a === 'bp' ? 'split' : AC[a], ARM_TXT[a]])
+        : byArm ? ['b', 'p', ''].filter(a => present.has(a)).map(a => [AC[a], ARM_TXT[a]])
         : [[BR, 'Cylindre (n° de clé)']];
       let lx = pw - m;
       const items = lg.map(([c, t]) => ({c, t, w: tw(t, sf) + sf*2.2})).reverse();
       for(const it of items){ lx -= it.w + sf;
-        out.push(it.c === 'split' ? `${rg(AC.b)} rg ${f2(lx)} ${f2(by)} ${f2(sf*0.7)} ${f2(sf)} re f ${rg(AC.p)} rg ${f2(lx+sf*0.7)} ${f2(by)} ${f2(sf*0.7)} ${f2(sf)} re f`
-          : `${rg(it.c)} rg ${f2(lx)} ${f2(by)} ${f2(sf*1.4)} ${f2(sf)} re f`);
+        out.push(`${rg(it.c)} rg ${f2(lx)} ${f2(by)} ${f2(sf*1.4)} ${f2(sf)} re f`);
         out.push(`BT 0.114 0.114 0.114 rg /F1 ${f2(sf)} Tf ${f2(lx+sf*1.9)} ${f2(by+sf*0.12)} Td ${pdfTxt(it.t)} Tj ET`); }
     }
     pages.push(out.join('\n'));
@@ -1810,7 +1807,7 @@ async function buildDXF(levels, optPins, optHalls, optSpread, optArm){
       const L = optSpread ? layoutLabels(P, {size: (p, kk) => [PIN_W*kk, PIN_HH*kk], dot: PIN_H*0.3, obst: hallB, scales: [1, 0.8], rings: 8}) : null;
       for(const p of P){
         let l = p.st==='o' ? lay(`${lv}_CYLINDRES_${k}_OUVRE`, 3) : p.st==='c' ? lay(`${lv}_CYLINDRES_AUTRES`, 8)
-          : optArm ? lay(`${lv}_CYLINDRES_${{b:'BATIMENT', p:'PC_SECURITE', bp:'BATIMENT_ET_PC_SECURITE', '':'HORS_INVENTAIRE'}[p.arm]}`, {b:5, p:1, bp:30, '':8}[p.arm])
+          : optArm ? lay(`${lv}_CYLINDRES_${{b:'BATIMENT', p:'PC_SECURITE', '':'HORS_INVENTAIRE'}[p.arm]}`, {b:5, p:1, '':8}[p.arm])
           : lay(`${lv}_CYLINDRES`, 1);
         const q = L && L.get(p.id);
         let cx = p.x, cy = p.y, kk = 1;
