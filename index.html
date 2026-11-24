@@ -2799,7 +2799,7 @@ function vProjetDetail(el,p){
         <div class="mvadd"><input type="date" id="pm_date" value="${today()}"><select id="pm_nat">${NAT_PJ.map(n=>`<option ${n==='BDC'?'selected':''}>${n}</option>`).join('')}</select>
           <input id="pm_num" placeholder="N° devis / BDC / facture"><input id="pm_fou" list="dl-presta" placeholder="Entreprise" value="${esc(p.entreprise||'')}">
           <input id="pm_lig" list="dl-codes" placeholder="Ligne budgétaire du BDC"><input id="pm_tgbt" list="dl-pjtgbt" placeholder="TGBT (ex. 5.2 · plusieurs : 2.1, 213)" title="TGBT concerné(s) par cette ligne, séparés par des virgules"><datalist id="dl-pjtgbt">${[...new Set(D.ProjetMvts.filter(m=>m.projetId===p.id).flatMap(pjTgbts))].sort(pjTgSort).map(v=>`<option value="${esc(v)}">`).join('')}</datalist><input id="pm_mt" inputmode="decimal" placeholder="Montant HT €"><input id="pm_lib" class="wide" placeholder="Libellé (facultatif)"><button class="btn" id="pm_cancel" hidden onclick="pjMvReset()">Annuler la modification</button><button class="btn pri" id="pm_add">Ajouter</button></div></div>
-      <div class="pjbox"><h3>Devis, BDC, factures et avoirs</h3><div id="pmtg"></div><div id="pmlist"></div></div></div>`;
+      <div class="pjbox"><h3>Devis, BDC, factures et avoirs</h3><div id="pmlist"></div></div></div>`;
   hallsDatalist(); budgetDatalists();
   if(keep){PM_IDS.forEach(k=>$('#'+k).value=keep[k]); if(UI.pjEd){$('#pm_add').textContent='Enregistrer la modification';$('#pm_cancel').hidden=false}}
   $('#pm_add').onclick=()=>pjMvAdd(p.id); $('#pm_nat').onchange=pjLg; const lg=$('#pm_lig').value; pjLg(); if(keep&&$('#pm_nat').value==='BDC')$('#pm_lig').value=lg;
@@ -2808,25 +2808,13 @@ function vProjetDetail(el,p){
 function pjMvRender(id){
   const p=D.Projets.find(x=>x.id===id); if(!p||!$('#pmlist')) return;
   const c=pjCalc(p), sh=pjAcc(p).length>1, all=D.ProjetMvts.filter(m=>m.projetId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  // Sélection par TGBT : filtre la liste et donne le sous-total du ou des TGBT choisis
-  const TG=[...new Set(all.flatMap(pjTgbts))].sort(pjTgSort), sans=all.some(m=>!pjTgbts(m).length);
-  if(UI.pjTg&&UI.pjTg!=='__sans'&&!TG.includes(UI.pjTg))UI.pjTg='';
-  const sel=UI.pjTg||'', ms=!sel?all:all.filter(m=>sel==='__sans'?!pjTgbts(m).length:pjTgbts(m).includes(sel));
-  if(TG.length){
-    const tot=L=>{let d=0,b=0,f=0;L.forEach(m=>{const v=num(m.montant);if(m.nature==='Devis')d+=v;else if(m.nature==='BDC')b+=v;else if(m.nature==='Facture')f+=v;else if(m.nature==='Avoir')f-=v});return {d,b,f}};
-    const chip=(k,l,n)=>`<button class="${sel===k?'on':''}" onclick="pjTgSel('${id}','${esc(k)}')">${esc(l)}${n!=null?` <small>${n}</small>`:''}</button>`;
-    const nb=k=>all.filter(m=>k==='__sans'?!pjTgbts(m).length:pjTgbts(m).includes(k)).length;
-    const t=sel?tot(ms):null, part=sel&&sel!=='__sans'&&ms.some(m=>pjTgbts(m).length>1);
-    $('#pmtg').innerHTML=`<div class="pjtg"><span class="pjtgl">Par TGBT</span><div class="seg-ctl">${chip('','Tous')}${TG.map(k=>chip(k,'TGBT '+k,nb(k))).join('')}${sans?chip('__sans','Sans TGBT',nb('__sans')):''}</div></div>
-      ${t?`<div class="pjtgsum"><b>${sel==='__sans'?'Sans TGBT':'TGBT '+esc(sel)}</b> · ${ms.length} ligne${ms.length>1?'s':''} · Devis ${eur(t.d,1)} · Engagé ${eur(t.b,1)} · Facturé ${eur(t.f,1)} · Reste à payer ${eur(t.b-t.f,1)}${part?'<small>⚠️ certaines lignes concernent plusieurs TGBT : leur montant est compté en entier ici.</small>':''}</div>`:''}`;
-  } else $('#pmtg').innerHTML='';
+  const ms=all;
   $('#pmsum').innerHTML=`<div class="kpis"><div class="kpi"><span>Budget</span><b>${p.budget===''?'—':eur(c.bud,1)}</b></div><div class="kpi"><span>Devis reçus</span><b>${eur(c.dev,1)}</b></div>
     <div class="kpi"><span>Engagé (BDC)</span><b>${eur(c.bdc,1)}</b></div><div class="kpi"><span>Facturé</span><b>${eur(c.fac,1)}</b></div>
     <div class="kpi ${c.resteEng<-0.005?'neg':''}"><span>Reste à engager</span><b>${p.budget===''?'—':eur(c.resteEng,1)}</b></div><div class="kpi ${c.resteFac<-0.005?'neg':''}"><span>Reste à payer</span><b>${eur(c.resteFac,1)}</b></div>
     ${p.budget===''?'':`<div class="kpi"><span>Engagé / budget</span><b>${pctTxt(c.pct)}</b>${barHtml(c.pct)}</div>`}</div>`;
-  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${pjTgbts(m).map(k=>` <span class="pill ghost tgp">TGBT ${esc(k)}</span>`).join('')}${m.ligne||sh?`<small>${esc([m.ligne&&'Ligne '+m.ligne,sh&&'par '+(m.creePar||m.majPar)].filter(Boolean).join(' · '))}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:(all.length?'<p class="empty">Aucune ligne pour ce TGBT.</p>':'<p class="empty">Rien de saisi pour l\'instant.</p>');
+  $('#pmlist').innerHTML=ms.length?`<table class="mvt">${ms.map(m=>`<tr class="pjmv${UI.pjEd===m.id?' ed':''}" title="Modifier" onclick="pjMvEdit('${m.id}')"><td>${fD(m.date,{day:'2-digit',month:'2-digit',year:'2-digit'})}</td><td><span class="nat n-${esc(m.nature)}">${esc(m.nature)}</span></td><td>${esc([m.numero,m.fournisseur,m.libelle].filter(Boolean).join(' · '))}${pjTgbts(m).map(k=>` <span class="pill ghost tgp">TGBT ${esc(k)}</span>`).join('')}${m.ligne||sh?`<small>${esc([m.ligne&&'Ligne '+m.ligne,sh&&'par '+(m.creePar||m.majPar)].filter(Boolean).join(' · '))}</small>`:''}</td><td class="r">${m.nature==='Avoir'?'−':''}${eur(num(m.montant),1)}</td><td><button class="x" title="Supprimer" onclick="event.stopPropagation();pjMvDel('${m.id}','${id}',this)">✕</button></td></tr>`).join('')}</table>`:'<p class="empty">Rien de saisi pour l\'instant.</p>';
 }
-function pjTgSel(id,k){UI.pjTg=k;pjMvRender(id)}
 function pjLg(){const b=$('#pm_nat').value==='BDC';$('#pm_lig').hidden=!b;if(!b)$('#pm_lig').value=''}
 // Clic sur une ligne : ses valeurs passent dans la saisie, « Ajouter » devient « Enregistrer la modification »
 function pjMvEdit(mid){
