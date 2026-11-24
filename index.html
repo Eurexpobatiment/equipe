@@ -429,6 +429,9 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 #cldropban div,#chpdropban div{background:#fff;border:3px dashed var(--navy);border-radius:16px;padding:34px 40px;font-size:20px;font-weight:700;color:var(--navy)}
 #chpdropban{position:fixed;inset:0;z-index:9999;background:rgba(20,33,61,.55);display:flex;align-items:center;justify-content:center;pointer-events:none}
 .chpov .mod{max-width:1080px}
+.clov .mod{max-width:1180px}.cllay{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px;align-items:start}
+.cllay .clcold{margin-top:0;border-top:0;padding-top:0}.cllay .clcold h3{margin-top:0}
+@media(max-width:900px){.cllay{grid-template-columns:1fr}.clov .mod{max-width:540px}}
 .chpmode{margin:0 0 12px}
 .chpbar{margin:6px 0 8px}.chpbar b{font-size:14px}
 .chptbl{max-height:46vh;overflow:auto}.chptbl .btbl{min-width:820px}.chptbl th{position:sticky;top:0;background:#f5f7fb;z-index:1;text-align:left;font-size:13px}
@@ -3934,7 +3937,7 @@ function clLotForm(lot,L,h){
   CL={lot:lot||('l'+Math.random().toString(16).slice(2,12)),lines:L.map(p=>({...p})),conf:'',isNew:!lot};
   const fin=h.finDemontage||'';
   modal(`<h2>${lot?'Remise · '+esc(h.societe):'Nouvelle remise de clefs'}</h2>
-    <div class="cldrop">📥 Glisse ici le <b>formulaire Excel</b> de demande de clefs, <button class="link" type="button" onclick="$('#clxf').value='';$('#clxf').click()">ou choisis le fichier</button>, ou colle (Ctrl+V) des lignes copiées depuis Excel
+    <div class="cllay"><div class="clcolg"><div class="cldrop">📥 Glisse ici le <b>formulaire Excel</b> de demande de clefs, <button class="link" type="button" onclick="$('#clxf').value='';$('#clxf').click()">ou choisis le fichier</button>, ou colle (Ctrl+V) des lignes copiées depuis Excel
       <input type="file" id="clxf" accept=".xlsx,.xlsm,.xls,.csv" hidden onchange="this.files[0]&&clXFile(this.files[0])"></div>
     <div class="clximp" id="clximp"></div>
     <div class="form">
@@ -3950,18 +3953,19 @@ function clLotForm(lot,L,h){
         <input type="checkbox" id="cl_ras" hidden ${fin==='RAS'?'checked':''}></div>
       <label class="fl" id="cl_finw" ${fin==='RAS'?'style="display:none"':''}><span>Fin de démontage</span><input type="date" id="cl_fin" value="${fin==='RAS'?'':esc(fin)}"></label>
       <p class="hint" id="cl_longh" style="grid-column:1/-1;margin:0;${fin==='RAS'?'':'display:none'}">Prêt longue durée : pas de fin de démontage, les clefs ne sont pas facturées.</p>
-      <label class="fl full"><span>Commentaire</span><textarea id="cl_com" rows="2">${esc(L.length===1||!lot?h.commentaire||'':'')}</textarea></label></div>
-    <div class="coms"><h3>Clefs remises · <span id="cltot"></span></h3>
+      <label class="fl full"><span>Commentaire</span><textarea id="cl_com" rows="2">${esc(L.length===1||!lot?h.commentaire||'':'')}</textarea></label></div></div>
+    <div class="coms clcold"><h3>Clefs remises · <span id="cltot"></span></h3>
       <div id="cllines"></div>
       <input class="search" id="clq" type="search" placeholder="Ajouter une clef : n°, espace, local…" style="max-width:none;width:100%;margin-top:8px" autocomplete="off">
       <div id="clres"></div>
-      <button class="link" type="button" onclick="clAddLibre()">+ Clef hors inventaire</button></div>
+      <button class="link" type="button" onclick="clAddLibre()">+ Clef hors inventaire</button></div></div>
     <div class="err" id="ferr"></div>
     <div class="acts">${lot?`<button class="btn" type="button" onclick="clBon('${CL.lot}')">🖨️ Bon</button>`:''}<span class="sp"></span><button class="btn" onclick="closeModal(true)">Annuler</button><button class="btn pri" id="clgo">Enregistrer</button></div>`,true);
   $('#clq').addEventListener('input',clSearch);
   $('#cl_soc').addEventListener('change',()=>{const s=$('#cl_soc').value.trim().toLowerCase(),p=D.ClefsPrets.filter(x=>String(x.societe).toLowerCase()===s&&x.finDemontage).sort((a,b)=>String(b.datePrepa).localeCompare(a.datePrepa))[0];
     if(p&&!$('#cl_fin').value&&!$('#cl_ras').checked&&(p.finDemontage==='RAS'||p.finDemontage>=today())){if(p.finDemontage==='RAS')clType(1);else $('#cl_fin').value=p.finDemontage}});
   $('#clgo').onclick=clLotSave;
+  $('.ov').classList.add('clov');
   const md=$('.ov .mod');
   md.addEventListener('paste',e=>{const t=(e.clipboardData||window.clipboardData).getData('text')||'';
     if(!/\t|\n.*\S/.test(t.trim()))return; // une simple valeur : collage normal dans le champ
