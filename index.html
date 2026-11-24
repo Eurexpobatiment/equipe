@@ -400,6 +400,9 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .cln{font-size:20px;color:var(--navy);min-width:34px;text-align:right}
 .cltbl{min-width:0}.cltbl td{padding:6px 8px}.cltbl .c,.btbl th.c,.btbl td.c{text-align:center}
 .clrend{display:block;margin-top:2px;font-size:12px;color:#1f7a4d}.clrend b{font-weight:600}
+.clpret{width:100%;table-layout:fixed}.clpret .cpn{width:130px}.clpret .cpq{width:100px}.clpret .cpa{width:230px}
+.clpret .clnum{white-space:normal;overflow-wrap:anywhere}.clpret .clact{white-space:nowrap;text-align:right}
+@media(max-width:700px){.clpret{table-layout:auto}.clpret col{width:auto!important}.clpret .clact{white-space:normal}.clpret .clact .btn{margin:2px 0}}
 .clnum{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;white-space:nowrap}
 .clcard .acts{margin-top:8px}
 .cltbl tr.clko td{background:#fde4e5}
@@ -3854,9 +3857,9 @@ function clCarte(g){
       ${fin==='RAS'?'<span class="cllong">🔑 Prêt longue durée</span>':fin?`<span>🎪 salon · 🏁 fin de démontage ${fD(fin,{day:'numeric',month:'short'})}</span>`:'<span class="negt">fin de démontage non renseignée</span>'}
       ${g.retard?`<span class="negt">💶 à facturer depuis le ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:g.fact?`<span>facturable à partir du ${fD(g.fact,{day:'numeric',month:'short'})}</span>`:''}</div></div>
       <span class="sp"></span><b class="cln">${g.dehors}</b></div>
-    <table class="btbl cltbl"><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}${clDejaRendues(p)}</td>
+    <table class="btbl cltbl clpret"><colgroup><col class="cpn"><col><col class="cpq"><col class="cpa"></colgroup><tbody>${o.map(p=>`<tr onclick="clLigne('${p.id}')"><td class="clnum">${esc(p.numero||'—')}</td><td>${esc(p.designation||'')}${p.commentaire?`<small class="hint" style="display:block;margin:0">📝 ${esc(p.commentaire)}</small>`:''}${clDejaRendues(p)}</td>
       <td class="c">${+p.rendu?`<b>${clDehors(p)}</b> dehors<small style="display:block;color:var(--muted)">${p.rendu}/${p.qte} rendue${+p.rendu>1?'s':''}</small>`:`× ${p.qte}`}</td>
-      <td class="c" style="white-space:nowrap"><button class="btn sm" onclick="event.stopPropagation();clPartiel('${p.id}')" title="Saisir un retour : qui rend, quand, combien">↩️ Rendu partiel</button> <button class="btn sm" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
+      <td class="clact"><button class="btn sm" onclick="event.stopPropagation();clPartiel('${p.id}')" title="Saisir un retour : qui rend, quand, combien">↩️ Rendu partiel</button> <button class="btn sm" onclick="event.stopPropagation();clRenduLigne('${p.id}',this)">✅ Rendue${clDehors(p)>1?'s':''}</button></td></tr>`).join('')}</tbody></table>
     <div class="acts"><button class="btn sm" onclick="clBon('${g.lot}')">🖨️ Bon de remise</button><button class="btn sm" onclick="clEditLot('${g.lot}')">✏️ Modifier / ajouter</button><span class="sp"></span>
       <button class="btn sm pri" onclick="clRendre('${g.lot}')">✅ Retour des clefs…</button></div></div>`;
 }
