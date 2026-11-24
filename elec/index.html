@@ -90,6 +90,9 @@ mark{background:#fff1a8;color:inherit;border-radius:3px;padding:0 1px}
 .zchip:hover{border-color:#999}
 .zchip small{display:block;font-weight:500;color:var(--muted);font-size:11px;margin-top:1px}
 .zchip.on{background:var(--green);color:#fff;border-color:var(--green)}.zchip.on small{color:#cfe5d9}
+.tchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 12px}.tchips .tl{font:600 12px Inter,sans-serif;color:var(--muted);margin-right:2px}
+.tchip{border:1px solid #e3c3c0;background:#fff;border-radius:999px;padding:5px 11px;cursor:pointer;font:600 12.5px Inter,sans-serif;color:#b42318}.tchip:hover{border-color:#b42318}.tchip small{font-weight:500;opacity:.75;margin-left:4px}
+.tchip.on{background:#b42318;color:#fff;border-color:#b42318}
 .otbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
 .otbar input{flex:1;min-width:220px;font:500 14px Inter,sans-serif;padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;outline:none}
 .otbar input:focus{border-color:var(--green)}
@@ -954,6 +957,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <div class="pad"><div class="arhead"><h2>Arborescence par zone et par TGBT</h2><div class="seg" id="arMode"><button data-m="sch" class="on">Schéma</button><button data-m="list">Liste</button></div><span class="ed" hidden style="margin-left:auto"><button class="btn pri" id="addZone">＋ Nouvelle zone</button></span></div>
   <div id="arSch">
     <div class="zchips" id="zChips"></div>
+    <div class="tchips" id="tChips"></div>
     <div class="otbar"><input id="otQ" placeholder="Surligner une armoire, un départ, un local, un code…" autocomplete="off"><span id="otN" class="muted"></span>
       <button class="btn" id="otCol" title="N'afficher que les TGBT">TGBT seuls</button><button class="btn" id="otTg" title="TGBT et leurs départs directs">Départs des TGBT</button><button class="btn" id="otPlus">＋1 niveau</button><button class="btn" id="otExp">Tout déplier</button>
       <span class="zm"><button class="btn" id="zmM" title="Dézoomer">−</button><span id="zmV">100%</span><button class="btn" id="zmP" title="Zoomer">+</button></span></div>
@@ -1204,13 +1208,13 @@ $('colAll').onclick=()=>{buildTree(1);$('tree').querySelectorAll(':scope>ul>li>.
 
 /* ================= SCHÉMA (arborescence visuelle) ================= */
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}},lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-let AR_MODE=lsGet('elecArMode')||'sch',ZONE=lsGet('elecZone')||'',EXP=new Set(),CLOSED=new Set(),EXP_Z='',ZM=+(lsGet('elecZm')||1)||1;
+let AR_MODE=lsGet('elecArMode')||'sch',ZONE=lsGet('elecZone')||'',TGS=lsGet('elecTgbt')||'',EXP=new Set(),CLOSED=new Set(),EXP_Z='',ZM=+(lsGet('elecZm')||1)||1;
 function arMode(m){AR_MODE=m;lsSet('elecArMode',m);$('arSch').hidden=m!=='sch';$('arList').hidden=m==='sch';document.querySelectorAll('#arMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));if(m==='sch')drawSchema(true)}
 document.querySelectorAll('#arMode button').forEach(b=>b.onclick=()=>arMode(b.dataset.m));
 function zoneTg(fid,withKids){EXP=new Set(['F:'+fid]);CLOSED.clear();EXP_Z=fid;if(withKids)desc(N.get('F:'+fid)).forEach(n=>{if(n.t==='tgbt')EXP.add(n.id)})}
 function otScroll(el){const w=$('otWrap'),r=el.getBoundingClientRect(),wr=w.getBoundingClientRect();w.scrollLeft+=r.left-wr.left-Math.min(120,wr.width/4);w.scrollTop+=r.top-wr.top-wr.height/2+r.height/2}
 function drawSchema(focus,toHit){
-  if(AR_MODE!=='sch'||!FEU.length||!N.size){$('zChips').innerHTML='';$('ot').innerHTML='';return}
+  if(AR_MODE!=='sch'||!FEU.length||!N.size){$('zChips').innerHTML='';$('tChips').innerHTML='';$('ot').innerHTML='';return}
   const S=sel&&N.has(sel)?N.get(sel):null;
   if(focus&&S)ZONE=S._fid;
   if(!FEU.some(f=>f.id===ZONE))ZONE=FEU[0].id;
@@ -1218,7 +1222,13 @@ function drawSchema(focus,toHit){
   if(EXP_Z!==ZONE)zoneTg(ZONE,true);
   if(focus&&S&&S._fid===ZONE)anc(S).slice(0,-1).forEach(x=>{EXP.add(x.id);CLOSED.delete(x.id)});
   $('zChips').innerHTML=FEU.map(f=>{const all=desc(N.get('F:'+f.id)),nt=all.filter(x=>x.t==='tgbt').length;return `<button class="zchip${f.id===ZONE?' on':''}" data-z="${esc(f.id)}">${esc(f.nom)}<small>${nt} TGBT · ${all.length} éléments</small></button>`}).join('');
-  const root=N.get('F:'+ZONE),CNT=new Map(),cnt=n=>{if(CNT.has(n.id))return CNT.get(n.id);let c=0;kids(n).forEach(k=>c+=1+cnt(k));CNT.set(n.id,c);return c};
+  // Sélection d'un TGBT de la zone : le schéma ne montre plus que lui et son aval
+  const TGL=desc(N.get('F:'+ZONE)).filter(x=>x.t==='tgbt');
+  if(focus&&S&&TGS&&N.has(TGS)&&S.id!==TGS&&!anc(S).some(a=>a.id===TGS))TGS='';
+  if(TGS&&!TGL.some(x=>x.id===TGS))TGS='';
+  lsSet('elecTgbt',TGS);
+  $('tChips').innerHTML=TGL.length>1?`<span class="tl">TGBT :</span><button class="tchip${TGS?'':' on'}" data-t="">Tous</button>`+TGL.map(t=>`<button class="tchip${t.id===TGS?' on':''}" data-t="${esc(t.id)}" title="${esc([t.r,t.l,t.c].filter(Boolean).join(' · '))}">${esc(t.l)}<small>${desc(t).length}</small></button>`).join(''):'';
+  const root=TGS?N.get(TGS):N.get('F:'+ZONE),CNT=new Map(),cnt=n=>{if(CNT.has(n.id))return CNT.get(n.id);let c=0;kids(n).forEach(k=>c+=1+cnt(k));CNT.set(n.id,c);return c};
   const toks=norm($('otQ').value.trim()).split(/\s+/).filter(Boolean),HIT=new Set(),OPEN=new Set(EXP);
   if(toks.length)desc(root).forEach(n=>{if(toks.every(t=>(n._own||'').includes(t))){HIT.add(n.id);anc(n).slice(0,-1).forEach(a=>OPEN.add(a.id))}});
   CLOSED.forEach(id=>OPEN.delete(id));OPEN.add(root.id);
@@ -1231,16 +1241,19 @@ function drawSchema(focus,toHit){
     const sub=[n.c?`<span class="code">${esc(n.c)}</span>`:'',fn?`<span>${esc(fn)}</span>`:'',po?`<span>Poste ${esc(po.poste)}${po.tr&&po.tr.length?' · '+esc(po.tr.join(', ')):''}</span>`:''].join('');
     return `<div class="${cls}" data-id="${esc(n.id)}">${k==='tgbt'?'<div class="ty">TGBT</div>':''}<div>${n.r?`<span class="rep">${esc(n.r)}</span> `:''}<span class="l">${esc(n.l)}</span></div>${sub?`<div class="s">${sub}</div>`:''}<button class="fi" data-fi title="Ouvrir la fiche">ⓘ</button>${c?`<span class="nb" title="${c} élément${c>1?'s':''} en aval">${c}</span>`:''}</div>`};
   const li=n=>{const ks=kids(n),o=OPEN.has(n.id)&&ks.length>0;return `<li>${card(n,o)}${o?'<ul>'+ks.map(li).join('')+'</ul>':''}</li>`};
-  $('ot').innerHTML=kids(root).length?'<ul>'+kids(root).map(li).join('')+'</ul>':'<div class="muted">Aucun TGBT dans cette zone pour l’instant.</div>';
+  $('ot').innerHTML=TGS?'<ul>'+li(root)+'</ul>':kids(root).length?'<ul>'+kids(root).map(li).join('')+'</ul>':'<div class="muted">Aucun TGBT dans cette zone pour l’instant.</div>';
   $('ot').style.zoom=ZM;$('zmV').textContent=Math.round(ZM*100)+'%';
   const tgt=toHit?$('ot').querySelector('.nd.hit'):focus?$('ot').querySelector('.nd.me'):null;if(tgt)otScroll(tgt);
 }
-$('zChips').addEventListener('click',e=>{const b=e.target.closest('.zchip');if(!b)return;ZONE=b.dataset.z;EXP_Z='';$('otWrap').scrollTo(0,0);drawSchema()});
+$('zChips').addEventListener('click',e=>{const b=e.target.closest('.zchip');if(!b)return;ZONE=b.dataset.z;TGS='';EXP_Z='';$('otWrap').scrollTo(0,0);drawSchema()});
+$('tChips').addEventListener('click',e=>{const b=e.target.closest('.tchip');if(!b)return;TGS=b.dataset.t;
+  if(TGS){const t=N.get(TGS);EXP.add(TGS);CLOSED.delete(TGS);kids(t).forEach(k=>{if(kids(k).length&&!CLOSED.has(k.id))EXP.add(k.id)})}
+  $('otWrap').scrollTo(0,0);drawSchema()});
 let otT;$('otQ').addEventListener('input',()=>{clearTimeout(otT);otT=setTimeout(()=>{CLOSED.clear();drawSchema(false,true)},150)});
-$('otCol').onclick=()=>{zoneTg(ZONE,false);drawSchema()};
+$('otCol').onclick=()=>{TGS='';zoneTg(ZONE,false);drawSchema()};
 $('otTg').onclick=()=>{zoneTg(ZONE,true);drawSchema()};
 $('otPlus').onclick=()=>{$('ot').querySelectorAll('.nd:not(.open)').forEach(d=>{const n=N.get(d.dataset.id);if(n&&kids(n).length){EXP.add(n.id);CLOSED.delete(n.id)}});drawSchema()};
-$('otExp').onclick=()=>{CLOSED.clear();desc(N.get('F:'+ZONE)).forEach(n=>{if(kids(n).length)EXP.add(n.id)});drawSchema()};
+$('otExp').onclick=()=>{CLOSED.clear();desc(N.get(TGS||'F:'+ZONE)).forEach(n=>{if(kids(n).length)EXP.add(n.id)});drawSchema()};
 const setZm=z=>{ZM=Math.round(Math.min(1.5,Math.max(.4,z))*10)/10;lsSet('elecZm',ZM);$('ot').style.zoom=ZM;$('zmV').textContent=Math.round(ZM*100)+'%'};
 $('zmM').onclick=()=>setZm(ZM-.1);$('zmP').onclick=()=>setZm(ZM+.1);
 $('otWrap').addEventListener('wheel',e=>{if(e.ctrlKey){e.preventDefault();setZm(ZM+(e.deltaY<0?.1:-.1))}},{passive:false});
