@@ -1564,8 +1564,53 @@ function textLines(T){
   return out;
 }
 
+/* ---------- placement des numéros sans chevauchement (extraction) ----------
+   Chaque étiquette reste centrée sur son cylindre si la place est libre ; sinon elle est
+   décalée autour (trait de rappel + point sur le cylindre), puis réduite à 80 %, puis
+   écartée plus loin. En dernier recours : un renvoi numéroté listé à part. */
+function layoutLabels(P, o){
+  const res = new Map(); if(!P.length) return res;
+  const H0 = Math.max(...P.map(p => o.size(p, 1)[1])), cs = H0*3, g = new Map(), r = o.dot, pad = H0*0.06;
+  const cells = (b, f) => { const i0 = Math.floor(b[0]/cs), i1 = Math.floor(b[2]/cs), j0 = Math.floor(b[1]/cs), j1 = Math.floor(b[3]/cs);
+    for(let i = i0; i <= i1; i++) for(let j = j0; j <= j1; j++) if(f(i + ',' + j)) return true; return false; };
+  const add = b => cells(b, k => { (g.get(k) || g.set(k, []).get(k)).push(b); return false; });
+  const hit = (b, own) => cells(b, k => (g.get(k) || []).some(c => c.own !== own && c[0] < b[2] && c[2] > b[0] && c[1] < b[3] && c[3] > b[1]));
+  P.forEach(p => { const b = [p.x-r, p.y-r, p.x+r, p.y+r]; b.own = p.id; add(b); });   // aucun numéro ne doit masquer un autre cylindre
+  (o.obst || []).forEach(b => add(b));
+  const R2 = (H0*4)**2;                                  // les cylindres les plus entourés sont placés d'abord
+  const order = P.map(p => [p, P.reduce((n, q) => n + ((q.x-p.x)**2 + (q.y-p.y)**2 < R2), 0)]).sort((a, b) => b[1] - a[1]);
+  const [S1, S2] = o.scales, phases = [[0,S1],[1,S1],[0,S2],[1,S2]];
+  for(let k = 2; k <= o.rings; k++) phases.push([k, S1]);
+  for(let k = 2; k <= o.rings; k++) phases.push([k, S2]);
+  const cand = (p, ring, w, h) => {
+    if(!ring) return [[p.x, p.y]];
+    const gp = r + h*0.2, dx = w/2 + gp, dy = h/2 + gp;
+    if(ring === 1) return [[dx,0],[-dx,0],[0,-dy],[0,dy],[dx,-dy],[-dx,-dy],[dx,dy],[-dx,dy]].map(([a,b]) => [p.x+a, p.y+b]);
+    const e = (ring-1)*h*1.2, out = [];
+    for(let i = 0; i < 16; i++){ const a = i*Math.PI/8; out.push([p.x + (dx+e)*Math.cos(a), p.y + (dy+e)*Math.sin(a)]); }
+    return out;
+  };
+  for(const [p] of order){
+    let q = null;
+    for(const [ring, k] of phases){
+      const [w, h] = o.size(p, k);
+      for(const [cx, cy] of cand(p, ring, w, h)){
+        if(hit([cx-w/2-pad, cy-h/2-pad, cx+w/2+pad, cy+h/2+pad], p.id)) continue;
+        add([cx-w/2, cy-h/2, cx+w/2, cy+h/2]); q = {cx, cy, w, h, k, lead: ring > 0}; break;
+      }
+      if(q) break;
+    }
+    res.set(p.id, q || {ref: true});
+  }
+  return res;
+}
+/* point du bord de l'étiquette le plus proche du cylindre (départ du trait de rappel) */
+const edgePt = (p, q) => [Math.min(Math.max(p.x, q.cx-q.w/2), q.cx+q.w/2), Math.min(Math.max(p.y, q.cy-q.h/2), q.cy+q.h/2)];
+const pdfCirc = (x, y, r) => { const c = 0.5523*r;
+  return `${f1(x+r)} ${f1(y)} m ${f1(x+r)} ${f1(y+c)} ${f1(x+c)} ${f1(y+r)} ${f1(x)} ${f1(y+r)} c ${f1(x-c)} ${f1(y+r)} ${f1(x-r)} ${f1(y+c)} ${f1(x-r)} ${f1(y)} c ${f1(x-r)} ${f1(y-c)} ${f1(x-c)} ${f1(y-r)} ${f1(x)} ${f1(y-r)} c ${f1(x+c)} ${f1(y-r)} ${f1(x+r)} ${f1(y-c)} ${f1(x+r)} ${f1(y)} c h`; };
+
 /* ---------- PDF ---------- */
-async function buildPDF(levels, paper, optPins, optHalls){
+async function buildPDF(levels, paper, optPins, optHalls, optSpread){
   const [mmW, mmH] = PAPER[paper], pw = mmW*PT, ph = mmH*PT;
   const u = mmW/420;                                   // 1 en A3, 2,8 en A0
   const m = 10*PT, band = 14*PT*Math.sqrt(u);
@@ -1607,23 +1652,39 @@ async function buildPDF(levels, paper, optPins, optHalls){
       }
     }
     // noms des halls
+    const hallB = [];
     if(optHalls){
       const fs = 7*Math.sqrt(u)/s;                 // ≈ 7 pt en A3, 12 pt en A0
       for(const h of PLACES.h){
         const w = tw(h.t, fs, true), pad = fs*0.3;
+        hallB.push([h.x-w/2-pad, h.y-fs*0.62, h.x+w/2+pad, h.y+fs*0.58]);
         out.push(`/GS1 gs 1 1 1 rg ${f1(h.x-w/2-pad)} ${f1(h.y-fs*0.62)} ${f1(w+2*pad)} ${f1(fs*1.2)} re f /GS0 gs`);
         out.push(`BT ${rg(BR)} rg /F2 ${f2(fs)} Tf 1 0 0 -1 ${f1(h.x-w/2)} ${f1(h.y+fs*0.36)} Tm ${pdfTxt(h.t)} Tj ET`);
       }
     }
     // repères des cylindres
+    const refs = [];
     if(optPins){
       const fs = 3.6*Math.sqrt(u)/s;              // ≈ 3,6 pt en A3, 6 pt en A0
-      for(const p of outPins(lv)){
-        const w = tw(p.n, fs, true), pw_ = w + fs*0.7, hh = fs*1.3, x0 = p.x - pw_/2, y0 = p.y - hh/2;
-        const fill = p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : rg(BR);
-        out.push(`${fill} rg 1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re B`);
-        out.push(`BT 1 1 1 rg /F2 ${f2(fs)} Tf 1 0 0 -1 ${f1(p.x-w/2)} ${f1(p.y+fs*0.36)} Tm ${pdfTxt(p.n)} Tj ET`);
+      const P = outPins(lv), fillOf = p => p.st==='o' ? rg(OK) : p.st==='c' ? '0.79 0.8 0.84' : rg(BR);
+      const L = optSpread ? layoutLabels(P, {size: (p, k) => [tw(p.n, fs*k, true) + fs*k*0.7, fs*k*1.3], dot: fs*0.32, obst: hallB, scales: [1, 0.8], rings: 6}) : null;
+      // traits de rappel et points d'abord, étiquettes par-dessus
+      for(const p of P){ const q = L && L.get(p.id); if(!q || !q.lead) continue;
+        const [ex, ey] = edgePt(p, q);
+        out.push(`${fillOf(p)} RG ${f2(fs*0.09)} w ${f1(p.x)} ${f1(p.y)} m ${f1(ex)} ${f1(ey)} l S`);
+        out.push(`${fillOf(p)} rg ${pdfCirc(p.x, p.y, fs*0.3)} f`); }
+      for(const p of P){
+        const q = L && L.get(p.id);
+        if(q && q.ref){ refs.push(p); continue; }
+        const k = q ? q.k : 1, f = fs*k, cx = q ? q.cx : p.x, cy = q ? q.cy : p.y;
+        const w = tw(p.n, f, true), pw_ = w + f*0.7, hh = f*1.3, x0 = cx - pw_/2, y0 = cy - hh/2;
+        out.push(`${fillOf(p)} rg 1 1 1 RG ${f2(fs*0.12)} w ${f1(x0)} ${f1(y0)} ${f1(pw_)} ${f1(hh)} re B`);
+        out.push(`BT 1 1 1 rg /F2 ${f2(f)} Tf 1 0 0 -1 ${f1(cx-w/2)} ${f1(cy+f*0.36)} Tm ${pdfTxt(p.n)} Tj ET`);
       }
+      // renvois : pastille numérotée sur le cylindre, détail en page suivante
+      refs.forEach((p, i) => { const t = String(i+1), f = fs*0.85, w = tw(t, f, true), rr = Math.max(fs*0.6, w/2 + fs*0.25);
+        out.push(`${fillOf(p)} rg 1 1 1 RG ${f2(fs*0.12)} w ${pdfCirc(p.x, p.y, rr)} B`);
+        out.push(`BT 1 1 1 rg /F2 ${f2(f)} Tf 1 0 0 -1 ${f1(p.x-w/2)} ${f1(p.y+f*0.36)} Tm ${pdfTxt(t)} Tj ET`); });
     }
     out.push('Q');
     // cartouche
@@ -1632,7 +1693,7 @@ async function buildPDF(levels, paper, optPins, optHalls){
     const kf = selKey ? (selKey === XKEY ? 'Hors organigramme NHKN' : `Clé ${selKey}${KEYF[selKey] ? ' – ' + KEYF[selKey] : ''}`) : '';
     out.push(`${rg(BR)} RG ${f2(0.6*Math.sqrt(u))} w ${f2(m)} ${f2(m+band)} m ${f2(pw-m)} ${f2(m+band)} l S`);
     out.push(`BT ${rg(BR)} rg /F2 ${f2(tf)} Tf ${f2(m)} ${f2(by+sf*0.9)} Td ${pdfTxt('EUREXPO LYON  ·  Plan des clés  ·  ' + lvName(lv))} Tj ET`);
-    out.push(`BT 0.35 0.38 0.43 rg /F1 ${f2(sf)} Tf ${f2(m)} ${f2(by-sf*0.6)} Td ${pdfTxt(`Plan de fermeture NHKN  ·  ${n} repère${n>1?'s':''} posé${n>1?'s':''}  ·  extrait le ${new Date().toLocaleDateString('fr-FR')}  ·  format ${paper}`)} Tj ET`);
+    out.push(`BT 0.35 0.38 0.43 rg /F1 ${f2(sf)} Tf ${f2(m)} ${f2(by-sf*0.6)} Td ${pdfTxt(`Plan de fermeture NHKN  ·  ${n} repère${n>1?'s':''} posé${n>1?'s':''}  ·  extrait le ${new Date().toLocaleDateString('fr-FR')}  ·  format ${paper}${refs.length ? `  ·  ${refs.length} renvoi${refs.length>1?'s':''} (pastilles) : voir page suivante` : ''}`)} Tj ET`);
     if(optPins){
       const lg = selKey ? [[OK, kf + ' : ouvre'], [[0.79,0.8,0.84], 'n\'ouvre pas']] : [[BR, 'Cylindre (n° de clé)']];
       let lx = pw - m;
@@ -1642,6 +1703,18 @@ async function buildPDF(levels, paper, optPins, optHalls){
         out.push(`BT 0.114 0.114 0.114 rg /F1 ${f2(sf)} Tf ${f2(lx+sf*1.9)} ${f2(by+sf*0.12)} Td ${pdfTxt(it.t)} Tj ET`); }
     }
     pages.push(out.join('\n'));
+    if(refs.length){                                 // page des renvois de ce niveau
+      const A = [], tf2 = 10*Math.sqrt(u), sf2 = 7*Math.sqrt(u), lh = sf2*1.7, top = ph - m - tf2*2.6;
+      A.push(`BT ${rg(BR)} rg /F2 ${f2(tf2)} Tf ${f2(m)} ${f2(ph-m-tf2)} Td ${pdfTxt('EUREXPO LYON  ·  Plan des clés  ·  ' + lvName(lv) + '  ·  renvois des numéros trop serrés')} Tj ET`);
+      const it = refs.map((p, i) => { let nr = ''; try{ const z = nearLocal(p.x, p.y, 140, lv); nr = z && z.t ? '  (près de : ' + z.t + ')' : ''; }catch(e){}
+        return {a: String(i+1), b: String(p.n) + nr}; });
+      const aw = Math.max(...it.map(x => tw(x.a, sf2, true))) + sf2*1.2;
+      const colW = aw + Math.max(...it.map(x => tw(x.b, sf2))) + sf2*3, rows = Math.max(1, Math.floor((top - m)/lh) + 1);
+      it.forEach((x, i) => { const cx = m + Math.floor(i/rows)*colW, cy = top - (i % rows)*lh;
+        A.push(`BT ${rg(BR)} rg /F2 ${f2(sf2)} Tf ${f2(cx)} ${f2(cy)} Td ${pdfTxt(x.a)} Tj ET`);
+        A.push(`BT 0.114 0.114 0.114 rg /F1 ${f2(sf2)} Tf ${f2(cx+aw)} ${f2(cy)} Td ${pdfTxt(x.b)} Tj ET`); });
+      pages.push(A.join('\n'));
+    }
   }
   // assemblage
   const objs = [];   // [num, Uint8Array|string]
@@ -1678,7 +1751,7 @@ async function buildPDF(levels, paper, optPins, optHalls){
 }
 
 /* ---------- DXF (AutoCAD R12, lisible par toutes les versions) ---------- */
-async function buildDXF(levels, optPins, optHalls){
+async function buildDXF(levels, optPins, optHalls, optSpread){
   const H = TILES.H, X = v => f2(v), Y = v => f2(H - v);
   const PIN_H = 12;   // hauteur du numéro ; cadre de largeur fixe calée sur le numéro le plus long
   const PIN_W = Math.max(0, ...pins.map(p => tw(String(p.n), PIN_H/0.72, true))) + PIN_H*0.9, PIN_HH = PIN_H*2;
@@ -1716,11 +1789,21 @@ async function buildDXF(levels, optPins, optHalls){
     if(optHalls){ const hl = lay(`${lv}_HALLS`, 5); for(const h of PLACES.h) text(hl, h.x, h.y, 60, h.t, 0, 1, 2); }
     if(optPins){
       const k = selKey ? (selKey === XKEY ? 'HORS_NHKN' : selKey.replace(/[^A-Za-z0-9_-]/g,'_')) : '';
-      for(const p of outPins(lv)){
-        const l = p.st==='o' ? lay(`${lv}_CYLINDRES_${k}_OUVRE`, 3) : p.st==='c' ? lay(`${lv}_CYLINDRES_AUTRES`, 8) : lay(`${lv}_CYLINDRES`, 1);
+      const P = outPins(lv);
+      const hallB = optHalls ? PLACES.h.map(h => { const w = tw(h.t, 60/0.72); return [h.x-w/2-10, h.y-40, h.x+w/2+10, h.y+40]; }) : [];
+      const L = optSpread ? layoutLabels(P, {size: (p, kk) => [PIN_W*kk, PIN_HH*kk], dot: PIN_H*0.3, obst: hallB, scales: [1, 0.8], rings: 8}) : null;
+      for(const p of P){
+        let l = p.st==='o' ? lay(`${lv}_CYLINDRES_${k}_OUVRE`, 3) : p.st==='c' ? lay(`${lv}_CYLINDRES_AUTRES`, 8) : lay(`${lv}_CYLINDRES`, 1);
+        const q = L && L.get(p.id);
+        let cx = p.x, cy = p.y, kk = 1;
+        if(q && q.ref){ l = lay(`${lv}_CYLINDRES_A_VERIFIER`, 6); kk = 0.8; }      // pas de place : à déplacer à la main
+        else if(q){ cx = q.cx; cy = q.cy; kk = q.k;
+          if(q.lead){ const [ex, ey] = edgePt(p, q);
+            E.push(`0\nLINE\n8\n${l}\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n11\n${X(ex)}\n21\n${Y(ey)}\n31\n0\n`);
+            E.push(`0\nCIRCLE\n8\n${l}\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n40\n${f2(PIN_H*0.3)}\n`); } }
         // une étiquette = un bloc CYLINDRE (cadre + attribut NUM), posé sur le calque du cylindre
-        E.push(`0\nINSERT\n8\n${l}\n66\n1\n2\nCYLINDRE\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n`
-          + `0\nATTRIB\n8\n${l}\n10\n${X(p.x)}\n20\n${Y(p.y)}\n30\n0\n40\n${f2(PIN_H)}\n1\n${cp1252(String(p.n)).replace(/\r?\n/g,' ')}\n2\nNUM\n70\n0\n72\n1\n74\n2\n11\n${X(p.x)}\n21\n${Y(p.y)}\n31\n0\n`
+        E.push(`0\nINSERT\n8\n${l}\n66\n1\n2\nCYLINDRE\n10\n${X(cx)}\n20\n${Y(cy)}\n30\n0\n` + (kk !== 1 ? `41\n${f2(kk)}\n42\n${f2(kk)}\n43\n${f2(kk)}\n` : '')
+          + `0\nATTRIB\n8\n${l}\n10\n${X(cx)}\n20\n${Y(cy)}\n30\n0\n40\n${f2(PIN_H*kk)}\n1\n${cp1252(String(p.n)).replace(/\r?\n/g,' ')}\n2\nNUM\n70\n0\n72\n1\n74\n2\n11\n${X(cx)}\n21\n${Y(cy)}\n31\n0\n`
           + `0\nSEQEND\n8\n${l}\n`);
       }
     }
@@ -1758,6 +1841,7 @@ function outDialog(){
     <div class="fld" id="oPaperF"><b>Papier</b><select id="oPaper">${Object.keys(PAPER).map(k=>`<option ${k==='A0'?'selected':''}>${k}</option>`).join('')}</select> <span class="sub">paysage</span></div>
     <div class="fld"><b>Niveaux</b><select id="oLv"><option value="cur">${esc(lvName(LV))} (niveau affiché)</option><option value="all">Tous les niveaux</option></select></div>
     <div class="fld"><label><input type="checkbox" id="oPins" checked> Repères des cylindres</label>
+      <label><input type="checkbox" id="oSpread" checked> Écarter les numéros qui se chevauchent</label>
       <label><input type="checkbox" id="oHalls" ${document.getElementById('hallChk').checked?'checked':''}> Noms des halls</label></div>
     <p class="sub" id="oNote"></p>
     <div class="row" style="justify-content:flex-end"><button class="btn light" id="oCancel">Annuler</button><button class="btn primary" id="oGo">Télécharger</button></div>
@@ -1766,8 +1850,8 @@ function outDialog(){
     const pdf = dlg.querySelector('[name=ofmt]:checked').value === 'pdf', all = dlg.querySelector('#oLv').value === 'all';
     dlg.querySelector('#oPaperF').style.display = pdf ? '' : 'none';
     dlg.querySelector('#oNote').textContent = (pdf
-      ? (all ? 'Une page par niveau. ' : '') + (kf ? `Filtre ${kf} : les cylindres qu'elle ouvre en vert, les autres en gris.` : '')
-      : `Un calque par niveau (traits, textes, cylindres${kf ? `, avec un calque pour ceux qu'ouvre la ${kf}` : ''}). Coordonnées en unités du plan : à recaler sur le DWG d'origine si besoin (ALIGN).`);
+      ? (all ? 'Une page par niveau. ' : '') + (dlg.querySelector('#oSpread').checked ? 'Les numéros serrés sont décalés avec un trait de rappel ; s\'il n\'y a vraiment pas la place, une pastille renvoie à une page de renvois. ' : '') + (kf ? `Filtre ${kf} : les cylindres qu'elle ouvre en vert, les autres en gris.` : '')
+      : `Un calque par niveau (traits, textes, cylindres${kf ? `, avec un calque pour ceux qu'ouvre la ${kf}` : ''} ; ceux restés sans place sur un calque « A_VERIFIER »). Coordonnées en unités du plan : à recaler sur le DWG d'origine si besoin (ALIGN).`);
   };
   dlg.querySelectorAll('input,select').forEach(el => el.onchange = note); note();
   dlg.onclick = e => { if(e.target === dlg) dlg.remove(); };
@@ -1775,11 +1859,11 @@ function outDialog(){
   dlg.querySelector('#oGo').onclick = async () => {
     const pdf = dlg.querySelector('[name=ofmt]:checked').value === 'pdf';
     const levels = dlg.querySelector('#oLv').value === 'all' ? OUT_ORDER : [LV];
-    const paper = dlg.querySelector('#oPaper').value, oP = dlg.querySelector('#oPins').checked, oH = dlg.querySelector('#oHalls').checked;
+    const paper = dlg.querySelector('#oPaper').value, oP = dlg.querySelector('#oPins').checked, oH = dlg.querySelector('#oHalls').checked, oS = dlg.querySelector('#oSpread').checked;
     const b = dlg.querySelector('#oGo'); b.disabled = true; b.textContent = 'Préparation…';
     await new Promise(r => setTimeout(r, 30));
     try{
-      const blob = pdf ? await buildPDF(levels, paper, oP, oH) : await buildDXF(levels, oP, oH);
+      const blob = pdf ? await buildPDF(levels, paper, oP, oH, oS) : await buildDXF(levels, oP, oH, oS);
       const name = `plan-cles-${levels.length > 1 ? 'tous-niveaux' : lvName(levels[0]).replace(/\s+/g,'')}${selKey ? '-' + (selKey===XKEY?'hors-NHKN':selKey) : ''}${pdf ? '-' + paper : ''}-${new Date().toISOString().slice(0,10)}.${pdf ? 'pdf' : 'dxf'}`;
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 20000);
