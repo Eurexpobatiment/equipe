@@ -81,6 +81,48 @@ mark{background:#fff1a8;color:inherit;border-radius:3px;padding:0 1px}
 .tree .row.sel{background:#fffbe0;outline:1px solid var(--hl)}
 .tree .tg{width:16px;flex:none;color:var(--muted);text-align:center;user-select:none}
 .tree .cnt{color:var(--muted);font-size:11px}
+.arhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.arhead h2{margin:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:#f6f7f9}
+.seg button{border:0;background:none;border-radius:999px;padding:6px 14px;font:600 12.5px Inter,sans-serif;cursor:pointer;color:var(--muted)}
+.seg button.on{background:var(--green);color:#fff}
+.zchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.zchip{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 12px;cursor:pointer;text-align:left;font:600 13px Inter,sans-serif;color:var(--ink)}
+.zchip:hover{border-color:#999}
+.zchip small{display:block;font-weight:500;color:var(--muted);font-size:11px;margin-top:1px}
+.zchip.on{background:var(--green);color:#fff;border-color:var(--green)}.zchip.on small{color:#cfe5d9}
+.otbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.otbar input{flex:1;min-width:220px;font:500 14px Inter,sans-serif;padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;outline:none}
+.otbar input:focus{border-color:var(--green)}
+.otbar .zm{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.otbar .zm .btn{padding:5px 10px}
+.otwrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#f8faf9 radial-gradient(#dde3e0 1px,transparent 1px) 0 0/18px 18px;height:calc(100vh - 330px);min-height:420px;cursor:grab;padding:24px 40px 24px 24px}
+body.embed .otwrap{height:calc(100vh - 270px)}
+.otwrap.drag{cursor:grabbing;user-select:none}
+.ot{width:max-content}
+.ot ul{list-style:none;margin:0 0 0 30px;padding:0;display:flex;flex-direction:column;position:relative}
+.ot ul::before{content:"";position:absolute;left:-30px;top:50%;width:30px;border-top:2px solid #b9c3be}
+.ot li{display:flex;align-items:center;position:relative;padding:4px 0 4px 22px}
+.ot li::before{content:"";position:absolute;left:0;top:50%;width:22px;border-top:2px solid #b9c3be}
+.ot li::after{content:"";position:absolute;left:0;top:0;bottom:0;border-left:2px solid #b9c3be}
+.ot li:first-child::after{top:50%}.ot li:last-child::after{bottom:50%}.ot li:only-child::after{display:none}
+.ot>ul{margin:0}.ot>ul::before,.ot>ul>li::before,.ot>ul>li::after{display:none}.ot>ul>li{padding-left:0}
+.nd{position:relative;flex:none;background:#fff;border:1px solid #d3dad6;border-left:5px solid #475467;border-radius:10px;padding:7px 30px 7px 10px;min-width:140px;max-width:260px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.06);font-size:13px;line-height:1.3;transition:box-shadow .15s}
+.nd:hover{box-shadow:0 3px 12px rgba(16,24,40,.16)}
+.nd.k-tgbt{border-left-color:#b42318;background:#fff6f5;min-width:170px}
+.nd.k-arm{border-left-color:#0e4d33}
+.nd.k-dep{border-left-color:#a7b0bd;min-width:0;padding:5px 26px 5px 9px;font-size:12.5px;box-shadow:none}
+.nd.k-feuille{background:var(--green);color:#fff;border:0;font-weight:700;font-size:16px;padding:14px 22px;cursor:default}
+.nd .ty{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#b42318;margin-bottom:2px}
+.nd.k-arm .ty{color:var(--green)}
+.nd .l{font-weight:600}.nd.k-dep .l{font-weight:500}
+.nd .s{display:flex;gap:4px 6px;flex-wrap:wrap;align-items:center;margin-top:3px;font-size:11px;color:var(--muted)}
+.nd .fi{position:absolute;right:5px;top:4px;border:0;background:none;color:#98a2b3;cursor:pointer;font-size:13px;line-height:1;padding:2px}
+.nd .fi:hover{color:var(--green)}
+.nd .nb{position:absolute;right:-12px;top:50%;transform:translateY(-50%);min-width:24px;height:22px;border-radius:11px;background:#fff;border:2px solid #b9c3be;font:700 10.5px Inter,sans-serif;color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0 5px;z-index:1;box-sizing:border-box}
+.nd.open .nb{background:var(--green);border-color:var(--green);color:#fff}
+.nd.path{border-color:#e2c200;border-left-color:#b08d00}
+.nd.me{outline:3px solid var(--hl);background:#fffbe0}
+.nd.hit{box-shadow:0 0 0 3px var(--hl);background:#fffbe0}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font:500 13px Inter,sans-serif;cursor:pointer}
 .btn:hover{border-color:#999}
@@ -909,9 +951,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
 </section>
 
 <section class="view card" id="vArbo">
-  <div class="pad"><h2>Arborescence complète par zone et par TGBT</h2>
-  <div class="btns" style="margin-bottom:10px"><button class="btn" id="expAll">Tout déplier (TGBT)</button><button class="btn" id="colAll">Tout replier</button><span class="ed" hidden><button class="btn pri" id="addZone">＋ Nouvelle zone</button></span></div>
-  <div class="tree" id="tree"></div></div>
+  <div class="pad"><div class="arhead"><h2>Arborescence par zone et par TGBT</h2><div class="seg" id="arMode"><button data-m="sch" class="on">Schéma</button><button data-m="list">Liste</button></div><span class="ed" hidden style="margin-left:auto"><button class="btn pri" id="addZone">＋ Nouvelle zone</button></span></div>
+  <div id="arSch">
+    <div class="zchips" id="zChips"></div>
+    <div class="otbar"><input id="otQ" placeholder="Surligner une armoire, un départ, un local, un code…" autocomplete="off"><span id="otN" class="muted"></span>
+      <button class="btn" id="otCol" title="N'afficher que les TGBT">TGBT seuls</button><button class="btn" id="otTg" title="TGBT et leurs départs directs">Départs des TGBT</button><button class="btn" id="otPlus">＋1 niveau</button><button class="btn" id="otExp">Tout déplier</button>
+      <span class="zm"><button class="btn" id="zmM" title="Dézoomer">−</button><span id="zmV">100%</span><button class="btn" id="zmP" title="Zoomer">+</button></span></div>
+    <div class="legend" style="margin:0 0 8px"><span><i style="background:#b42318"></i>TGBT</span><span><i style="background:#0e4d33"></i>Armoire / coffret</span><span><i style="background:#a7b0bd"></i>Départ / circuit</span><span>Clic sur une carte : déplier / replier · ⓘ : fiche · glisser le fond pour se déplacer</span></div>
+    <div class="otwrap" id="otWrap"><div class="ot" id="ot"></div></div>
+  </div>
+  <div id="arList" hidden>
+    <div class="btns" style="margin-bottom:10px"><button class="btn" id="expAll">Tout déplier (TGBT)</button><button class="btn" id="colAll">Tout replier</button></div>
+    <div class="tree" id="tree"></div>
+  </div></div>
 </section>
 
 <section class="view card" id="vCtrl"><div class="pad" id="ctrl"></div></section>
@@ -1149,6 +1201,59 @@ function buildTree(depth){
 }
 $('expAll').onclick=()=>buildTree(2);
 $('colAll').onclick=()=>{buildTree(1);$('tree').querySelectorAll(':scope>ul>li>.sub').forEach(s=>{s.hidden=true;s.previousElementSibling.querySelector('.tg').textContent='▸'})};
+
+/* ================= SCHÉMA (arborescence visuelle) ================= */
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}},lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+let AR_MODE=lsGet('elecArMode')||'sch',ZONE=lsGet('elecZone')||'',EXP=new Set(),CLOSED=new Set(),EXP_Z='',ZM=+(lsGet('elecZm')||1)||1;
+function arMode(m){AR_MODE=m;lsSet('elecArMode',m);$('arSch').hidden=m!=='sch';$('arList').hidden=m==='sch';document.querySelectorAll('#arMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));if(m==='sch')drawSchema(true)}
+document.querySelectorAll('#arMode button').forEach(b=>b.onclick=()=>arMode(b.dataset.m));
+function zoneTg(fid,withKids){EXP=new Set(['F:'+fid]);CLOSED.clear();EXP_Z=fid;if(withKids)desc(N.get('F:'+fid)).forEach(n=>{if(n.t==='tgbt')EXP.add(n.id)})}
+function otScroll(el){const w=$('otWrap'),r=el.getBoundingClientRect(),wr=w.getBoundingClientRect();w.scrollLeft+=r.left-wr.left-Math.min(120,wr.width/4);w.scrollTop+=r.top-wr.top-wr.height/2+r.height/2}
+function drawSchema(focus,toHit){
+  if(AR_MODE!=='sch'||!FEU.length||!N.size){$('zChips').innerHTML='';$('ot').innerHTML='';return}
+  const S=sel&&N.has(sel)?N.get(sel):null;
+  if(focus&&S)ZONE=S._fid;
+  if(!FEU.some(f=>f.id===ZONE))ZONE=FEU[0].id;
+  lsSet('elecZone',ZONE);
+  if(EXP_Z!==ZONE)zoneTg(ZONE,true);
+  if(focus&&S&&S._fid===ZONE)anc(S).slice(0,-1).forEach(x=>{EXP.add(x.id);CLOSED.delete(x.id)});
+  $('zChips').innerHTML=FEU.map(f=>{const all=desc(N.get('F:'+f.id)),nt=all.filter(x=>x.t==='tgbt').length;return `<button class="zchip${f.id===ZONE?' on':''}" data-z="${esc(f.id)}">${esc(f.nom)}<small>${nt} TGBT · ${all.length} éléments</small></button>`}).join('');
+  const root=N.get('F:'+ZONE),CNT=new Map(),cnt=n=>{if(CNT.has(n.id))return CNT.get(n.id);let c=0;kids(n).forEach(k=>c+=1+cnt(k));CNT.set(n.id,c);return c};
+  const toks=norm($('otQ').value.trim()).split(/\s+/).filter(Boolean),HIT=new Set(),OPEN=new Set(EXP);
+  if(toks.length)desc(root).forEach(n=>{if(toks.every(t=>(n._own||'').includes(t))){HIT.add(n.id);anc(n).slice(0,-1).forEach(a=>OPEN.add(a.id))}});
+  CLOSED.forEach(id=>OPEN.delete(id));OPEN.add(root.id);
+  $('otN').textContent=toks.length?(HIT.size?HIT.size+' trouvé'+(HIT.size>1?'s':''):'Rien dans cette zone'):'';
+  const meP=new Set(S?anc(S).map(x=>x.id):[]);
+  const card=(n,o)=>{const k=kind(n),c=cnt(n);
+    if(k==='feuille')return `<div class="nd k-feuille" data-id="${esc(n.id)}">⚡ ${esc(n.l)}<div class="s" style="color:#cfe5d9">${kids(n).length} TGBT / départs · ${c} éléments</div></div>`;
+    const po=k==='tgbt'?posteOf(n):null,fn=n.f&&n.f.nom&&norm(n.f.nom)!==norm(n.l)?n.f.nom:'';
+    const cls='nd k-'+k+(o?' open':'')+(S&&n.id===S.id?' me':meP.has(n.id)?' path':'')+(HIT.has(n.id)?' hit':'');
+    const sub=[n.c?`<span class="code">${esc(n.c)}</span>`:'',fn?`<span>${esc(fn)}</span>`:'',po?`<span>Poste ${esc(po.poste)}${po.tr&&po.tr.length?' · '+esc(po.tr.join(', ')):''}</span>`:''].join('');
+    return `<div class="${cls}" data-id="${esc(n.id)}">${k==='tgbt'?'<div class="ty">TGBT</div>':''}<div>${n.r?`<span class="rep">${esc(n.r)}</span> `:''}<span class="l">${esc(n.l)}</span></div>${sub?`<div class="s">${sub}</div>`:''}<button class="fi" data-fi title="Ouvrir la fiche">ⓘ</button>${c?`<span class="nb" title="${c} élément${c>1?'s':''} en aval">${c}</span>`:''}</div>`};
+  const li=n=>{const ks=kids(n),o=OPEN.has(n.id)&&ks.length>0;return `<li>${card(n,o)}${o?'<ul>'+ks.map(li).join('')+'</ul>':''}</li>`};
+  $('ot').innerHTML=kids(root).length?'<ul>'+kids(root).map(li).join('')+'</ul>':'<div class="muted">Aucun TGBT dans cette zone pour l’instant.</div>';
+  $('ot').style.zoom=ZM;$('zmV').textContent=Math.round(ZM*100)+'%';
+  const tgt=toHit?$('ot').querySelector('.nd.hit'):focus?$('ot').querySelector('.nd.me'):null;if(tgt)otScroll(tgt);
+}
+$('zChips').addEventListener('click',e=>{const b=e.target.closest('.zchip');if(!b)return;ZONE=b.dataset.z;EXP_Z='';$('otWrap').scrollTo(0,0);drawSchema()});
+let otT;$('otQ').addEventListener('input',()=>{clearTimeout(otT);otT=setTimeout(()=>{CLOSED.clear();drawSchema(false,true)},150)});
+$('otCol').onclick=()=>{zoneTg(ZONE,false);drawSchema()};
+$('otTg').onclick=()=>{zoneTg(ZONE,true);drawSchema()};
+$('otPlus').onclick=()=>{$('ot').querySelectorAll('.nd:not(.open)').forEach(d=>{const n=N.get(d.dataset.id);if(n&&kids(n).length){EXP.add(n.id);CLOSED.delete(n.id)}});drawSchema()};
+$('otExp').onclick=()=>{CLOSED.clear();desc(N.get('F:'+ZONE)).forEach(n=>{if(kids(n).length)EXP.add(n.id)});drawSchema()};
+const setZm=z=>{ZM=Math.round(Math.min(1.5,Math.max(.4,z))*10)/10;lsSet('elecZm',ZM);$('ot').style.zoom=ZM;$('zmV').textContent=Math.round(ZM*100)+'%'};
+$('zmM').onclick=()=>setZm(ZM-.1);$('zmP').onclick=()=>setZm(ZM+.1);
+$('otWrap').addEventListener('wheel',e=>{if(e.ctrlKey){e.preventDefault();setZm(ZM+(e.deltaY<0?.1:-.1))}},{passive:false});
+let pan=null;
+$('otWrap').addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'||e.button!==0)return;const w=$('otWrap');pan={x:e.clientX,y:e.clientY,l:w.scrollLeft,t:w.scrollTop,m:false}});
+addEventListener('pointermove',e=>{if(!pan)return;const dx=e.clientX-pan.x,dy=e.clientY-pan.y;if(!pan.m&&Math.abs(dx)+Math.abs(dy)>5){pan.m=true;$('otWrap').classList.add('drag')}if(pan.m){const w=$('otWrap');w.scrollLeft=pan.l-dx;w.scrollTop=pan.t-dy}});
+addEventListener('pointerup',()=>{if(pan&&pan.m)setTimeout(()=>pan=null,0);else pan=null;$('otWrap').classList.remove('drag')});
+$('ot').addEventListener('click',e=>{if(pan&&pan.m)return;const d=e.target.closest('.nd');if(!d)return;const n=N.get(d.dataset.id);if(!n||n.t==='feuille')return;
+  if(e.target.closest('[data-fi]')||!kids(n).length){view('vSearch');show(n.id);return}
+  if(d.classList.contains('open')){EXP.delete(n.id);CLOSED.add(n.id)}else{EXP.add(n.id);CLOSED.delete(n.id)}
+  drawSchema()});
+$('ot').addEventListener('dblclick',e=>{const d=e.target.closest('.nd');const n=d&&N.get(d.dataset.id);if(n&&n.t!=='feuille'){view('vSearch');show(n.id)}});
+arMode(AR_MODE);
 
 /* ================= CONTRÔLE ================= */
 function renderCtrl(){
@@ -1481,7 +1586,7 @@ function showOrphOnPlan(o){view('vPlan');initMap();setLevel(o.pos.lv);pickOrph(o
 
 /* ================= NAVIGATION ================= */
 let VIEW='vSearch';
-function view(v){VIEW=v;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));document.querySelectorAll('header nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('sb').hidden=v!=='vSearch'||!HAS_DATA;if(v==='vPlan'){initMap();setTimeout(()=>map.invalidateSize(),50)}if(v==='vCtrl')renderCtrl()}
+function view(v){VIEW=v;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id===v));document.querySelectorAll('header nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('sb').hidden=v!=='vSearch'||!HAS_DATA;if(v==='vPlan'){initMap();setTimeout(()=>map.invalidateSize(),50)}if(v==='vCtrl')renderCtrl();if(v==='vArbo')drawSchema(true)}
 document.querySelectorAll('header nav button').forEach(b=>b.onclick=()=>view(b.dataset.v));
 function renderAll(){
   $('loading').hidden=true;
@@ -1490,6 +1595,7 @@ function renderAll(){
   fillTgbt();search();
   if(sel&&N.has(sel))show(sel,true);
   if(VIEW==='vArbo'||$('tree').innerHTML==='')buildTree(1);
+  if(VIEW==='vArbo')drawSchema();
   if(VIEW==='vCtrl')renderCtrl();
   if(map){lvSeg();drawMarkers();if(selKey&&N.has(selKey)&&N.get(selKey).pos)pickNode(N.get(selKey))}
   if(!renderAll.once){renderAll.once=true;fromHash()}
