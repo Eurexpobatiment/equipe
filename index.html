@@ -323,6 +323,8 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .chf .sel{max-width:190px}
 .multi{display:flex;flex-wrap:wrap;gap:6px;border:1px solid #d5d9e2;border-radius:8px;padding:8px}
 .mchip{cursor:pointer}.mchip input{display:none}
+.trs{display:flex;flex-direction:column;gap:6px;align-items:flex-start}.trsl{display:flex;flex-direction:column;gap:6px;width:100%}
+.trsr{display:flex;gap:6px;align-items:center}.trsr .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;padding:6px}.trsr .x:hover{color:var(--red)}.trsr input{flex:1;border:1px solid #d5d9e2;border-radius:8px;padding:9px 10px;background:#fff;color:var(--txt);font-size:15px;min-width:0}
 .mchip span{display:inline-block;border:1px solid #d5d9e2;border-radius:14px;padding:4px 10px;font-size:13px;color:#334155;background:#fff;user-select:none}
 .mchip input:checked+span{background:var(--navy);border-color:var(--navy);color:#fff}
 .multi .mother{flex:1 1 100%;border:1px solid #e2e5ec;border-radius:8px;padding:7px 9px;font-size:14px;margin-top:2px}
@@ -1169,12 +1171,22 @@ function fieldHtml(f,v){
       inp=`<div class="multi" id="${id}">${opts.map(o=>`<label class="mchip"><input type="checkbox" value="${esc(o)}" ${sel.includes(o)?'checked':''}><span>${esc(o)}</span></label>`).join('')}
         <input class="mother" placeholder="Autre espace (séparer par des virgules)" value="${esc(autres.join(', '))}"></div>`;break;}
     case 'dl': inp=`<input id="${id}" list="${f.dl}" value="${val}" autocomplete="off">`;break;
+    case 'trousseau':{const L=trsSplit(v);if(!L.length)L.push('');if(L.length>1)f={...f,l:`N° des clefs du trousseau (${L.length} clefs)`};
+      inp=`<div class="trs" id="${id}"><div class="trsl">${L.map(trsRow).join('')}</div>
+        <button type="button" class="btn sm" onclick="trsAdd(this)">+ Ajouter une clef au trousseau</button></div>`;break;}
     case 'qte': inp=`<input id="${id}" type="number" min="0" step="1" inputmode="numeric" value="${val}">`;break;
     case 'money': inp=`<input id="${id}" inputmode="decimal" value="${esc(v===''||v==null?'':String(v).replace('.',','))}" autocomplete="off">`;break;
     default: inp=`<input id="${id}" value="${val}" autocomplete="off">`;
   }
-  return (f.t==='multi'||f.t==='people')?`<div class="fl full"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</div>`:`<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
+  return (f.t==='multi'||f.t==='people'||f.t==='trousseau')?`<div class="fl full"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</div>`:`<label class="fl ${f.t==='textarea'||f.full?'full':''}"><span>${esc(f.l)}${f.req?' *':''}</span>${inp}</label>`;
 }
+// trousseau : plusieurs clefs dans un même champ, enregistrées « n°1 + n°2 + … » (format lu par la recherche et le plan)
+const trsSplit=v=>String(v??'').split(/\s*\+\s*/).map(x=>x.trim()).filter(Boolean);
+const trsRow=v=>`<div class="trsr"><input value="${esc(v)}" placeholder="N° de clef (ou marque + n°)" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();trsAdd(this)}"><button type="button" class="x" title="Retirer cette clef" onclick="trsDel(this)">✕</button></div>`;
+function trsAdd(b){const l=b.closest('.trs').querySelector('.trsl');l.insertAdjacentHTML('beforeend',trsRow(''));trsCount(l);l.lastElementChild.querySelector('input').focus()}
+function trsDel(b){const l=b.closest('.trsl');if(l.children.length>1)b.parentElement.remove();else b.parentElement.querySelector('input').value='';trsCount(l)}
+function trsCount(l){const n=l.children.length,h=l.closest('.fl').querySelector('span');h.textContent=n>1?`N° des clefs du trousseau (${n} clefs)`:'N° de clef (ou marque + n°)'}
+const trsVal=el=>[...el.querySelectorAll('.trsl input')].map(i=>i.value.replace(/\+/g,' ').replace(/\s+/g,' ').trim()).filter(Boolean).join(' + ');
 function openForm(sheet,item,title,opt={}){
   const F=opt.fields||FORMS[sheet]; const it={...(item||{})}; const isNew=!it.id;
   F.forEach(f=>{if((it[f.k]==null||it[f.k]==='')&&f.def!==undefined)it[f.k]=f.def});
@@ -1187,7 +1199,7 @@ function openForm(sheet,item,title,opt={}){
   const ferr=m=>{$('#ferr').textContent=m||''};
   $('#fsave').onclick=async()=>{
     const o={...it};
-    F.forEach(f=>{let v=f.t==='people'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).join(', '):f.t==='multi'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList($('#f_'+f.k).querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', '):$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
+    F.forEach(f=>{let v=f.t==='people'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).join(', '):f.t==='trousseau'?trsVal($('#f_'+f.k)):f.t==='multi'?[...$('#f_'+f.k).querySelectorAll('input[type=checkbox]:checked')].map(i=>i.value).concat(espList($('#f_'+f.k).querySelector('.mother').value)).filter((x,i,a)=>a.indexOf(x)===i).join(', '):$('#f_'+f.k).value.trim();if(f.t==='datetime')v=v.slice(0,16);if(f.t==='time')v=v.slice(0,5);o[f.k]=v});
     if(opt.collect)opt.collect(o); // champs hors formulaire (lignes, notes…)
     const miss=F.filter(f=>f.req&&!o[f.k]);
     if(miss.length) return ferr('À renseigner : '+miss.map(f=>f.l).join(', '));
@@ -3737,7 +3749,7 @@ FORMS.Clefs=[
   {k:'crochet',l:'N° dans l\'armoire (crochet)'},
   {k:'espace',l:'Espace (bâtiment, hall…)',t:'dl',dl:'dl-clesp',full:1},
   {k:'acces',l:'Accès / local',req:1,full:1},
-  {k:'numero',l:'N° de clef (ou marque + n° ; trousseau : n° séparés par +)',full:1},
+  {k:'numero',l:'N° de clef (ou marque + n°)',t:'trousseau',full:1},
   {k:'stock',l:'Dans l\'armoire (quantité)',t:'qte'},
   {k:'reserve',l:'Archivées (réserve)',t:'qte'},
   {k:'commentaire',l:'Commentaire',t:'textarea',rows:2}];
