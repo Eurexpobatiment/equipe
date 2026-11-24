@@ -1221,7 +1221,7 @@ $('colAll').onclick=()=>{buildTree(1);$('tree').querySelectorAll(':scope>ul>li>.
 
 /* ================= SCHÉMA (arborescence visuelle) ================= */
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}},lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
-let DIR=lsGet('elecDir')||'td';
+let DIR=lsGet('elecDir2')||'lr';
 let AR_MODE=lsGet('elecArMode')||'sch',ZONE=lsGet('elecZone')||'',TGS=lsGet('elecTgbt')||'',EXP=new Set(),CLOSED=new Set(),EXP_Z='',ZM=+(lsGet('elecZm')||1)||1;
 function arMode(m){AR_MODE=m;lsSet('elecArMode',m);$('arSch').hidden=m!=='sch';$('arList').hidden=m==='sch';document.querySelectorAll('#arMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));if(m==='sch')drawSchema(true)}
 document.querySelectorAll('#arMode button').forEach(b=>b.onclick=()=>arMode(b.dataset.m));
@@ -1283,7 +1283,7 @@ let otT;$('otQ').addEventListener('input',()=>{clearTimeout(otT);otT=setTimeout(
 $('otCol').onclick=()=>{TGS='';zoneTg(ZONE,false);drawSchema()};
 $('otTg').onclick=()=>{zoneTg(ZONE,true);drawSchema()};
 $('otPlus').onclick=()=>{$('ot').querySelectorAll('.nd:not(.open)').forEach(d=>{const n=N.get(d.dataset.id);if(n&&kids(n).length){EXP.add(n.id);CLOSED.delete(n.id)}});drawSchema()};
-$('otDir').onclick=()=>{DIR=DIR==='td'?'lr':'td';lsSet('elecDir',DIR);$('otWrap').scrollTo(0,0);drawSchema()};
+$('otDir').onclick=()=>{DIR=DIR==='td'?'lr':'td';lsSet('elecDir2',DIR);$('otWrap').scrollTo(0,0);drawSchema()};
 $('otExp').onclick=()=>{CLOSED.clear();desc(N.get(TGS||'F:'+ZONE)).forEach(n=>{if(kids(n).length)EXP.add(n.id)});drawSchema()};
 const setZm=z=>{ZM=Math.round(Math.min(1.5,Math.max(.4,z))*10)/10;lsSet('elecZm',ZM);$('ot').style.zoom=ZM;$('zmV').textContent=Math.round(ZM*100)+'%'};
 $('zmM').onclick=()=>setZm(ZM-.1);$('zmP').onclick=()=>setZm(ZM+.1);
