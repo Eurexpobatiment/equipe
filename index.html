@@ -4158,7 +4158,7 @@ function clBon(lot){
   const ou=pcs&&!bat?'au PC sécurité':pcs?'à l\'armoire indiquée (service Bâtiment ou PC sécurité)':'au service Bâtiment';
   const w=window.open('','_blank');if(!w)return toast('Fenêtre bloquée par le navigateur : autorise les fenêtres pour ce site',1);
   w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bon de remise de clefs - ${esc(h.societe)}</title>
-  <style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:14px}@media print{body{margin:0}}h1{font-size:20px;margin:0 0 4px}.top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14213d;padding-bottom:10px;margin-bottom:16px}
+  <style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}html,body{max-width:100%}body{font-family:Arial,sans-serif;color:#111;margin:28px;font-size:14px}@media print{html,body{width:auto;margin:0;padding:0}body{font-size:13px}}h1{font-size:20px;margin:0 0 4px}.top{display:flex;align-items:center;gap:16px;border-bottom:2px solid #14213d;padding-bottom:10px;margin-bottom:16px}
   .top img{height:44px}table{width:100%;border-collapse:collapse;margin:14px 0}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#eef1f6}td.c,th.c{text-align:center;width:70px}
   .g{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px}.sig div{border:1px solid #999;height:90px;padding:6px}
   .note{font-size:12px;color:#444;margin-top:12px}@media print{button{display:none}}</style></head><body>
@@ -4172,7 +4172,10 @@ function clBon(lot){
   <p class="note">${f==='RAS'?`Les clefs sont à rendre ${ou} dès la fin du besoin ou sur simple demande.`:`Les clefs sont à rendre ${ou} au plus tard à la fin du démontage.`}${fact?` Les clefs non rendues seront facturées à partir du ${fD(fact,{day:'2-digit',month:'2-digit',year:'numeric'})}.`:''}</p>
   <div class="sig"><div>Signature du bénéficiaire (remise)</div><div>Signature au retour des clefs</div></div>
   <p><button onclick="print()">🖨️ Imprimer</button></p></body></html>`);
-  w.document.close();setTimeout(()=>{try{w.print()}catch(e){}},400);
+  w.document.close();
+  // imprime une fois le logo chargé (sinon la mise en page bouge pendant l'impression)
+  const go=()=>{if(w._p)return;w._p=1;setTimeout(()=>{try{w.focus();w.print()}catch(e){}},150)}, im=w.document.querySelector('img');
+  if(im&&!im.complete){im.onload=im.onerror=go;setTimeout(go,2000)}else go();
 }
 
 /* ----- inventaire ----- */
