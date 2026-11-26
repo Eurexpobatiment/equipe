@@ -164,6 +164,8 @@ body.embed #map{height:calc(100vh - 90px)}
 .leaflet-tooltip.arml.lvx{background:#f5f0ff;border:1px dashed #7c3aed;color:#5b21b6;cursor:pointer}
 .lvseg button.ch{box-shadow:0 0 0 2px #d97706}
 .lvx-leg{margin-top:10px;font-size:12.5px;color:#5b21b6}
+.nopos{font-size:11.5px;color:#b54708;background:#fff4e5;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.btn.mini{padding:2px 8px;font-size:12px;margin-left:4px}
 #map.z1 .leaflet-tooltip.arml:not(.tg):not(.hl){display:none}
 #map.z0 .leaflet-tooltip.arml:not(.hl){display:none}
 .plside .item{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0;cursor:pointer;font-size:13px}
@@ -1514,6 +1516,12 @@ function drawTile(canvas,co){
     if(L_.length>1){ctx.textBaseline='top';const ls=h*1.67,tot=(L_.length-1)*ls+h;const y0=va===0?0:va===1?-tot/2:-tot;L_.forEach((l,j)=>ctx.fillText(l,0,y0+j*ls))}else{ctx.textBaseline=['top','middle','bottom','alphabetic'][va]||'alphabetic';ctx.fillText(L_[0],0,0)}ctx.restore()}
   ctx.setTransform(1,0,0,1,0,0)}
 const rc=(x,y)=>map.unproject([x,y],TILES.Z);
+/* Le plan de masse n'est pas à la même échelle que les plans du bâtiment (sous-sol, RDC, niveaux) :
+   calage mesuré par superposition du RDC sur le plan de masse. xMasse = x*s+tx, yMasse = y*s+ty */
+const MA_CAL={s:0.4985,tx:2212,ty:1073};
+function posOn(p,lv){lv=lv||LV;if(p.lv===lv||(p.lv!=='MA'&&lv!=='MA'))return{x:p.x,y:p.y};
+  return lv==='MA'?{x:p.x*MA_CAL.s+MA_CAL.tx,y:p.y*MA_CAL.s+MA_CAL.ty}:{x:(p.x-MA_CAL.tx)/MA_CAL.s,y:(p.y-MA_CAL.ty)/MA_CAL.s}}
+const rcp=p=>{const q=posOn(p);return rc(q.x,q.y)};
 function initMap(){
   if(map)return;
   map=L.map('map',{crs:L.CRS.Simple,minZoom:1,maxZoom:TILES.Z+4,zoomSnap:0.5,attributionControl:false});
@@ -1541,10 +1549,10 @@ function drawMarkers(){
   /* chemin d'alimentation : suivi aussi quand les armoires ne sont pas au même niveau */
   const segs=[];
   for(let i=1;i<CHAIN.length;i++){const a=CHAIN[i-1],b=CHAIN[i],same=a.pos.lv===LV&&b.pos.lv===LV;
-    segs.push(L.polyline([rc(a.pos.x,a.pos.y),rc(b.pos.x,b.pos.y)],same?{color:'#d97706',weight:4,dashArray:'8 8',opacity:.9,interactive:false}:{color:'#7c3aed',weight:3,dashArray:'2 8',opacity:.9,interactive:false}))}
+    segs.push(L.polyline([rcp(a.pos),rcp(b.pos)],same?{color:'#d97706',weight:4,dashArray:'8 8',opacity:.9,interactive:false}:{color:'#7c3aed',weight:3,dashArray:'2 8',opacity:.9,interactive:false}))}
   if(segs.length){hlLine=L.layerGroup(segs).addTo(map);segs.forEach(s=>s.bringToBack())}
   for(const c of CHAIN)if(c.pos.lv!==LV){
-    const m=L.circleMarker(rc(c.pos.x,c.pos.y),{radius:8,color:'#7c3aed',weight:2.5,dashArray:'3 3',fillColor:'#fff',fillOpacity:.95}).addTo(map);
+    const m=L.circleMarker(rcp(c.pos),{radius:8,color:'#7c3aed',weight:2.5,dashArray:'3 3',fillColor:'#fff',fillOpacity:.95}).addTo(map);
     m.bindTooltip('⇅ '+esc(c.l)+' · '+esc(LVNAME[c.pos.lv]||''),{permanent:true,interactive:true,direction:'right',offset:[6,0],className:'arml hl lvx'});
     m.on('click',ev=>{if(PLACE)return;L.DomEvent.stopPropagation(ev);setLevel(c.pos.lv);map.setView(rc(c.pos.x,c.pos.y),Math.max(map.getZoom(),4))});markers.push(m)}
   lvSeg();
@@ -1555,9 +1563,11 @@ function pickNode(n){
   const up=anc(n).slice(1);
   $('plSide').innerHTML=`<h2>${n.t==='tgbt'?'TGBT':'Armoire'} · ${esc(LVNAME[n.pos.lv]||'')}</h2><h3 style="margin:4px 0">${esc((n.f&&n.f.nom)||n.l)}</h3>
    ${n.c?`<span class="code">${esc(n.c)}</span>`:''} ${n.alim?`<div class="muted" style="margin-top:6px">Alimentée par : <span class="rep">${esc(n.alim)}</span></div>`:''}
-   <h2 style="margin-top:14px">Chemin d'alimentation</h2>${up.map(x=>`<div class="item" data-id="${esc(x.id)}">${x.r?`<span class="rep">${esc(x.r)}</span> `:''}${esc(x.l)}${x.pos&&x.pos.lv!==LV?` <span class="muted">(${esc(LVNAME[x.pos.lv])})</span>`:''}</div>`).join('')}
+   <h2 style="margin-top:14px">Chemin d'alimentation</h2>${up.map(x=>`<div class="item" data-id="${esc(x.id)}">${x.r?`<span class="rep">${esc(x.r)}</span> `:''}${esc(x.l)}${x.pos&&x.pos.lv!==LV?` <span class="muted">(${esc(LVNAME[x.pos.lv])})</span>`:''}${!x.pos&&(x.t==='tgbt'||kind(x)==='arm')?` <span class="nopos">non placé sur le plan</span>${ROLE==='bat'?` <button class="btn mini" data-place="${esc(x.id)}">📍 Placer</button>`:''}`:''}</div>`).join('')}
+   ${up.some(x=>!x.pos&&x.t==='tgbt')?'<div class="lvx-leg" style="color:#b54708">⚠ Le TGBT de ce chemin n’est pas encore placé sur le plan : la jonction ne peut pas être tracée tant qu’il n’y est pas.</div>':''}
    ${CHAIN.some(c=>c.pos.lv!==n.pos.lv)?'<div class="lvx-leg">⇅ Le chemin passe par plusieurs niveaux (entourés en orange ci-dessus). Les pointillés violets mènent aux armoires d’un autre niveau : clique sur un repère ⇅ pour y aller.</div>':''}
    <div class="btns"><button class="btn pri" id="toFiche">Ouvrir la fiche</button>${ROLE==='bat'?'<button class="btn" id="mvPin">📍 Déplacer</button><button class="btn danger" id="rmPin">Retirer du plan</button>':''}</div>`;
+  $('plSide').querySelectorAll('[data-place]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();startPlace({node:N.get(b.dataset.place)})});
   $('plSide').querySelectorAll('.item').forEach(it=>it.onclick=()=>{const x=N.get(it.dataset.id);if(x.pos){if(x.pos.lv!==LV)setLevel(x.pos.lv);map.setView(rc(x.pos.x,x.pos.y),Math.max(map.getZoom(),4))}else{view('vSearch');show(x.id)}});
   $('toFiche').onclick=()=>{view('vSearch');show(n.id)};
   if($('mvPin')){$('mvPin').onclick=()=>startPlace({node:n});$('rmPin').onclick=()=>{if(confirm('Retirer « '+n.l+' » du plan ?'))mutate([n._fid],Z=>{const x=Z[n._fid].find(y=>y.id===n.id);delete x.pos},'Retrait du plan',n.l)}}
