@@ -161,6 +161,9 @@ body.embed #map{height:calc(100vh - 90px)}
 .leaflet-tooltip.arml{background:rgba(255,255,255,.92);border:1px solid #cfd8d3;color:#14161a;font:600 11px Inter,sans-serif;padding:2px 6px;box-shadow:none;border-radius:6px}
 .leaflet-tooltip.arml.tg{border-color:#b42318;color:#b42318}
 .leaflet-tooltip.arml.hl{background:#fffbe0;border-color:#b08d00;font-size:12.5px}
+.leaflet-tooltip.arml.lvx{background:#f5f0ff;border:1px dashed #7c3aed;color:#5b21b6;cursor:pointer}
+.lvseg button.ch{box-shadow:0 0 0 2px #d97706}
+.lvx-leg{margin-top:10px;font-size:12.5px;color:#5b21b6}
 #map.z1 .leaflet-tooltip.arml:not(.tg):not(.hl){display:none}
 #map.z0 .leaflet-tooltip.arml:not(.hl){display:none}
 .plside .item{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:6px 0;cursor:pointer;font-size:13px}
@@ -1524,7 +1527,7 @@ function initMap(){
   setLevel('R0',true);
 }
 function lvSeg(){const seg=$('lvSeg');const cnt=lv=>[...N.values()].filter(n=>n.pos&&n.pos.lv===lv).length+ORPH.filter(o=>o.pos&&o.pos.lv===lv).length;
-  seg.innerHTML=LEVELS.map(([k,l])=>`<button data-lv="${k}" class="${k===LV?'on':''}">${l}<span class="n">${cnt(k)}</span></button>`).join('');seg.querySelectorAll('button').forEach(b=>b.onclick=()=>setLevel(b.dataset.lv))}
+  seg.innerHTML=LEVELS.map(([k,l])=>`<button data-lv="${k}" class="${k===LV?'on':''}${CHAIN.some(c=>c.pos.lv===k)?' ch':''}"${CHAIN.some(c=>c.pos.lv===k)?' title="Une partie du chemin d’alimentation est à ce niveau"':''}>${l}<span class="n">${cnt(k)}</span></button>`).join('');seg.querySelectorAll('button').forEach(b=>b.onclick=()=>setLevel(b.dataset.lv))}
 function zcls(){const z=map.getZoom(),el=$('map');el.classList.toggle('z0',z<3);el.classList.toggle('z1',z>=3&&z<4.5)}
 function setLevel(lv,force){if(!map)return;if(lv===LV&&!force&&markers.length)return;LV=lv;loadLevel(lv).then(g=>{if(lv===LV){G=g;vec.redraw()}});vec.redraw();lvSeg();drawMarkers()}
 function drawMarkers(){
@@ -1535,16 +1538,25 @@ function drawMarkers(){
     m.on('click',ev=>{if(PLACE)return;L.DomEvent.stopPropagation(ev);o()});markers.push(m);if(hl||me)m.bringToFront()};
   for(const n of N.values())if(n.pos&&n.pos.lv===LV)add(n.id,n.pos,(n.f&&n.f.nom)||n.l,n.t==='tgbt'?'#b42318':'#0e4d33',n.t==='tgbt',()=>pickNode(n));
   for(const o of ORPH)if(o.pos&&o.pos.lv===LV)add('O:'+o.id,o.pos,o.nom||o.code||'?','#98a2b3',false,()=>pickOrph(o));
-  const pts=CHAIN.filter(p=>p.lv===LV).map(p=>rc(p.x,p.y));
-  if(pts.length>1){hlLine=L.polyline(pts,{color:'#d97706',weight:4,dashArray:'8 8',opacity:.9}).addTo(map);hlLine.bringToBack()}
+  /* chemin d'alimentation : suivi aussi quand les armoires ne sont pas au même niveau */
+  const segs=[];
+  for(let i=1;i<CHAIN.length;i++){const a=CHAIN[i-1],b=CHAIN[i],same=a.pos.lv===LV&&b.pos.lv===LV;
+    segs.push(L.polyline([rc(a.pos.x,a.pos.y),rc(b.pos.x,b.pos.y)],same?{color:'#d97706',weight:4,dashArray:'8 8',opacity:.9,interactive:false}:{color:'#7c3aed',weight:3,dashArray:'2 8',opacity:.9,interactive:false}))}
+  if(segs.length){hlLine=L.layerGroup(segs).addTo(map);segs.forEach(s=>s.bringToBack())}
+  for(const c of CHAIN)if(c.pos.lv!==LV){
+    const m=L.circleMarker(rc(c.pos.x,c.pos.y),{radius:8,color:'#7c3aed',weight:2.5,dashArray:'3 3',fillColor:'#fff',fillOpacity:.95}).addTo(map);
+    m.bindTooltip('⇅ '+esc(c.l)+' · '+esc(LVNAME[c.pos.lv]||''),{permanent:true,interactive:true,direction:'right',offset:[6,0],className:'arml hl lvx'});
+    m.on('click',ev=>{if(PLACE)return;L.DomEvent.stopPropagation(ev);setLevel(c.pos.lv);map.setView(rc(c.pos.x,c.pos.y),Math.max(map.getZoom(),4))});markers.push(m)}
+  lvSeg();
 }
-function chainOf(n){CHAIN=[];hlSet=new Set();anc(n).forEach(x=>{if(x.pos){CHAIN.push(x.pos);hlSet.add(x.id)}})}
+function chainOf(n){CHAIN=[];hlSet=new Set();anc(n).forEach(x=>{if(x.pos){CHAIN.push({pos:x.pos,id:x.id,l:(x.f&&x.f.nom)||x.l});hlSet.add(x.id)}})}
 function pickNode(n){
   selKey=n.id;chainOf(n);drawMarkers();
   const up=anc(n).slice(1);
   $('plSide').innerHTML=`<h2>${n.t==='tgbt'?'TGBT':'Armoire'} · ${esc(LVNAME[n.pos.lv]||'')}</h2><h3 style="margin:4px 0">${esc((n.f&&n.f.nom)||n.l)}</h3>
    ${n.c?`<span class="code">${esc(n.c)}</span>`:''} ${n.alim?`<div class="muted" style="margin-top:6px">Alimentée par : <span class="rep">${esc(n.alim)}</span></div>`:''}
    <h2 style="margin-top:14px">Chemin d'alimentation</h2>${up.map(x=>`<div class="item" data-id="${esc(x.id)}">${x.r?`<span class="rep">${esc(x.r)}</span> `:''}${esc(x.l)}${x.pos&&x.pos.lv!==LV?` <span class="muted">(${esc(LVNAME[x.pos.lv])})</span>`:''}</div>`).join('')}
+   ${CHAIN.some(c=>c.pos.lv!==n.pos.lv)?'<div class="lvx-leg">⇅ Le chemin passe par plusieurs niveaux (entourés en orange ci-dessus). Les pointillés violets mènent aux armoires d’un autre niveau : clique sur un repère ⇅ pour y aller.</div>':''}
    <div class="btns"><button class="btn pri" id="toFiche">Ouvrir la fiche</button>${ROLE==='bat'?'<button class="btn" id="mvPin">📍 Déplacer</button><button class="btn danger" id="rmPin">Retirer du plan</button>':''}</div>`;
   $('plSide').querySelectorAll('.item').forEach(it=>it.onclick=()=>{const x=N.get(it.dataset.id);if(x.pos){if(x.pos.lv!==LV)setLevel(x.pos.lv);map.setView(rc(x.pos.x,x.pos.y),Math.max(map.getZoom(),4))}else{view('vSearch');show(x.id)}});
   $('toFiche').onclick=()=>{view('vSearch');show(n.id)};
