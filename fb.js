@@ -137,7 +137,8 @@ export function start(D, onChange, onErr) {
     if (PARTAGES.indexOf(name) >= 0) { const vu = new Set(); L = L.filter(x => !vu.has(x.id) && vu.add(x.id)); }
     // Documents : l'index des dossiers Teams est rangé dans la même collection (fiches à part)
     // (le planning EBMS y est rangé aussi : kind « index » + ebms « oui », à part de l'index Teams)
-    if (name === 'Documents') { D.Ebms = L.filter(x => x.kind === 'index' && x.ebms === 'oui'); D.DocsIndex = L.filter(x => x.kind === 'index' && x.ebms !== 'oui'); D[name] = L.filter(x => x.kind !== 'index'); }
+    // (les évènements supprimés du Planning EBMS et de l'Agenda Eurexpo aussi : kind « index » + ebms « masque »)
+    if (name === 'Documents') { D.Ebms = L.filter(x => x.kind === 'index' && x.ebms === 'oui'); D.Masques = L.filter(x => x.kind === 'index' && x.ebms === 'masque'); D.DocsIndex = L.filter(x => x.kind === 'index' && x.ebms !== 'oui' && x.ebms !== 'masque'); D[name] = L.filter(x => x.kind !== 'index'); }
     // Nacelle : sa position posée à la main sur le plan est rangée dans la même collection (document « position », à part des réservations)
     else if (name === 'Nacelle') { D.NacellePos = L.filter(x => x.kind === 'position'); D[name] = L.filter(x => x.kind !== 'position'); }
     // Clefs : les cylindres posés sur le plan des clefs sont rangés dans la même collection (documents kind « plan », à part de l'inventaire)
@@ -600,6 +601,28 @@ export async function delEbms(id) {
   if (!/^ebms-\d{8}-\d{8}$/.test(String(id))) throw new Error('Période inconnue');
   await wrap(F.deleteDoc(ref('Documents', String(id))));
   journal('suppression', 'Documents', String(id), 'Planning EBMS : période retirée');
+}
+
+/* ---------- Évènements supprimés du Planning EBMS et de l'Agenda Eurexpo ----------
+ * Les deux listes sont rechargées (export EBMS, site GL events) : un évènement supprimé est donc noté à part, et reste masqué
+ * après un nouvel import tant qu'il n'est pas rétabli. Un évènement = un document Documents/masque-<src>-<empreinte> :
+ * { kind:'index', ebms:'masque', src:'eb'|'ag', cle, cle2, titre, root, web:'', part:0, parts:1, n:0, data:'', majLe, majPar }.
+ * src « eb » : cle = titre de la réservation, normalisé · src « ag » : cle = nom + mois (agKey), cle2 = adresse de la fiche. */
+const mqId = (src, cle) => { let h = 0; for (const c of cle) h = (h * 31 + c.charCodeAt(0)) >>> 0; return 'masque-' + src + '-' + h.toString(36) + '-' + cle.length; };
+export async function saveMasque(o) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const src = String((o && o.src) || ''), cle = String((o && o.cle) || '').slice(0, 300);
+  if (['eb', 'ag'].indexOf(src) < 0 || !cle) throw new Error('Évènement inconnu');
+  const titre = String(o.titre || '').slice(0, 200);
+  await wrap(F.setDoc(ref('Documents', mqId(src, cle)), { kind: 'index', ebms: 'masque', src, cle, cle2: String(o.cle2 || '').slice(0, 500), titre,
+    root: 'masque:' + src, web: '', part: 0, parts: 1, n: 0, data: '', majLe: now_(), majPar: me }));
+  journal('suppression', 'Documents', src === 'eb' ? 'ebms' : 'agenda', (src === 'eb' ? 'Planning EBMS' : 'Agenda Eurexpo') + ' : évènement supprimé · ' + titre);
+}
+export async function delMasque(id) {
+  if (!me) throw new Error('Connexion nécessaire');
+  if (!/^masque-(eb|ag)-[a-z0-9]+-\d+$/.test(String(id))) throw new Error('Évènement inconnu');
+  await wrap(F.deleteDoc(ref('Documents', String(id))));
+  journal('modification', 'Documents', String(id), 'Évènement rétabli dans le planning');
 }
 
 /* ---------- Tableau de bord des alertes (page d'accueil) ----------

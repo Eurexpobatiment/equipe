@@ -902,10 +902,10 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '33'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '34'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
-let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Ebms:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Ebms:[],Masques:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
@@ -4575,9 +4575,12 @@ const AGENDA_BASE=[
 const agKey=e=>String(e.nom||'').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'').replace(/(salon|de|du|des|lyon|20\d\d)/g,'').slice(0,8)+'|'+String(e.d0||'').slice(0,7);
 const AGE={list:null,loading:false,done:false};
 function evtList(){ // base + ce que le serveur a déjà renvoyé (gardé en local pour conserver les évènements passés)
-  if(AGE.list) return AGE.list;
+  const mk=mqL('ag').map(x=>x.id).sort().join();
+  if(AGE.list&&AGE.mk===mk) return AGE.list;
+  AGE.mk=mk;const H=new Set(mqL('ag').flatMap(x=>[x.cle,x.cle2]).filter(Boolean)); // évènements supprimés à la main (restent masqués quand l'agenda est relu)
   let c=[];try{c=JSON.parse(lsGet('equipe.agenda')||'[]')}catch(e){}
   const m={};[...c,...AGENDA_BASE].forEach(e=>{if(e&&e.url&&e.d0)m[e.url]={...m[e.url],...e,horaires:e.horaires||(m[e.url]||{}).horaires||''}});
+  Object.keys(m).forEach(u=>{if(H.has(u)||H.has(agKey(m[u])))delete m[u]});
   const vus={}; // un même salon trouvé sur le site GL events et dans les annonces 2027 : on garde une seule ligne (même nom, même mois)
   return AGE.list=Object.values(m).sort((a,b)=>(a.annonce?1:0)-(b.annonce?1:0)).filter(e=>{const k=agKey(e);if(vus[k])return false;vus[k]=1;return true}).sort((a,b)=>a.d0.localeCompare(b.d0));
 }
@@ -4598,8 +4601,26 @@ function agOpen(i){const e=evtList()[i];if(!e)return;
     ${e.type?`<p>${esc(e.type)} · Eurexpo Lyon${e.hall?' · '+esc(e.hall):''}</p>`:''}${e.horaires?`<p class="hint">🕒 ${esc(e.horaires)}</p>`:''}
     <p class="hint">${e.annonce?"Dates annoncées par l'organisateur ou l'office du tourisme (relevé du 06/11/2026), à confirmer quand le salon apparaîtra sur l'agenda GL events Lyon. Ouverture au public, hors montage / démontage.":"Évènement repris de l'agenda public GL events Lyon (ouverture au public, hors montage / démontage)."}</p>
     <div class="acts"><a class="btn" href="${esc(e.url)}" target="_blank" rel="noopener">${e.annonce?'Site du salon ↗':'Voir la fiche sur le site ↗'}</a><span class="sp"></span>
-      <button class="btn" onclick="closeModal();newAg('EDL','${e.d0}')">📋 Prévoir un état des lieux</button><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+      <button class="btn" onclick="closeModal();newAg('EDL','${e.d0}')">📋 Prévoir un état des lieux</button><button class="btn" onclick="closeModal()">Fermer</button></div>
+    <div class="err" id="ferr"></div>
+    <div class="acts"><button class="btn sm" data-src="ag" data-cle="${esc(agKey(e))}" data-cle2="${esc(e.url)}" data-t="${esc(e.nom)}" onclick="mqDel(this)" title="Retire l'évènement du planning pour toute l'équipe ; il reste masqué quand l'agenda est relu sur le site">🗑️ Supprimer du planning</button><span class="sp"></span></div>`);
 }
+/* Évènements supprimés à la main (Agenda Eurexpo et Planning EBMS) : notés dans Firebase, masqués pour toute l'équipe, rétablissables. */
+const mqL=s=>(D.Masques||[]).filter(x=>x.src===s);
+async function mqDel(b){if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmer la suppression';b.classList.add('pri');return}
+  if(!FB||!FB.saveMasque){$('#ferr').textContent='Recharge la page pour terminer la mise à jour de l\'appli, puis réessaie.';return}
+  try{b.disabled=true;await FB.saveMasque({src:b.dataset.src,cle:b.dataset.cle,cle2:b.dataset.cle2||'',titre:b.dataset.t});closeModal(true);toast('Évènement supprimé du planning');render()}
+  catch(e){b.disabled=false;$('#ferr').textContent=e.message||String(e)}}
+function mqListe(){const L=[...(D.Masques||[])].sort((a,b)=>String(b.majLe||'').localeCompare(String(a.majLe||'')));
+  modal(`<h2>Évènements supprimés</h2>
+    ${L.length?`<div class="eqlist">${L.map(x=>`<div class="eqrow"><span><b>${esc(x.titre||x.cle)}</b><br><small>${x.src==='eb'?'Planning EBMS':'Agenda Eurexpo'}${x.majLe?' · supprimé le '+fD(String(x.majLe).slice(0,10),{day:'numeric',month:'short',year:'numeric'}):''}${x.majPar?' par '+esc(x.majPar):''}</small></span>
+      <span class="sp"></span><button class="btn sm" data-id="${esc(x.id)}" onclick="mqRetablir(this)">Rétablir</button></div>`).join('')}</div>`:'<p class="empty">Aucun évènement supprimé.</p>'}
+    <p class="hint">Un évènement supprimé reste masqué même après un nouvel import EBMS ou une relecture de l'agenda. « Rétablir » le fait réapparaître (s'il figure toujours dans l'export ou sur le site).</p><div class="err" id="ferr"></div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`)}
+async function mqRetablir(b){
+  try{b.disabled=true;await FB.delMasque(b.dataset.id);closeModal(true);toast('Évènement rétabli');render();if((D.Masques||[]).some(x=>x.id!==b.dataset.id))mqListe()}
+  catch(e){b.disabled=false;$('#ferr').textContent=e.message||String(e)}}
+const mqLien=s=>{const n=mqL(s).length;return n?`<a href="#" onclick="mqListe();return false">${n} évènement${n>1?'s':''} supprimé${n>1?'s':''}</a>`:''};
 const pgOff=()=>{try{return JSON.parse(lsGet('equipe.pgOff')||'[]')}catch(e){return []}};
 function pgToggle(k){const o=pgOff(),i=o.indexOf(k);i<0?o.push(k):o.splice(i,1);lsSet('equipe.pgOff',JSON.stringify(o));render()}
 function pgEvents(){
@@ -4649,6 +4670,7 @@ function vPlanning(el){
       <span class="sp"></span><button class="btn" onclick="window.print()">🖨️ Imprimer</button><button class="btn pri" onclick="pgAdd()">+ Ajouter</button></div>
     <div class="mine pgtoday"><b>Aujourd'hui :</b> ${Object.keys(PG_SRC).filter(cnt).map(k=>`${PG_SRC[k].e} ${cnt(k)} ${esc(PG_SRC[k].l.toLowerCase())}`).join(' · ')||'rien de prévu'}</div>
     <div class="pgsrc">${Object.entries(PG_SRC).map(([k,s])=>`<button class="pgchip ${off.includes(k)?'off':''}" style="--c:${s.c}" onclick="pgToggle('${k}')">${s.e} ${esc(s.l)}</button>`).join('')}</div>
+    ${mqLien('ag')?`<p class="hint">🎟️ Agenda Eurexpo : ${mqLien('ag')}.</p>`:''}
     <div class="bar chf"><input class="search" type="search" placeholder="Rechercher (salon, entreprise, personne…)" value="${esc(st.q)}" oninput="UI.pg.q=this.value;pgRefresh()">
       <select class="sel" onchange="UI.pg.esp=this.value;render()"><option value="">Tous les espaces</option>${ESPACES().map(e=>`<option ${e===st.esp?'selected':''}>${esc(e)}</option>`).join('')}</select>
       <label class="chk"><input type="checkbox" ${st.moi?'checked':''} onchange="UI.pg.moi=this.checked;render()"> Seulement moi</label></div>
@@ -4768,7 +4790,7 @@ function ebLire(wb,nom){
 // Assemble toutes les périodes importées en un seul planning continu (la période importée en dernier l'emporte sur les jours communs)
 let EBC={k:null,d:null};
 function ebData(){
-  const L=D.Ebms||[], k=L.map(x=>x.id+'@'+x.majLe).sort().join();if(k===EBC.k)return EBC.d;
+  const L=D.Ebms||[], H=new Set(mqL('eb').map(x=>x.cle)), k=L.map(x=>x.id+'@'+x.majLe).sort().join()+'#'+[...H].sort().join('|');if(k===EBC.k)return EBC.d;
   const per=[];L.forEach(x=>{try{const o=JSON.parse(x.data);if(o&&o.debut&&o.fin&&Array.isArray(o.T)&&Array.isArray(o.esp))per.push({...o,id:x.id,majLe:x.majLe||'',majPar:x.majPar||''})}catch(e){}});
   if(!per.length){EBC={k,d:null};return null}
   per.sort((a,b)=>a.majLe.localeCompare(b.majLe)||a.debut.localeCompare(b.debut));
@@ -4787,6 +4809,14 @@ function ebData(){
   const B=[];bars.forEach(b=>{const p=B[B.length-1];
     if(p&&p.e===b.e&&p.t===b.t&&p.c===b.c&&p.f+1>=b.s){p.f=Math.max(p.f,b.f);if(b.nb>1)p.m.push([b.s,b.f,b.nb])}
     else B.push({e:b.e,s:b.s,f:b.f,t:b.t,c:b.c,m:b.nb>1?[[b.s,b.f,b.nb]]:[]})});
+  // réservations supprimées à la main : leurs barres sont retirées, et leurs phases aussi (sauf les jours où une autre réservation occupe l'espace)
+  if(H.size){const hid=b=>H.has(ebNorm(b.t)), Bh=B.filter(hid), Bv=B.filter(b=>!hid(b));
+    if(Bh.length){const moins=(Rg,x,y)=>Rg.flatMap(([a,b])=>b<x||a>y?[[a,b]]:[...(a<x?[[a,x-1]]:[]),...(b>y?[[y+1,b]]:[])]);
+      const ph2=[];ph.forEach(p=>{let C=[];Bh.forEach(b=>{if(b.e===p.e&&b.s<=p.f&&b.f>=p.s)C.push([Math.max(b.s,p.s),Math.min(b.f,p.f)])});
+        if(!C.length){ph2.push(p);return}
+        Bv.forEach(b=>{if(b.e===p.e)C=moins(C,b.s,b.f)});
+        let Rg=[[p.s,p.f]];C.forEach(([x,y])=>Rg=moins(Rg,x,y));Rg.forEach(([s,f])=>ph2.push({...p,s,f}))});
+      ph.length=0;ph.push(...ph2);B.length=0;B.push(...Bv)}}
   B.forEach(b=>{let i=ti.get(b.t);if(i==null){i=titres.length;titres.push(b.t);ti.set(b.t,i);evs.push({t:b.t,c:b.c,s:b.s,f:b.f,b:[]})}
     b.i=i;const ev=evs[i];ev.s=Math.min(ev.s,b.s);ev.f=Math.max(ev.f,b.f);ev.b.push(b);esp[b.e].b.push(b)});
   ph.sort((a,b)=>a.e-b.e||a.s-b.s);
@@ -4867,7 +4897,7 @@ function ebView(el){
       ${body}${fer}${t>=0&&t<N?`<i class="ebnow" style="left:calc(var(--lw) + ${(t+.5)*W}px)"></i>`:''}</div></div>`
       :`<p class="empty">${q?'Aucune réservation ne correspond à la recherche.':'Aucun espace à afficher.'}</p>`}
     <p class="hint">Planning EBMS ${ebDu(ebYmd(X.a0),ebYmd(X.a0+N-1))} · dernier import le ${der.majLe?fD(der.majLe.slice(0,10),{day:'numeric',month:'long',year:'numeric'}):'?'}${der.majPar?' par '+esc(der.majPar):''} ·
-      <a href="#" onclick="ebPeriodes();return false">${X.per.length} période${X.per.length>1?'s':''} importée${X.per.length>1?'s':''}</a>. C'est une copie de l'export : pour la mettre à jour, réimporte le trimestre concerné. Touche une barre pour voir le détail d'une réservation.</p>`;
+      <a href="#" onclick="ebPeriodes();return false">${X.per.length} période${X.per.length>1?'s':''} importée${X.per.length>1?'s':''}</a>. C'est une copie de l'export : pour la mettre à jour, réimporte le trimestre concerné. Touche une barre pour voir le détail d'une réservation${mqLien('eb')?' ou la supprimer · '+mqLien('eb'):' ou la supprimer'}.</p>`;
   const sc=$('#ebsc');if(sc){if(st.sl==null)st.sl=Math.max(0,(Math.max(0,Math.min(N-1,t))-2)*W);sc.scrollLeft=st.sl;sc.scrollTop=st.st||0}
 }
 // Fiche d'une réservation : ses phases sur chaque espace
@@ -4881,7 +4911,8 @@ function ebOpen(i){const X=ebData(),ev=X&&X.evs[i];if(!ev)return;const d=n=>ebYm
     <div class="ebphs">${ordre.map(k=>`<div class="ebph ebp-${k}"><small>${EB_PKL[k]}</small><b>${esc(ev.ph[k].s===ev.ph[k].f?fD(d(ev.ph[k].s),{weekday:'short',day:'numeric',month:'short'}):fj(ev.ph[k].s)+' → '+fj(ev.ph[k].f))}</b></div>`).join('')}</div>
     <div class="ebscr"><table class="ebtab"><thead><tr><th>Espace</th><th>Réservé</th><th>Phases</th></tr></thead><tbody>${L.join('')}</tbody></table></div>
     <p class="hint">Dates reprises de l'export EBMS ; en haut, la première et la dernière date de chaque phase, tous espaces confondus. En cas de doute, EBMS fait foi.</p>
-    <div class="acts"><button class="btn" onclick="closeModal();ebAller(${ev.s}-1)">Voir sur le planning</button><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+    <div class="err" id="ferr"></div>
+    <div class="acts"><button class="btn" onclick="closeModal();ebAller(${ev.s}-1)">Voir sur le planning</button><button class="btn" data-src="eb" data-cle="${esc(ebNorm(ev.t))}" data-t="${esc(ev.t)}" onclick="mqDel(this)" title="Retire la réservation du planning de l'appli pour toute l'équipe (rien ne change dans EBMS) ; elle reste masquée après un nouvel import">🗑️ Supprimer</button><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
   $('.ov').classList.add('ebov')}
 // Import : lecture des fichiers dans la page, récapitulatif, puis enregistrement
 let EBP=null;
@@ -4907,7 +4938,8 @@ async function ebConso(auto){
   if(!FB.consoPeut())return auto?null:toast('Réservé à l\'appareil qui a le code des réglages de l\'appli Consommations.',1);
   try{
     const C=await FB.consoSalonsLire();
-    const per=(D.Ebms||[]).map(x=>{try{return Object.assign(JSON.parse(x.data),{majLe:x.majLe||''})}catch(e){return null}}).filter(Boolean);
+    const HM=new Set(mqL('eb').map(x=>x.cle));
+    const per=(D.Ebms||[]).map(x=>{try{const o=Object.assign(JSON.parse(x.data),{majLe:x.majLe||''});if(HM.size)o.T=(o.T||[]).filter(r=>!HM.has(ebNorm(o.titres[r[3]])));return o}catch(e){return null}}).filter(Boolean);
     const P=EBS.propositions(per,C.salons,C.halls,today());
     if(!P.creer.length&&!P.dates.length)return toast(auto?'Salons Consommations : rien à créer ni à modifier':'✓ Salons Consommations à jour ('+P.nbLies+' salon'+(P.nbLies>1?'s':'')+' à venir déjà en place)');
     EBK=P;const non=new Set(EBS.refus());
