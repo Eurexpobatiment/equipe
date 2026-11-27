@@ -418,8 +418,8 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .ebb u{position:absolute;top:0;bottom:0;text-decoration:none;background:repeating-linear-gradient(135deg,rgba(255,255,255,.38) 0 3px,transparent 3px 7px)}
 .ebb:hover{filter:brightness(1.1) saturate(1.1)}.ebb.dim,.ebb.dim+.ebp{opacity:.16}
 .ebp{position:absolute;top:28px;height:6px;box-sizing:border-box}.ebp-m{background:#f5b63a}.ebp-e{background:#1fa971}.ebp-d{background:#8b9bb0}.ebp-x{background:repeating-linear-gradient(135deg,#d5dae2 0 3px,#eef0f4 3px 6px)}.ebp.pl,.ebleg i.pl{opacity:.42}
-.ebl.ebpar{cursor:pointer;padding-left:1px;font-weight:600;user-select:none}
-.ebcv{display:inline-block;width:13px;font-style:normal;font-size:10px;color:#64748b;text-align:center;vertical-align:1px}
+.ebl.ebpar{cursor:pointer;padding-left:0;font-weight:600;user-select:none}
+.ebcv{display:inline-block;width:6px;height:6px;box-sizing:border-box;border-right:2px solid #64748b;border-bottom:2px solid #64748b;transform:rotate(-45deg);margin:0 6px 0 2px;vertical-align:2px;transition:transform .12s}.ebcv.o{transform:rotate(45deg);vertical-align:3px}
 .ebpar small{display:inline-block;margin-left:6px;padding:0 6px;border-radius:8px;background:#eef1f5;color:#64748b;font-size:10.5px;font-weight:600;line-height:16px;vertical-align:1px}
 .ebsub .ebl{padding-left:28px;font-weight:400;color:#64748b}.ebsub .ebt{background-color:#fcfcfd}
 .ebb.gh{opacity:.45;z-index:0;border:1px dashed rgba(0,0,0,.45)}.ebleg i.ebgh{height:9px;background:#2f6fde;opacity:.45;border:1px dashed rgba(0,0,0,.45);box-sizing:border-box}
@@ -4838,7 +4838,7 @@ function ebView(el){
     const S=sub.get(e), ferme=S&&plie(e);let gh='';
     if(ferme){const G=new Map();S.forEach(c=>c.b.forEach(b=>{if(e.b.some(p=>p.i===b.i&&p.s<=b.f&&p.f>=b.s))return;const k=b.i+':'+b.s+':'+b.f,o=G.get(k)||{b,n:[]};o.n.push(ebNom(c.n));G.set(k,o)}));
       nGh+=G.size;gh=[...G.values()].map(({b,n})=>`<div class="ebb gh${hit(b)?'':' dim'}" style="left:${b.s*W+1}px;width:${(b.f-b.s+1)*W-2}px;background:${st.ebc?'#'+b.c:X.evs[b.i].k}${st.ebc&&ebClair(b.c)?';color:#1c1c1c':''}" onclick="ebOpen(${b.i})" title="${esc(b.t+' · '+n.join(', ')+' seulement · '+ebDu(ebYmd(X.a0+b.s),ebYmd(X.a0+b.f)))}"><span>${esc(b.t)}</span></div>`).join('')}
-    const lab=S?`<div class="ebl ebpar" role="button" tabindex="0" aria-expanded="${!ferme}" data-p="${esc(ebNom(e.n))}" onclick="ebPli(this.dataset.p)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ebPli(this.dataset.p)}" title="${esc(ebNom(e.n)+' : '+(ferme?'afficher':'masquer')+' '+S.map(c=>ebNom(c.n)).join(', '))}"><i class="ebcv">${ferme?'▸':'▾'}</i>${esc(ebNom(e.n))}${ferme?`<small>+${S.length}</small>`:''}</div>`
+    const lab=S?`<div class="ebl ebpar" role="button" tabindex="0" aria-expanded="${!ferme}" data-p="${esc(ebNom(e.n))}" onclick="ebPli(this.dataset.p)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ebPli(this.dataset.p)}" title="${esc(ebNom(e.n)+' : '+(ferme?'afficher':'masquer')+' '+S.map(c=>ebNom(c.n)).join(', '))}"><i class="ebcv${ferme?'':' o'}"></i>${esc(ebNom(e.n))}${ferme?`<small>+${S.length}</small>`:''}</div>`
       :`<div class="ebl" title="${esc(e.n)}">${esc(ebNom(e.n))}</div>`;
     return `${head}<div class="ebr${par.has(e)?' ebsub':''}">${lab}<div class="ebt">${gh}${bars}${phs}</div></div>`}).join('');
   // bandeau : les salons en cours, puis les prochains
@@ -4854,7 +4854,7 @@ function ebView(el){
       <div class="seg-ctl">${Object.entries(EB_Z).map(([k,z])=>`<button class="${st.z===k?'on':''}" onclick="ebZoom('${k}')">${z[0]}</button>`).join('')}</div>
       ${X.groupes.length>1?`<select class="sel" onchange="UI.pg.eb.g=this.value;render()"><option value="">Tous les espaces</option>${X.groupes.map(x=>`<option ${x===st.g?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}
       <input class="search" type="search" placeholder="Rechercher un salon, un évènement…" value="${esc(st.q)}" oninput="UI.pg.eb.q=this.value;pgRefresh()">
-      ${noms.length?`<button class="btn" ${q?'disabled':''} data-n="${esc(JSON.stringify(noms))}" onclick="ebPli(JSON.parse(this.dataset.n),${!toutPlie})" title="${toutPlie?'Afficher':'Masquer'} les parties des halls découpés (2.1 A, 2.3 B, 6.3 A+B…)">${toutPlie?'▾ Déplier les halls':'▸ Réduire les halls'}</button>`:''}
+      ${noms.length?`<button class="btn" ${q?'disabled':''} data-n="${esc(JSON.stringify(noms))}" onclick="ebPli(JSON.parse(this.dataset.n),${!toutPlie})" title="${toutPlie?'Afficher':'Masquer'} les parties des halls découpés (2.1 A, 2.3 B, 6.3 A+B…)">${toutPlie?'Déplier les halls':'Réduire les halls'}</button>`:''}
       <label class="chk"><input type="checkbox" ${st.vides?'checked':''} onchange="UI.pg.eb.vides=this.checked;render()"> Espaces sans réservation</label>
       <label class="chk" title="Colorer les barres comme dans EBMS (couleur du statut de la réservation) plutôt qu'une couleur par salon"><input type="checkbox" ${st.ebc?'checked':''} onchange="UI.pg.eb.ebc=this.checked;render()"> Couleurs EBMS</label>
       <span class="sp"></span>${imp}</div>
