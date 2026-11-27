@@ -627,6 +627,7 @@ input,select,textarea{border-radius:2px}
 
 <datalist id="dl-halls"></datalist><datalist id="dl-familles"></datalist><datalist id="dl-presta"></datalist><datalist id="dl-avanc"></datalist><datalist id="dl-resp"></datalist><datalist id="dl-espaces"></datalist><datalist id="dl-codes"></datalist><datalist id="dl-drformats"></datalist><datalist id="dl-drgroupes"></datalist><datalist id="dl-clsoc"></datalist><datalist id="dl-clesp"></datalist>
 
+<script src="ebms-salons.js"></script>
 <script>
 /* ================== CONFIGURATION ================== */
 const CONFIG = {
@@ -4808,7 +4809,8 @@ function ebAller(i){const st=ebSt();st.sl=Math.max(0,(i-1)*EB_Z[st.z][1]);const 
 function ebAuj(){const X=ebData();if(!X)return;const t=ebDn(today())-X.a0;ebAller(Math.max(0,Math.min(X.n-1,t))-2)}
 function ebView(el){
   const X=ebData(), st=ebSt();
-  const imp=`<button class="btn ${X?'':'pri'}" onclick="ebPick()">⬆️ Importer un export EBMS</button><input type="file" id="ebfile" accept=".xlsx,.xlsm,.xls" multiple hidden onchange="ebFiles(this.files)">`;
+  const cso=X&&window.EBS&&FB&&FB.consoPeut&&FB.consoPeut()?`<button class="btn" onclick="ebConso()" title="Créer dans l'appli Consommations les salons du Planning EBMS qui n'y sont pas encore, et mettre à jour leurs dates">⚡ Salons Consommations</button>`:'';
+  const imp=cso+`<button class="btn ${X?'':'pri'}" onclick="ebPick()">⬆️ Importer un export EBMS</button><input type="file" id="ebfile" accept=".xlsx,.xlsm,.xls" multiple hidden onchange="ebFiles(this.files)">`;
   if(!X){el.innerHTML=`<p class="empty">Aucun planning EBMS dans l'appli pour l'instant.</p>
     <p class="hint">Dans EBMS, exporte le « Planning réservations » en Excel (un fichier par trimestre, plusieurs à la fois si besoin), puis importe-le ici. L'appli le lit et le montre à toute l'équipe ; le fichier lui-même n'est pas gardé.</p><div class="bar">${imp}</div>`;return}
   const W=EB_Z[st.z][1], N=X.n, t=ebDn(today())-X.a0, q=ebNorm(st.q), hit=b=>!q||ebNorm(b.t).includes(q);
@@ -4897,9 +4899,48 @@ async function ebFiles(files){const F=[...(files||[])];if(!F.length)return;
       <p class="hint">Le planning sera visible par toute l'équipe dans Planning global › Planning EBMS. Sur les jours déjà importés, le nouvel export remplace l'ancien.</p><div class="err" id="ferr"></div>
       <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="ebgo" onclick="ebSave()">Importer</button></div>`)}
   catch(e){toast(e.message||String(e),1)}}
+/* Salons de l'appli Consommations d'après le Planning EBMS (ebms-salons.js, commun avec l'appli Consommations).
+   Après chaque import, et par le bouton « Salons Consommations » : les salons à créer et les changements de dates sont
+   proposés, rien n'est écrit sans validation. Réservé à l'appareil qui a le code des réglages de l'appli Consommations. */
+let EBK=null;
+async function ebConso(auto){
+  if(!window.EBS||!FB||!FB.consoSalonsLire){if(!auto)toast('Recharge la page pour terminer la mise à jour de l\'appli, puis réessaie.',1);return}
+  if(!FB.consoPeut())return auto?null:toast('Réservé à l\'appareil qui a le code des réglages de l\'appli Consommations.',1);
+  try{
+    const C=await FB.consoSalonsLire();
+    const per=(D.Ebms||[]).map(x=>{try{return Object.assign(JSON.parse(x.data),{majLe:x.majLe||''})}catch(e){return null}}).filter(Boolean);
+    const P=EBS.propositions(per,C.salons,C.halls,today());
+    if(!P.creer.length&&!P.dates.length)return toast(auto?'Salons Consommations : rien à créer ni à modifier':'✓ Salons Consommations à jour ('+P.nbLies+' salon'+(P.nbLies>1?'s':'')+' à venir déjà en place)');
+    EBK=P;const non=new Set(EBS.refus());
+    modal(`<h2>Salons de l'appli Consommations</h2>
+      <p class="hint">D'après le Planning EBMS : réservations bleu foncé et bleues, dates et halls d'exploitation. Décoche ce que tu ne veux pas ; les noms sont modifiables.</p>
+      ${P.creer.length?`<h3 style="margin:10px 0 6px;font-size:14px">${P.creer.length} salon${P.creer.length>1?'s':''} à créer</h3>
+      <div class="eqlist">${P.creer.map((c,i)=>`<label class="eqrow" style="align-items:flex-start;cursor:pointer"><input type="checkbox" data-ebk="c${i}" ${non.has(c.titre)?'':'checked'} style="margin-top:8px">
+        <span style="flex:1;min-width:0"><input class="eqmail" data-ebn="${i}" value="${esc(c.salon)}" maxlength="120" style="flex:none;width:100%;box-sizing:border-box;font-weight:600" onclick="event.preventDefault()">
+        <small style="display:block;margin-top:3px">${esc(ebDu(c.debut,c.fin))} · ${c.halls?esc(c.halls.replace(/Hall /g,'').replace(/Galerie /g,'Gal. ')):'<b>aucun hall reconnu</b>'}<br><span style="color:var(--muted)">EBMS : ${esc(c.titre)}</span></small></span></label>`).join('')}</div>`:''}
+      ${P.dates.length?`<h3 style="margin:14px 0 6px;font-size:14px">${P.dates.length} changement${P.dates.length>1?'s':''} de dates</h3>
+      <div class="eqlist">${P.dates.map((d,i)=>`<label class="eqrow" style="cursor:pointer"><input type="checkbox" data-ebk="d${i}" checked>
+        <span style="flex:1;min-width:0"><b>${esc(d.salon)}</b><br><small>${esc(d.debut&&d.fin?ebDu(d.debut,d.fin):'sans dates')} → <b>${esc(ebDu(d.nd,d.nf))}</b></small></span></label>`).join('')}</div>`:''}
+      ${P.coupes.length?`<p class="hint" style="margin-top:10px">${P.coupes.length} réservation${P.coupes.length>1?'s':''} au bord du planning importé, laissée${P.coupes.length>1?'s':''} de côté tant que le trimestre voisin n'est pas importé : ${P.coupes.map(esc).join(', ')}.</p>`:''}
+      <div class="err" id="ferr"></div>
+      <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Plus tard</button><button class="btn pri" id="ebkgo" onclick="ebConsoOk()">Valider</button></div>`)}
+  catch(e){toast('Salons Consommations : '+(e.message||e),1)}}
+async function ebConsoOk(){const P=EBK;if(!P)return;const b=$('#ebkgo'),on=k=>{const x=document.querySelector(`[data-ebk="${k}"]`);return !!(x&&x.checked)};
+  const cr=P.creer.map((c,i)=>({...c,salon:((document.querySelector(`[data-ebn="${i}"]`)||{}).value||'').trim()||c.salon,ok:on('c'+i)}));
+  const A=cr.filter(c=>c.ok),Dt=P.dates.filter((d,i)=>on('d'+i));
+  EBS.noterRefus(cr.filter(c=>!c.ok).map(c=>c.titre),A.map(c=>c.titre));
+  if(!A.length&&!Dt.length){closeModal(true);return toast('Rien de coché : aucun salon modifié')}
+  try{if(b){b.disabled=true;b.textContent='Enregistrement…'}
+    const C=await FB.consoSalonsLire(),docs=[],pris=[];   // relu à l'instant : numéros de salon et fiches à jour
+    A.forEach(c=>{const id=EBS.idSuivant(C.salons,pris);pris.push(id);docs.push(EBS.docSalon(c,id))});
+    Dt.forEach(d=>{const s=C.salons.find(x=>x.id===d.id);if(!s)return;const o={};EBS.SALON_KEYS.forEach(k=>{o[k]=s[k]==null?'':s[k]});o.debut=d.nd;o.fin=d.nf;docs.push(o)});
+    const n=docs.length-A.length, res=[A.length?A.length+' salon'+(A.length>1?'s':'')+' créé'+(A.length>1?'s':''):'',n?n+' changement'+(n>1?'s':'')+' de dates':''].filter(Boolean).join(', ');
+    await FB.consoSalonsEcrire(docs,res+(A.length?' ('+A.map(c=>c.salon).join(', ')+')':''));
+    EBK=null;closeModal(true);toast('✓ Consommations : '+res)}
+  catch(e){if(b){b.disabled=false;b.textContent='Valider'}const z=$('#ferr');if(z)z.textContent=e.message||String(e);else toast(e.message||String(e),1)}}
 async function ebSave(){const P=EBP;if(!P||!P.length)return;const b=$('#ebgo');
   if(!FB||!FB.saveEbms){$('#ferr').textContent='Recharge la page pour terminer la mise à jour de l\'appli, puis réessaie.';return}
-  try{if(b){b.disabled=true;b.textContent='Enregistrement…'}await FB.saveEbms(P);EBP=null;UI.pg.eb&&(UI.pg.eb.sl=null);closeModal(true);toast('✓ Planning EBMS à jour');render()}
+  try{if(b){b.disabled=true;b.textContent='Enregistrement…'}await FB.saveEbms(P);EBP=null;UI.pg.eb&&(UI.pg.eb.sl=null);closeModal(true);toast('✓ Planning EBMS à jour');render();setTimeout(()=>ebConso(true),600)}
   catch(e){if(b){b.disabled=false;b.textContent='Importer'}const z=$('#ferr');if(z)z.textContent=e.message||String(e);else toast(e.message||String(e),1)}}
 function ebPeriodes(){const X=ebData();if(!X)return;
   modal(`<h2>Périodes EBMS importées</h2>

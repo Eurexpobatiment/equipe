@@ -72,3 +72,12 @@ Plans tirés d'AutoCAD, avec les cylindres posés à la main : sous-sol, RDC, ni
 - **Lien avec l'inventaire** : sur le plan, chaque cylindre montre la fiche de l'inventaire de l'appli (au tableau, en prêt, dispo, chez qui) avec « Ouvrir la fiche », « Ajouter à l'inventaire » et « Remettre cette clef… » ; dans l'inventaire, colonne « Plan » (📍 posé / ＋ à poser) et bouton dans la fiche.
 - **Reprise** : « Importer » sur le plan reprend un fichier exporté depuis la version hors appli (`plan-cles.html` du Drive).
 - **Mise à jour du fond** (nouveau DWG) : régénérer `clefs-plan/index.html` à partir d'une copie DXF du plan (même calage).
+
+## Salons de l'appli Consommations d'après le Planning EBMS (28 nov. 2026)
+Après chaque import d'un export EBMS, et par le bouton « ⚡ Salons Consommations » du Planning EBMS, l'appli propose
+les salons à créer dans l'appli Consommations et les changements de dates ; rien n'est écrit sans validation.
+- Règles (`ebms-salons.js`, même fichier dans le dépôt `conso`, garder les deux copies identiques) : réservations bleu foncé
+  et bleues (002060, 0070C0) qui ont de l'exploitation, hors « stockage » ; dates et halls d'exploitation ; salons pas encore finis.
+- Un salon créé garde dans ses notes « Créé depuis le planning EBMS : <titre EBMS> » : c'est son lien avec la réservation.
+- Réservé à l'appareil qui a donné le code des réglages dans l'appli Consommations (règles Firestore inchangées).
+- Une proposition décochée est reproposée aux imports suivants, décochée d'office (gardé sur l'appareil).

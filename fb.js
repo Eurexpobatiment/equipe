@@ -573,6 +573,28 @@ export async function saveEbms(list) {
   await wrap(b.commit());
   journal('import', 'Documents', 'ebms', 'Planning EBMS : ' + P.map(p => p.debut + ' → ' + p.fin).join(', '));
 }
+/* ---------- Salons de l'appli Consommations d'après le Planning EBMS (ebms-salons.js) ----------
+ * Les salons (ConsoSalons) ne s'écrivent qu'avec le code des réglages de l'appli Consommations (règles « Consommations halls ») :
+ * l'appareil qui l'a donné dans cette appli le garde (même adresse eurexpobatiment.github.io, même connexion). */
+export const consoPeut = () => { try { return !!auth.currentUser && localStorage.getItem('conso_reglages_uid') === auth.currentUser.uid; } catch (e) { return false; } };
+export async function consoSalonsLire() {
+  if (!me) throw new Error('Connexion nécessaire');
+  const [h, sal] = await Promise.all([wrap(F.getDoc(ref('ConsoConfig', 'halls'))), wrap(F.getDocs(F.collection(db, 'ConsoSalons')))]);
+  return { halls: h.exists() ? (h.data().liste || []) : [], salons: sal.docs.map(d => Object.assign(d.data(), { id: d.id })) };
+}
+// docs : documents ConsoSalons complets (créations et salons dont les dates changent)
+export async function consoSalonsEcrire(docs, resume) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const L = (docs || []).filter(d => d && /^S\d{3,}$/.test(String(d.id)) && String(d.salon || '').trim());
+  if (!L.length) throw new Error('Rien à enregistrer');
+  const b = F.writeBatch(db); L.forEach(d => b.set(ref('ConsoSalons', d.id), d));
+  try { await b.commit(); }
+  catch (e) {
+    if (e && e.code === 'permission-denied') throw new Error('Écriture refusée : ouvre l\'appli Consommations sur cet appareil, donne le code des réglages, puis réessaie.');
+    throw new Error(errMsg(e));
+  }
+  journal('import', 'ConsoSalons', 'ebms', 'Salons Consommations d\'après le Planning EBMS : ' + String(resume || L.length + ' salon(s)').slice(0, 300));
+}
 export async function delEbms(id) {
   if (!me) throw new Error('Connexion nécessaire');
   if (!/^ebms-\d{8}-\d{8}$/.test(String(id))) throw new Error('Période inconnue');
