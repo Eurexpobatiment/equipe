@@ -4809,8 +4809,7 @@ function ebAller(i){const st=ebSt();st.sl=Math.max(0,(i-1)*EB_Z[st.z][1]);const 
 function ebAuj(){const X=ebData();if(!X)return;const t=ebDn(today())-X.a0;ebAller(Math.max(0,Math.min(X.n-1,t))-2)}
 function ebView(el){
   const X=ebData(), st=ebSt();
-  const cso=X&&window.EBS&&FB&&FB.consoPeut&&FB.consoPeut()?`<button class="btn" onclick="ebConso()" title="Créer dans l'appli Consommations les salons du Planning EBMS qui n'y sont pas encore, et mettre à jour leurs dates">⚡ Salons Consommations</button>`:'';
-  const imp=cso+`<button class="btn ${X?'':'pri'}" onclick="ebPick()">⬆️ Importer un export EBMS</button><input type="file" id="ebfile" accept=".xlsx,.xlsm,.xls" multiple hidden onchange="ebFiles(this.files)">`;
+  const imp=`<button class="btn ${X?'':'pri'}" onclick="ebPick()">⬆️ Importer un export EBMS</button><input type="file" id="ebfile" accept=".xlsx,.xlsm,.xls" multiple hidden onchange="ebFiles(this.files)">`;
   if(!X){el.innerHTML=`<p class="empty">Aucun planning EBMS dans l'appli pour l'instant.</p>
     <p class="hint">Dans EBMS, exporte le « Planning réservations » en Excel (un fichier par trimestre, plusieurs à la fois si besoin), puis importe-le ici. L'appli le lit et le montre à toute l'équipe ; le fichier lui-même n'est pas gardé.</p><div class="bar">${imp}</div>`;return}
   const W=EB_Z[st.z][1], N=X.n, t=ebDn(today())-X.a0, q=ebNorm(st.q), hit=b=>!q||ebNorm(b.t).includes(q);
@@ -4900,7 +4899,7 @@ async function ebFiles(files){const F=[...(files||[])];if(!F.length)return;
       <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="ebgo" onclick="ebSave()">Importer</button></div>`)}
   catch(e){toast(e.message||String(e),1)}}
 /* Salons de l'appli Consommations d'après le Planning EBMS (ebms-salons.js, commun avec l'appli Consommations).
-   Après chaque import, et par le bouton « Salons Consommations » : les salons à créer et les changements de dates sont
+   Après chaque import : les salons à créer et les changements de dates sont
    proposés, rien n'est écrit sans validation. Réservé à l'appareil qui a le code des réglages de l'appli Consommations. */
 let EBK=null;
 async function ebConso(auto){

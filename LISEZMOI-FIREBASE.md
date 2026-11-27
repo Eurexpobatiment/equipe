@@ -74,7 +74,7 @@ Plans tirés d'AutoCAD, avec les cylindres posés à la main : sous-sol, RDC, ni
 - **Mise à jour du fond** (nouveau DWG) : régénérer `clefs-plan/index.html` à partir d'une copie DXF du plan (même calage).
 
 ## Salons de l'appli Consommations d'après le Planning EBMS (28 nov. 2026)
-Après chaque import d'un export EBMS, et par le bouton « ⚡ Salons Consommations » du Planning EBMS, l'appli propose
+Après chaque import d'un export EBMS, l'appli propose
 les salons à créer dans l'appli Consommations et les changements de dates ; rien n'est écrit sans validation.
 - Règles (`ebms-salons.js`, même fichier dans le dépôt `conso`, garder les deux copies identiques) : réservations bleu foncé
   et bleues (002060, 0070C0) qui ont de l'exploitation, hors « stockage » ; dates et halls d'exploitation ; salons pas encore finis.
