@@ -418,6 +418,11 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .ebb u{position:absolute;top:0;bottom:0;text-decoration:none;background:repeating-linear-gradient(135deg,rgba(255,255,255,.38) 0 3px,transparent 3px 7px)}
 .ebb:hover{filter:brightness(1.1) saturate(1.1)}.ebb.dim,.ebb.dim+.ebp{opacity:.16}
 .ebp{position:absolute;top:28px;height:6px;box-sizing:border-box}.ebp-m{background:#f5b63a}.ebp-e{background:#1fa971}.ebp-d{background:#8b9bb0}.ebp-x{background:repeating-linear-gradient(135deg,#d5dae2 0 3px,#eef0f4 3px 6px)}.ebp.pl,.ebleg i.pl{opacity:.42}
+.ebl.ebpar{cursor:pointer;padding-left:1px;font-weight:600;user-select:none}
+.ebcv{display:inline-block;width:13px;font-style:normal;font-size:10px;color:#64748b;text-align:center;vertical-align:1px}
+.ebpar small{display:inline-block;margin-left:6px;padding:0 6px;border-radius:8px;background:#eef1f5;color:#64748b;font-size:10.5px;font-weight:600;line-height:16px;vertical-align:1px}
+.ebsub .ebl{padding-left:28px;font-weight:400;color:#64748b}.ebsub .ebt{background-color:#fcfcfd}
+.ebb.gh{opacity:.45;z-index:0;border:1px dashed rgba(0,0,0,.45)}.ebleg i.ebgh{height:9px;background:#2f6fde;opacity:.45;border:1px dashed rgba(0,0,0,.45);box-sizing:border-box}
 .ebnow{position:absolute;top:44px;bottom:0;width:2px;background:var(--accent);z-index:2;pointer-events:none}
 .ebfer{position:absolute;top:45px;bottom:0;background:rgba(220,38,38,.06);pointer-events:none}
 .ebleg{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--muted);margin:0 0 10px;align-items:center}
@@ -437,7 +442,7 @@ i.ebsw{display:inline-block;width:14px;min-width:14px;height:14px;border-radius:
 .ebfh{border-left:6px solid var(--c);padding:2px 0 2px 12px;margin-bottom:12px}.ebfh h2{margin:0 0 4px}.ebfh p{margin:0;color:var(--muted);font-size:14px}
 .ebphs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}.ebph{flex:1 1 150px;border-radius:10px;padding:8px 12px;color:#fff;display:flex;flex-direction:column}.ebph small{font-size:11.5px;opacity:.9;text-transform:uppercase;letter-spacing:.04em}.ebph b{font-size:14px}.ebph.ebp-m{color:#4a3500}
 .ebscr{max-height:44vh;overflow:auto;margin-top:8px}
-@media(max-width:700px){.eb{--lw:112px;max-height:calc(100vh - 200px)}.ebl{padding:0 6px 0 8px;font-size:11.5px}.ebcard{flex-basis:180px}}
+@media(max-width:700px){.eb{--lw:112px;max-height:calc(100vh - 200px)}.ebl{padding:0 6px 0 8px;font-size:11.5px}.ebl.ebpar{padding-left:0}.ebsub .ebl{padding-left:18px}.ebpar small{display:none}.ebcard{flex-basis:180px}}
 @media print{.eb{max-height:none;overflow:visible}.ebleg{display:flex}}
 /* Clefs */
 .clcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
@@ -4791,7 +4796,10 @@ function ebData(){
   const d={a0,n:a1-a0+1,esp,evs,jours,per,cols:[...new Set(evs.map(e=>e.c))],groupes:[...new Set(esp.filter(e=>e.b.length).map(e=>e.g))]};
   EBC={k,d};return d;
 }
-const ebSt=()=>UI.pg.eb||(UI.pg.eb={z:'m',g:'',q:'',vides:false,ebc:false,sl:null,st:0});
+const ebSt=()=>UI.pg.eb||(UI.pg.eb={z:'m',g:'',q:'',vides:false,ebc:false,sl:null,st:0,col:new Set((()=>{try{const a=JSON.parse(lsGet('eb_col')||'[]');return Array.isArray(a)?a:[]}catch(e){return []}})())});
+// Halls découpés : « Hall 2.3.A », « Hall 2.1 A+B », « Hall 7.B »… se rangent sous leur hall entier (« Hall 2.3 », « Hall 2.1 », « Hall 7 »), qu'on peut réduire
+const ebPar=n=>{const m=ebNom(n).match(/^(Hall \d(?:\.\d)?)[. ]([A-Z](?:\+[A-Z])*)$/);return m?m[1]:''};
+function ebPli(p,on){const st=ebSt(),L=Array.isArray(p)?p:[p];L.forEach(x=>{(on==null?!st.col.has(x):on)?st.col.add(x):st.col.delete(x)});lsSet('eb_col',JSON.stringify([...st.col]));render()}
 // phase d'un salon un jour donné (tous espaces confondus) : exploitation d'abord, puis montage, démontage, simple réservation
 const ebPhaseLe=(X,ev,t)=>{let r='';ev.b.forEach(b=>{if(b.s>t||b.f<t)return;r=r||'x';X.esp[b.e].p.forEach(p=>{if(p.s<=t&&p.f>=t){const k=EB_PK(p);if('xdme'.indexOf(k)>'xdme'.indexOf(r))r=k}})});return r};
 function ebScroll(el){const st=ebSt();st.sl=el.scrollLeft;st.st=el.scrollTop}
@@ -4805,7 +4813,13 @@ function ebView(el){
     <p class="hint">Dans EBMS, exporte le « Planning réservations » en Excel (un fichier par trimestre, plusieurs à la fois si besoin), puis importe-le ici. L'appli le lit et le montre à toute l'équipe ; le fichier lui-même n'est pas gardé.</p><div class="bar">${imp}</div>`;return}
   const W=EB_Z[st.z][1], N=X.n, t=ebDn(today())-X.a0, q=ebNorm(st.q), hit=b=>!q||ebNorm(b.t).includes(q);
   if(st.g&&!X.esp.some(e=>e.g===st.g))st.g='';
-  const rows=X.esp.filter(e=>(!st.g||e.g===st.g)&&(q?e.b.some(hit):(st.vides||e.b.length)));
+  const tous=X.esp.filter(e=>(!st.g||e.g===st.g)&&(q?e.b.some(hit):(st.vides||e.b.length)));
+  // sous-espaces rangés sous leur hall entier quand il est affiché ; une recherche déplie tout
+  const ent=new Map(tous.map(e=>[e.g+'|'+ebNom(e.n),e])), sub=new Map(), par=new Map();
+  tous.forEach(e=>{const P=ent.get(e.g+'|'+ebPar(e.n));if(P&&P!==e){par.set(e,P);sub.set(P,[...(sub.get(P)||[]),e])}});
+  const plie=e=>!q&&st.col.has(ebNom(e.n)), noms=[...sub.keys()].map(e=>ebNom(e.n)), toutPlie=noms.length>0&&noms.every(n=>st.col.has(n));
+  const rows=tous.filter(e=>!par.has(e)||!plie(par.get(e)));
+  let nGh=0;
   const J=i=>new Date((X.a0+i)*864e5), wd=i=>(J(i).getUTCDay()+6)%7;
   // en-tête : mois, puis jours
   let mois='',opts='',i0=0;
@@ -4820,7 +4834,13 @@ function ebView(el){
   const body=rows.map(e=>{const head=e.g!==g?`<div class="ebg"><span>${esc((g=e.g)||'Espaces')}</span></div>`:'';
     const bars=e.b.map(b=>`<div class="ebb${hit(b)?'':' dim'}" style="left:${b.s*W+1}px;width:${(b.f-b.s+1)*W-2}px;background:${st.ebc?'#'+b.c:X.evs[b.i].k}${st.ebc&&ebClair(b.c)?';color:#1c1c1c':''}" onclick="ebOpen(${b.i})" title="${esc(b.t+' · '+ebNom(e.n)+' · '+ebDu(ebYmd(X.a0+b.s),ebYmd(X.a0+b.f)))}"><span>${st.ebc?'':`<em style="background:#${b.c}"></em>`}${esc(b.t)}</span>${b.m.map(([s,f,nb])=>`<u style="left:${(s-b.s)*W}px;width:${(f-s+1)*W}px" title="${nb} réservations sur cet espace ${s===f?'ce jour-là':'ces jours-là'} : seule la première est nommée dans l'export EBMS"></u>`).join('')}</div>`).join('');
     const phs=e.p.map(p=>{const k=EB_PK(p);return `<div class="ebp ebp-${k}${k!=='x'&&EB_PALE(p)?' pl':''}" style="left:${p.s*W+1}px;width:${(p.f-p.s+1)*W-2}px" title="${esc(EB_PKL[k]+(k==='x'?' (hors montage, exploitation et démontage)':EB_PALE(p)?' (case blanche dans EBMS)':'')+' · '+ebDu(ebYmd(X.a0+p.s),ebYmd(X.a0+p.f)))}"></div>`}).join('');
-    return `${head}<div class="ebr"><div class="ebl" title="${esc(e.n)}">${esc(ebNom(e.n))}</div><div class="ebt">${bars}${phs}</div></div>`}).join('');
+    // hall réduit : en teinte pâle, les réservations qui ne portent que sur une partie du hall
+    const S=sub.get(e), ferme=S&&plie(e);let gh='';
+    if(ferme){const G=new Map();S.forEach(c=>c.b.forEach(b=>{if(e.b.some(p=>p.i===b.i&&p.s<=b.f&&p.f>=b.s))return;const k=b.i+':'+b.s+':'+b.f,o=G.get(k)||{b,n:[]};o.n.push(ebNom(c.n));G.set(k,o)}));
+      nGh+=G.size;gh=[...G.values()].map(({b,n})=>`<div class="ebb gh${hit(b)?'':' dim'}" style="left:${b.s*W+1}px;width:${(b.f-b.s+1)*W-2}px;background:${st.ebc?'#'+b.c:X.evs[b.i].k}${st.ebc&&ebClair(b.c)?';color:#1c1c1c':''}" onclick="ebOpen(${b.i})" title="${esc(b.t+' · '+n.join(', ')+' seulement · '+ebDu(ebYmd(X.a0+b.s),ebYmd(X.a0+b.f)))}"><span>${esc(b.t)}</span></div>`).join('')}
+    const lab=S?`<div class="ebl ebpar" role="button" tabindex="0" aria-expanded="${!ferme}" data-p="${esc(ebNom(e.n))}" onclick="ebPli(this.dataset.p)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ebPli(this.dataset.p)}" title="${esc(ebNom(e.n)+' : '+(ferme?'afficher':'masquer')+' '+S.map(c=>ebNom(c.n)).join(', '))}"><i class="ebcv">${ferme?'▸':'▾'}</i>${esc(ebNom(e.n))}${ferme?`<small>+${S.length}</small>`:''}</div>`
+      :`<div class="ebl" title="${esc(e.n)}">${esc(ebNom(e.n))}</div>`;
+    return `${head}<div class="ebr${par.has(e)?' ebsub':''}">${lab}<div class="ebt">${gh}${bars}${phs}</div></div>`}).join('');
   // bandeau : les salons en cours, puis les prochains
   const enCours=X.evs.filter(v=>v.s<=t&&v.f>=t&&ebPhaseLe(X,v,t)).sort((a,b)=>a.s-b.s), aVenir=X.evs.filter(v=>v.s>t).sort((a,b)=>a.s-b.s);
   const fj=n=>fD(ebYmd(X.a0+n),{day:'numeric',month:'short'});
@@ -4834,12 +4854,13 @@ function ebView(el){
       <div class="seg-ctl">${Object.entries(EB_Z).map(([k,z])=>`<button class="${st.z===k?'on':''}" onclick="ebZoom('${k}')">${z[0]}</button>`).join('')}</div>
       ${X.groupes.length>1?`<select class="sel" onchange="UI.pg.eb.g=this.value;render()"><option value="">Tous les espaces</option>${X.groupes.map(x=>`<option ${x===st.g?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}
       <input class="search" type="search" placeholder="Rechercher un salon, un évènement…" value="${esc(st.q)}" oninput="UI.pg.eb.q=this.value;pgRefresh()">
+      ${noms.length?`<button class="btn" ${q?'disabled':''} data-n="${esc(JSON.stringify(noms))}" onclick="ebPli(JSON.parse(this.dataset.n),${!toutPlie})" title="${toutPlie?'Afficher':'Masquer'} les parties des halls découpés (2.1 A, 2.3 B, 6.3 A+B…)">${toutPlie?'▾ Déplier les halls':'▸ Réduire les halls'}</button>`:''}
       <label class="chk"><input type="checkbox" ${st.vides?'checked':''} onchange="UI.pg.eb.vides=this.checked;render()"> Espaces sans réservation</label>
       <label class="chk" title="Colorer les barres comme dans EBMS (couleur du statut de la réservation) plutôt qu'une couleur par salon"><input type="checkbox" ${st.ebc?'checked':''} onchange="UI.pg.eb.ebc=this.checked;render()"> Couleurs EBMS</label>
       <span class="sp"></span>${imp}</div>
     ${cards?`<div class="ebcards">${cards}</div>`:''}
     <div class="ebleg"><span><i class="ebp-m"></i> Montage</span><span><i class="ebp-e"></i> Exploitation</span><span><i class="ebp-d"></i> Démontage</span><span><i class="ebp-x"></i> Réservé, hors phase</span><span><i class="ebp-m pl"></i><i class="ebp-d pl"></i> Teinte claire : case blanche dans EBMS</span>
-      <span><i class="ebsw ebdbl"></i> Plusieurs réservations le même jour</span><span>${st.ebc?'Barres : couleur de la réservation dans EBMS':'Une couleur par salon · pastille : couleur dans EBMS'}</span></div>
+      <span><i class="ebsw ebdbl"></i> Plusieurs réservations le même jour</span>${nGh?'<span><i class="ebgh"></i> Hall réduit : réservation sur une partie du hall seulement</span>':''}<span>${st.ebc?'Barres : couleur de la réservation dans EBMS':'Une couleur par salon · pastille : couleur dans EBMS'}</span></div>
     ${rows.length?`<div class="eb" id="ebsc" style="--w:${W}px;--wo:${wd(0)}" onscroll="ebScroll(this)"><div class="ebin" style="width:calc(var(--lw) + ${N*W}px)">
       <div class="ebh"><div class="ebl">${rows.length} espace${rows.length>1?'s':''}</div><div class="ebt"><div class="ebm">${mois}</div><div class="ebd${W<13?' mini':''}">${jours}</div></div></div>
       ${body}${fer}${t>=0&&t<N?`<i class="ebnow" style="left:calc(var(--lw) + ${(t+.5)*W}px)"></i>`:''}</div></div>`
