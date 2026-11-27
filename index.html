@@ -394,6 +394,51 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}a.btn.pri{color:#f
 .pgfrise .gtrack{position:relative}
 .pgfrise .gbar{bottom:auto;height:20px;line-height:20px}
 @media (max-width:900px){.pgweek{grid-template-columns:1fr}.pgweek .pgday{min-height:0}}
+/* Planning EBMS (sous-onglet du Planning global) */
+.eb{--lw:158px;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:calc(100vh - 250px);min-height:320px;font-size:12.5px;position:relative}
+.ebin{position:relative}
+.ebh,.ebr{display:flex}
+.ebh{position:sticky;top:0;z-index:5;background:#fafbfc;border-bottom:1px solid var(--line)}
+.ebl{flex:0 0 var(--lw);width:var(--lw);box-sizing:border-box;position:sticky;left:0;z-index:3;background:#fff;border-right:1px solid var(--line);padding:0 10px 0 14px;line-height:40px;font-weight:500;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ebh .ebl{background:#fafbfc;color:var(--muted);font-weight:500;line-height:44px;font-size:12px}
+.ebt{position:relative;flex:1 0 0;height:40px}
+.ebh .ebt{height:44px}
+.ebr{border-top:1px solid #f1f3f6}.ebr:hover .ebl{background:#f6f8fb;color:#111}
+.ebr .ebt{background-image:linear-gradient(90deg,#f1f3f6 1px,transparent 1px),linear-gradient(90deg,transparent calc(5*var(--w)),#f7f8fa 0);background-size:var(--w) 100%,calc(7*var(--w)) 100%;background-position:0 0,calc(-1*var(--wo)*var(--w)) 0}
+.ebm,.ebd{position:absolute;left:0;right:0;height:22px}.ebd{top:22px}
+.ebm b{position:absolute;top:0;height:22px;line-height:22px;border-left:1px solid var(--line);color:var(--navy);font-size:13px;overflow:clip;white-space:nowrap;box-sizing:border-box}
+.ebm b span{position:sticky;left:calc(var(--lw) + 2px);padding:0 6px;display:inline-block}
+.ebd i{position:absolute;top:0;height:22px;line-height:20px;text-align:center;font-style:normal;font-size:10.5px;color:#64748b;box-sizing:border-box;overflow:hidden;white-space:nowrap}
+.ebd i.we{color:#a3acb9}.ebd i.fe{color:#c81e1e;font-weight:700;background:#fdecec}.ebd i b{display:inline-block;min-width:18px;padding:0 4px;border-radius:9px;background:var(--accent);color:#fff;line-height:16px}
+.ebd.mini i{overflow:visible;text-align:left;font-size:10px}
+.ebg{background:#f5f7fa;border-top:1px solid var(--line);font-weight:700;color:var(--navy);font-size:12px;letter-spacing:.04em;text-transform:uppercase;line-height:26px}
+.ebg span{position:sticky;left:0;padding:0 14px;display:inline-block}
+.ebb{position:absolute;top:6px;height:22px;border-radius:6px 6px 0 0;font-size:11.5px;font-weight:600;line-height:22px;color:#fff;white-space:nowrap;overflow:clip;cursor:pointer;box-sizing:border-box;z-index:1;transition:filter .12s}
+.ebb span{position:sticky;left:calc(var(--lw) + 2px);padding:0 7px;display:inline-block;z-index:1}.ebb em{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;box-shadow:0 0 0 1.5px rgba(255,255,255,.75)}
+.ebb u{position:absolute;top:0;bottom:0;text-decoration:none;background:repeating-linear-gradient(135deg,rgba(255,255,255,.38) 0 3px,transparent 3px 7px)}
+.ebb:hover{filter:brightness(1.1) saturate(1.1)}.ebb.dim,.ebb.dim+.ebp{opacity:.16}
+.ebp{position:absolute;top:28px;height:6px;box-sizing:border-box}.ebp-m{background:#f5b63a}.ebp-e{background:#1fa971}.ebp-d{background:#8b9bb0}.ebp-x{background:repeating-linear-gradient(135deg,#d5dae2 0 3px,#eef0f4 3px 6px)}.ebp.pl,.ebleg i.pl{opacity:.42}
+.ebnow{position:absolute;top:44px;bottom:0;width:2px;background:var(--accent);z-index:2;pointer-events:none}
+.ebfer{position:absolute;top:45px;bottom:0;background:rgba(220,38,38,.06);pointer-events:none}
+.ebleg{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--muted);margin:0 0 10px;align-items:center}
+.ebleg i{display:inline-block;width:22px;height:7px;border-radius:2px;vertical-align:1px;margin-right:3px}
+i.ebsw{display:inline-block;width:14px;min-width:14px;height:14px;border-radius:3px;vertical-align:-2px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.22)}
+.ebdbl{background:#64748b repeating-linear-gradient(135deg,rgba(255,255,255,.5) 0 3px,transparent 3px 7px)!important}
+.ebov .mod{max-width:780px}
+.ebtab{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}.ebtab td,.ebtab th{border-top:1px solid var(--line);padding:5px 8px 5px 0;text-align:left;vertical-align:top}
+.ebtab td:first-child,.ebtab td:nth-child(2){white-space:nowrap;padding-right:14px}
+.ebtab th{font-size:12px;color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}.ebtab td small{display:block;color:var(--muted);font-size:11.5px}
+.ebpt{display:inline-block;padding:0 7px;border-radius:9px;font-size:11.5px;line-height:18px;color:#fff;white-space:nowrap;margin:1px 0}.ebpt.ebp-m{color:#4a3500}.ebpt.ebdbl{background:#eef1f5!important;color:#475569;box-shadow:inset 0 0 0 1px #cbd2dc}
+.ebcards{display:flex;gap:10px;overflow-x:auto;margin:0 0 12px;padding-bottom:2px}
+.ebcard{flex:0 0 218px;min-width:0;background:#fff;border:1px solid var(--line);border-left:5px solid var(--c);border-radius:10px;padding:9px 12px;cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.ebcard:hover{box-shadow:0 2px 10px rgba(0,0,0,.08)}.ebcard b{font-size:13px;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ebcard small{color:var(--muted);font-size:12px}.ebst{align-self:flex-start;margin-top:2px;font-size:11px;font-weight:600;border-radius:9px;padding:1px 8px;background:#eef1f5;color:#475569}
+.ebst-e{background:#dff5ea;color:#11694a}.ebst-m{background:#fdf0cf;color:#7a5200}.ebst-d{background:#e6ebf2;color:#44546a}
+.ebfh{border-left:6px solid var(--c);padding:2px 0 2px 12px;margin-bottom:12px}.ebfh h2{margin:0 0 4px}.ebfh p{margin:0;color:var(--muted);font-size:14px}
+.ebphs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}.ebph{flex:1 1 150px;border-radius:10px;padding:8px 12px;color:#fff;display:flex;flex-direction:column}.ebph small{font-size:11.5px;opacity:.9;text-transform:uppercase;letter-spacing:.04em}.ebph b{font-size:14px}.ebph.ebp-m{color:#4a3500}
+.ebscr{max-height:44vh;overflow:auto;margin-top:8px}
+@media(max-width:700px){.eb{--lw:112px;max-height:calc(100vh - 200px)}.ebl{padding:0 6px 0 8px;font-size:11.5px}.ebcard{flex-basis:180px}}
+@media print{.eb{max-height:none;overflow:visible}.ebleg{display:flex}}
 /* Clefs */
 .clcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .clcard.cllate{border-color:#f0b6b9;box-shadow:inset 4px 0 0 var(--accent)}
@@ -851,10 +896,10 @@ const icoSvg=id=>ICO_P[id]?`<svg viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ---------- état ---------- */
 const FBM = !!CONFIG.firebase; // données dans Firebase
-const FB_VER = '32'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
+const FB_VER = '33'; // à augmenter à chaque modification de fb.js / logic.js (évite une ancienne copie gardée par le navigateur)
 const DEMO = !FBM && !CONFIG.apiUrl;
 let FB = null;
-let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
+let D = {Memos:[],Equipe:[],Taches:[],Commentaires:[],Nacelle:[],Regisseurs:[],Cloisons:[],EDL:[],BudgetLignes:[],BudgetMvts:[],Inventaire:[],SAP:[],Chantiers:[],Drapeaux:[],Pavoisements:[],Clefs:[],ClefsPrets:[],Documents:[],DocsIndex:[],Ebms:[],Projets:[],ProjetMvts:[],Benchmarks:[],BenchOffres:[]};
 let SRV=null; // onglets renvoyés par le serveur (pour repérer un Code.gs pas encore mis à jour)
 let me = FBM ? '' : (lsGet('equipe.me') || '');
 let tab = lsGet('equipe.tab') || 'Memo';
@@ -4588,10 +4633,13 @@ function vPlanning(el){
   const st=UI.pg||(UI.pg={v:'sem',w:0,m:0,weeks:4,q:'',esp:'',moi:false});
   if(dtCode()&&!DT.list) dtLoad(); else dtLoad();
   agLoad();
+  const seg=[['jour','Jour'],['sem','Semaine'],['mois','Mois'],['frise','Frise'],['ebms','Planning EBMS']].map(([k,l])=>`<button class="${st.v===k?'on':''}" onclick="UI.pg.v='${k}';render()">${l}</button>`).join('');
+  // Planning EBMS : le planning des réservations repris d'EBMS, à part des autres vues (ni sources ni filtres du planning global)
+  if(st.v==='ebms'){el.innerHTML=`<div class="bar"><h2>Planning global</h2><div class="seg-ctl">${seg}</div></div><div id="pgview"></div>`;return ebView($('#pgview'))}
   const E=pgEvents(), t=today(), off=pgOff(), N=pgOn(E,t);
   const cnt=k=>N.filter(e=>e.src===k).length;
   el.innerHTML=`<div class="bar"><h2>Planning global</h2>
-      <div class="seg-ctl">${[['jour','Jour'],['sem','Semaine'],['mois','Mois'],['frise','Frise']].map(([k,l])=>`<button class="${st.v===k?'on':''}" onclick="UI.pg.v='${k}';render()">${l}</button>`).join('')}</div>
+      <div class="seg-ctl">${seg}</div>
       <span class="sp"></span><button class="btn" onclick="window.print()">🖨️ Imprimer</button><button class="btn pri" onclick="pgAdd()">+ Ajouter</button></div>
     <div class="mine pgtoday"><b>Aujourd'hui :</b> ${Object.keys(PG_SRC).filter(cnt).map(k=>`${PG_SRC[k].e} ${cnt(k)} ${esc(PG_SRC[k].l.toLowerCase())}`).join(' · ')||'rien de prévu'}</div>
     <div class="pgsrc">${Object.entries(PG_SRC).map(([k,s])=>`<button class="pgchip ${off.includes(k)?'off':''}" style="--c:${s.c}" onclick="pgToggle('${k}')">${s.e} ${esc(s.l)}</button>`).join('')}</div>
@@ -4652,6 +4700,194 @@ function pgAdd(d){d=d||today();
     <div class="eqlist">${opts.map(([l,a])=>`<div class="eqrow" style="cursor:pointer" onclick="closeModal(true);${a}"><span><b>${l}</b></span></div>`).join('')}</div>
     <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
 }
+
+/* ================== PLANNING EBMS (sous-onglet « Planning EBMS » du Planning global) ==================
+   Reprise des exports Excel « Planning réservations » d'EBMS (un fichier par période, en général un trimestre).
+   Le fichier est lu dans la page ; seul le résultat (espaces, réservations, phases M / E / D, couleurs d'EBMS) est gardé dans Firebase,
+   collection Documents (kind « index », ebms « oui » : mêmes règles que le reste, rien à publier, et une ancienne copie de l'appli l'ignore).
+   Rien n'est mis dans le dépôt GitHub (public) : le planning commercial reste réservé aux membres de l'équipe.
+   Lecture de l'export : ligne 2 = période, ligne 5 = jours (fond rouge = férié, autres couleurs = vacances scolaires),
+   puis deux lignes par espace : le nom de la réservation (fond = couleur EBMS, « 2 … » = 2 réservations ce jour-là) et la phase (M, E, D, C). */
+const EB_MOIS={janvier:1,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,aout:8,septembre:9,octobre:10,novembre:11,decembre:12};
+const EB_REP=new Set(['JOURS FERIES','MATCH UEFA','TRAVAUX','VACANCES SCOLAIRES']);
+const EB_NOMS={'Accueil Princip':'Accueil Principal','Accueil Conflue':'Accueil Confluence','Local multifonc':'Local multifonction','Park. Expo. Nor':'Park. Expo. Nord','Expo. Extérieur':'Expo. Extérieure'};
+const EB_Z={s:['2 sem.',46],m:['1 mois',24],t:['3 mois',13],a:['6 mois',7]};
+const EB_PH={M:'Montage',E:'Exploitation',D:'Démontage'};
+const EB_PAL=['#2f6fde','#0e9384','#d9622b','#7a5af8','#c8377e','#1b8fc4','#5c8a1e','#c98a0c','#4a54c9','#12805c','#a742c2','#cf4040'];   // une couleur par salon
+const EB_PK=p=>p.p==='E'?'e':/^[MD]$/.test(p.p)?p.p.toLowerCase():'x';   // e exploitation · m montage · d démontage · x jour réservé hors phase (code C d'EBMS)
+const EB_PALE=p=>p.p!=='E'&&p.c==='FFFFFF';   // case blanche dans EBMS : montage / démontage en teinte claire
+const EB_PKL={e:'Exploitation',m:'Montage',d:'Démontage',x:'Réservé'};
+const ebNom=n=>String(n).replace(/^H\. ?0?(?=\d)/,'Hall ').replace(/^Gal\. /,'Galerie ').replace(/^Vest\. Gal\. /,'Vestiaire galerie ').replace(/^Pass\. /,'Passage ').replace(/^Bur\. /,'Bureau ');
+const ebFam=n=>/^(accueil|entr|pass\. confl)/i.test(n)?'Accueils et entrées':/^(com\.|bur\.|local)/i.test(n)?'Locaux annexes':(n.match(/[1-9]/)?'Hall '+n.match(/[1-9]/)[0]:'Autres espaces');
+const EB_HORS=/exterieur|parking/;   // groupes de l'export laissés de côté : parkings, cours, exposition extérieure
+const ebNorm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const ebRgb=x=>{const s=x&&x.s;if(!s||!s.patternType||s.patternType==='none')return '';const v=String((s.fgColor||{}).rgb||'').toUpperCase();return /^[0-9A-F]{6,8}$/.test(v)?v.slice(-6):''};
+const ebDn=s=>{const [y,m,d]=String(s).split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/864e5)};
+const ebYmd=n=>new Date(n*864e5).toISOString().slice(0,10);
+const ebClair=c=>{const n=parseInt(c||'888888',16);return ((n>>16)*299+((n>>8)&255)*587+(n&255)*114)/1000>150};
+const ebDu=(a,b)=>a===b?'le '+fD(a,{weekday:'short',day:'numeric',month:'short'}):'du '+fD(a,{weekday:'short',day:'numeric',month:'short'})+' au '+fD(b,{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+// Lit un classeur « Planning réservations » → { debut, fin, esp:[[groupe,espace]], titres, cols, T:[[esp,jour,nbJours,titre,couleur,nbRésa]], P:[[esp,jour,nbJours,phase,couleur]], J:[[jour,nbJours,couleur]] }
+function ebLire(wb,nom){
+  const ws=wb.Sheets[wb.SheetNames[0]];if(!ws||!ws['!ref'])throw new Error('classeur vide');
+  const R=XLSX.utils.decode_range(ws['!ref']), cell=(r,c)=>ws[XLSX.utils.encode_cell({r,c})];
+  const brut=(r,c)=>{const x=cell(r,c);return x&&x.v!=null?String(x.v):''}, val=(r,c)=>brut(r,c).trim();
+  const m=ebNorm(val(1,0)).match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})\s*-\s*[a-z.]+\s+(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+  if(!/^planning/i.test(val(0,0))||!m||!EB_MOIS[m[2]]||!EB_MOIS[m[5]])throw new Error('ce n\'est pas un export « Planning réservations » d\'EBMS');
+  const debut=`${m[3]}-${pad(EB_MOIS[m[2]])}-${pad(+m[1])}`, fin=`${m[6]}-${pad(EB_MOIS[m[5]])}-${pad(+m[4])}`, N=ebDn(fin)-ebDn(debut)+1;
+  if(!(N>0&&N<=400))throw new Error('période illisible');
+  const jr=/^[a-zéû.]+\s*\d{2}$/i;let hr=-1;for(let r=2;r<=8&&hr<0;r++)if(jr.test(val(r,1))&&jr.test(val(r,2)))hr=r;
+  if(hr<0||+val(hr,1).slice(-2)!==+debut.slice(8)||+val(hr,N).slice(-2)!==+fin.slice(8))throw new Error('la ligne des jours ne correspond pas à la période annoncée');
+  const span=new Map();(ws['!merges']||[]).forEach(g=>span.set(g.s.r+','+g.s.c,g.e.c-g.s.c+1));
+  const sp=(r,c)=>Math.max(1,Math.min(span.get(r+','+c)||1,N-c+1));
+  const has=r=>{for(let c=1;c<=N;c++)if(val(r,c))return true;return false};
+  const esp=[],T=[],P=[],titres=[],cols=[],ti=new Map(),ci=new Map();
+  const idx=(M,A,v)=>{let i=M.get(v);if(i==null){i=A.length;A.push(v);M.set(v,i)}return i};
+  const lire=(rt,rp,g,l)=>{const e=esp.length;esp.push([g,EB_NOMS[l]||l]);
+    for(let c=1;c<=N;c++){const b=brut(rt,c);if(!b.trim())continue;
+      const k=b.match(/^(\d+) (.+)$/), t=(k?k[2]:b).replace(/\s+/g,' ').trim();   // « 2 SALON… » : deux réservations ce jour-là (seule la première est nommée)
+      T.push([e,c-1,sp(rt,c),idx(ti,titres,t),idx(ci,cols,ebRgb(cell(rt,c))),k?Math.min(9,+k[1]):1])}
+    if(rp!=null)for(let c=1;c<=N;c++){const v=val(rp,c);if(v)P.push([e,c-1,sp(rp,c),v.slice(0,3),idx(ci,cols,ebRgb(cell(rp,c)))])}};
+  let g='';
+  for(let r=hr+1;r<=R.e.r;r++){const l=val(r,0);if(!l)continue;
+    if(val(r+1,0)!==l){   // ligne seule : titre de groupe, ou repère (jours fériés, match UEFA…) s'il porte quelque chose
+      if(has(r))lire(r,null,EB_REP.has(l.toUpperCase())?'Repères':g,l);else if(!EB_REP.has(l.toUpperCase()))g=l;continue}
+    if(/^(halls|no level)$/i.test(l)&&!has(r)&&!has(r+1)){if(/^halls$/i.test(l))g=l;r++;continue}
+    if(!EB_HORS.test(ebNorm(g)))lire(r,r+1,g,l);r++}
+  const J=[];for(let c=1;c<=N;c++){const k=ebRgb(cell(hr,c));if(!k||k==='003052')continue;const p=J[J.length-1];if(p&&p[2]===k&&p[0]+p[1]===c-1)p[1]++;else J.push([c-1,1,k])}
+  if(!T.length)throw new Error('aucune réservation dans ce fichier');
+  return {v:1,debut,fin,fichier:String(nom||'').slice(0,120),esp,titres,cols,T,P,J};
+}
+
+// Assemble toutes les périodes importées en un seul planning continu (la période importée en dernier l'emporte sur les jours communs)
+let EBC={k:null,d:null};
+function ebData(){
+  const L=D.Ebms||[], k=L.map(x=>x.id+'@'+x.majLe).sort().join();if(k===EBC.k)return EBC.d;
+  const per=[];L.forEach(x=>{try{const o=JSON.parse(x.data);if(o&&o.debut&&o.fin&&Array.isArray(o.T)&&Array.isArray(o.esp))per.push({...o,id:x.id,majLe:x.majLe||'',majPar:x.majPar||''})}catch(e){}});
+  if(!per.length){EBC={k,d:null};return null}
+  per.sort((a,b)=>a.majLe.localeCompare(b.majLe)||a.debut.localeCompare(b.debut));
+  const a0=Math.min(...per.map(p=>ebDn(p.debut))), a1=Math.max(...per.map(p=>ebDn(p.fin)));
+  const cut=(s,e,i)=>{let Rg=[[s,e]];for(let j=i+1;j<per.length&&Rg.length;j++){const x=ebDn(per[j].debut)-a0,y=ebDn(per[j].fin)-a0;
+    Rg=Rg.flatMap(([a,b])=>b<x||a>y?[[a,b]]:[...(a<x?[[a,x-1]]:[]),...(b>y?[[y+1,b]]:[])])}return Rg};
+  const esp=[],ei=new Map(),bars=[],ph=[],jours=new Map();
+  [...per].reverse().forEach(p=>p.esp.forEach(([g,n])=>{const key=g+'|'+n;if(!ei.has(key)){ei.set(key,esp.length);esp.push({g:/^halls$/i.test(g)?ebFam(n):g,n,b:[],p:[]})}}));
+  per.forEach((p,i)=>{const o=ebDn(p.debut)-a0, E=j=>ei.get(p.esp[j].join('|'));
+    p.T.forEach(([e,s,n,t,c,nb])=>cut(o+s,o+s+n-1,i).forEach(([x,y])=>bars.push({e:E(e),s:x,f:y,t:p.titres[t]||'',c:p.cols[c]||'64748B',nb:nb||1})));
+    (p.P||[]).forEach(([e,s,n,l,c])=>cut(o+s,o+s+n-1,i).forEach(([x,y])=>ph.push({e:E(e),s:x,f:y,p:l,c:p.cols[c]||'FFFFFF'})));
+    (p.J||[]).forEach(([s,n,c])=>cut(o+s,o+s+n-1,i).forEach(([x,y])=>{for(let d=x;d<=y;d++)jours.set(d,c)}))});
+  // une réservation = les morceaux qui se suivent sur le même espace (l'export la découpe par phase et par trimestre)
+  const titres=[],ti=new Map(),evs=[];
+  bars.sort((a,b)=>a.e-b.e||a.s-b.s);
+  const B=[];bars.forEach(b=>{const p=B[B.length-1];
+    if(p&&p.e===b.e&&p.t===b.t&&p.c===b.c&&p.f+1>=b.s){p.f=Math.max(p.f,b.f);if(b.nb>1)p.m.push([b.s,b.f,b.nb])}
+    else B.push({e:b.e,s:b.s,f:b.f,t:b.t,c:b.c,m:b.nb>1?[[b.s,b.f,b.nb]]:[]})});
+  B.forEach(b=>{let i=ti.get(b.t);if(i==null){i=titres.length;titres.push(b.t);ti.set(b.t,i);evs.push({t:b.t,c:b.c,s:b.s,f:b.f,b:[]})}
+    b.i=i;const ev=evs[i];ev.s=Math.min(ev.s,b.s);ev.f=Math.max(ev.f,b.f);ev.b.push(b);esp[b.e].b.push(b)});
+  ph.sort((a,b)=>a.e-b.e||a.s-b.s);
+  let lp=null;ph.forEach(x=>{if(lp&&lp.e===x.e&&lp.p===x.p&&lp.c===x.c&&lp.f+1>=x.s)lp.f=Math.max(lp.f,x.f);else{lp={...x};esp[x.e].p.push(lp)}});
+  // par salon : sa couleur (dans l'ordre des dates, pour que deux voisins se distinguent) et l'étendue de chaque phase, tous espaces confondus
+  [...evs].sort((a,b)=>a.s-b.s||a.t.localeCompare(b.t)).forEach((ev,i)=>{ev.k=EB_PAL[i%EB_PAL.length];ev.ph={};
+    ev.b.forEach(b=>esp[b.e].p.forEach(p=>{if(p.s>b.f||p.f<b.s)return;const k=EB_PK(p),x=Math.max(p.s,b.s),y=Math.min(p.f,b.f),o=ev.ph[k]||(ev.ph[k]={s:x,f:y});o.s=Math.min(o.s,x);o.f=Math.max(o.f,y)}))});
+  const d={a0,n:a1-a0+1,esp,evs,jours,per,cols:[...new Set(evs.map(e=>e.c))],groupes:[...new Set(esp.filter(e=>e.b.length).map(e=>e.g))]};
+  EBC={k,d};return d;
+}
+const ebSt=()=>UI.pg.eb||(UI.pg.eb={z:'m',g:'',q:'',vides:false,ebc:false,sl:null,st:0});
+// phase d'un salon un jour donné (tous espaces confondus) : exploitation d'abord, puis montage, démontage, simple réservation
+const ebPhaseLe=(X,ev,t)=>{let r='';ev.b.forEach(b=>{if(b.s>t||b.f<t)return;r=r||'x';X.esp[b.e].p.forEach(p=>{if(p.s<=t&&p.f>=t){const k=EB_PK(p);if('xdme'.indexOf(k)>'xdme'.indexOf(r))r=k}})});return r};
+function ebScroll(el){const st=ebSt();st.sl=el.scrollLeft;st.st=el.scrollTop}
+function ebZoom(z){const st=ebSt(),sc=$('#ebsc'),w0=EB_Z[st.z][1];if(sc)st.sl=Math.round(sc.scrollLeft/w0*EB_Z[z][1]);st.z=z;render()}
+function ebAller(i){const st=ebSt();st.sl=Math.max(0,(i-1)*EB_Z[st.z][1]);const sc=$('#ebsc');if(sc)sc.scrollLeft=st.sl}
+function ebAuj(){const X=ebData();if(!X)return;const t=ebDn(today())-X.a0;ebAller(Math.max(0,Math.min(X.n-1,t))-2)}
+function ebView(el){
+  const X=ebData(), st=ebSt();
+  const imp=`<button class="btn ${X?'':'pri'}" onclick="ebPick()">⬆️ Importer un export EBMS</button><input type="file" id="ebfile" accept=".xlsx,.xlsm,.xls" multiple hidden onchange="ebFiles(this.files)">`;
+  if(!X){el.innerHTML=`<p class="empty">Aucun planning EBMS dans l'appli pour l'instant.</p>
+    <p class="hint">Dans EBMS, exporte le « Planning réservations » en Excel (un fichier par trimestre, plusieurs à la fois si besoin), puis importe-le ici. L'appli le lit et le montre à toute l'équipe ; le fichier lui-même n'est pas gardé.</p><div class="bar">${imp}</div>`;return}
+  const W=EB_Z[st.z][1], N=X.n, t=ebDn(today())-X.a0, q=ebNorm(st.q), hit=b=>!q||ebNorm(b.t).includes(q);
+  if(st.g&&!X.esp.some(e=>e.g===st.g))st.g='';
+  const rows=X.esp.filter(e=>(!st.g||e.g===st.g)&&(q?e.b.some(hit):(st.vides||e.b.length)));
+  const J=i=>new Date((X.a0+i)*864e5), wd=i=>(J(i).getUTCDay()+6)%7;
+  // en-tête : mois, puis jours
+  let mois='',opts='',i0=0;
+  while(i0<N){const d=J(i0),fin=Math.min(N,i0+new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate()-d.getUTCDate()+1),lib=fMonth(ebYmd(X.a0+i0));
+    mois+=`<b style="left:${i0*W}px;width:${(fin-i0)*W}px"><span>${esc(lib)}</span></b>`;opts+=`<option value="${i0}">${esc(lib)}</option>`;i0=fin}
+  const JL=['lun','mar','mer','jeu','ven','sam','dim'];
+  const jours=[...Array(N)].map((_,i)=>{const d=J(i),w=wd(i),c=X.jours.get(i),n=d.getUTCDate(),fer=c==='FF0000';
+    const txt=W>=40?JL[w]+' '+n:W>=20||w===0||n===1?n:'';
+    return `<i class="${w>4?'we':''}${fer?' fe':''}" style="left:${i*W}px;width:${W}px${c&&!fer?`;box-shadow:inset 0 -4px 0 #${c}`:''}" title="${esc(fD(ebYmd(X.a0+i),{weekday:'long',day:'numeric',month:'long',year:'numeric'})+(c?fer?' · jour férié':' · vacances scolaires':''))}">${i===t?`<b>${txt||n}</b>`:txt}</i>`}).join('');
+  const fer=[...X.jours].filter(([,c])=>c==='FF0000').map(([i])=>`<i class="ebfer" style="left:calc(var(--lw) + ${i*W}px);width:${W}px"></i>`).join('');
+  let g=null;
+  const body=rows.map(e=>{const head=e.g!==g?`<div class="ebg"><span>${esc((g=e.g)||'Espaces')}</span></div>`:'';
+    const bars=e.b.map(b=>`<div class="ebb${hit(b)?'':' dim'}" style="left:${b.s*W+1}px;width:${(b.f-b.s+1)*W-2}px;background:${st.ebc?'#'+b.c:X.evs[b.i].k}${st.ebc&&ebClair(b.c)?';color:#1c1c1c':''}" onclick="ebOpen(${b.i})" title="${esc(b.t+' · '+ebNom(e.n)+' · '+ebDu(ebYmd(X.a0+b.s),ebYmd(X.a0+b.f)))}"><span>${st.ebc?'':`<em style="background:#${b.c}"></em>`}${esc(b.t)}</span>${b.m.map(([s,f,nb])=>`<u style="left:${(s-b.s)*W}px;width:${(f-s+1)*W}px" title="${nb} réservations sur cet espace ${s===f?'ce jour-là':'ces jours-là'} : seule la première est nommée dans l'export EBMS"></u>`).join('')}</div>`).join('');
+    const phs=e.p.map(p=>{const k=EB_PK(p);return `<div class="ebp ebp-${k}${k!=='x'&&EB_PALE(p)?' pl':''}" style="left:${p.s*W+1}px;width:${(p.f-p.s+1)*W-2}px" title="${esc(EB_PKL[k]+(k==='x'?' (hors montage, exploitation et démontage)':EB_PALE(p)?' (case blanche dans EBMS)':'')+' · '+ebDu(ebYmd(X.a0+p.s),ebYmd(X.a0+p.f)))}"></div>`}).join('');
+    return `${head}<div class="ebr"><div class="ebl" title="${esc(e.n)}">${esc(ebNom(e.n))}</div><div class="ebt">${bars}${phs}</div></div>`}).join('');
+  // bandeau : les salons en cours, puis les prochains
+  const enCours=X.evs.filter(v=>v.s<=t&&v.f>=t&&ebPhaseLe(X,v,t)).sort((a,b)=>a.s-b.s), aVenir=X.evs.filter(v=>v.s>t).sort((a,b)=>a.s-b.s);
+  const fj=n=>fD(ebYmd(X.a0+n),{day:'numeric',month:'short'});
+  const cards=[...enCours,...aVenir.slice(0,Math.max(2,6-enCours.length))].slice(0,8).map(v=>{const k=v.s<=t?ebPhaseLe(X,v,t):'', E=v.ph.e, j=v.s-t;
+    return `<div class="ebcard" style="--c:${v.k}" onclick="ebOpen(${X.evs.indexOf(v)})"><b>${esc(v.t)}</b>
+      <small>${E?'Exploitation '+(E.s===E.f?'le '+fj(E.s):'du '+fj(E.s)+' au '+fj(E.f)):'Réservé du '+fj(v.s)+' au '+fj(v.f)}</small>
+      <span class="ebst ebst-${k||'v'}">${k?({e:'En exploitation',m:'En montage',d:'En démontage',x:'En cours'})[k]:j===1?'Demain':'Dans '+j+' jours'}</span></div>`}).join('');
+  const der=X.per[X.per.length-1];
+  el.innerHTML=`<div class="bar chf"><button class="btn" onclick="ebAuj()">Aujourd'hui</button>
+      <select class="sel" onchange="ebAller(+this.value);this.selectedIndex=0"><option value="">Aller au mois…</option>${opts}</select>
+      <div class="seg-ctl">${Object.entries(EB_Z).map(([k,z])=>`<button class="${st.z===k?'on':''}" onclick="ebZoom('${k}')">${z[0]}</button>`).join('')}</div>
+      ${X.groupes.length>1?`<select class="sel" onchange="UI.pg.eb.g=this.value;render()"><option value="">Tous les espaces</option>${X.groupes.map(x=>`<option ${x===st.g?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}
+      <input class="search" type="search" placeholder="Rechercher un salon, un évènement…" value="${esc(st.q)}" oninput="UI.pg.eb.q=this.value;pgRefresh()">
+      <label class="chk"><input type="checkbox" ${st.vides?'checked':''} onchange="UI.pg.eb.vides=this.checked;render()"> Espaces sans réservation</label>
+      <label class="chk" title="Colorer les barres comme dans EBMS (couleur du statut de la réservation) plutôt qu'une couleur par salon"><input type="checkbox" ${st.ebc?'checked':''} onchange="UI.pg.eb.ebc=this.checked;render()"> Couleurs EBMS</label>
+      <span class="sp"></span>${imp}</div>
+    ${cards?`<div class="ebcards">${cards}</div>`:''}
+    <div class="ebleg"><span><i class="ebp-m"></i> Montage</span><span><i class="ebp-e"></i> Exploitation</span><span><i class="ebp-d"></i> Démontage</span><span><i class="ebp-x"></i> Réservé, hors phase</span><span><i class="ebp-m pl"></i><i class="ebp-d pl"></i> Teinte claire : case blanche dans EBMS</span>
+      <span><i class="ebsw ebdbl"></i> Plusieurs réservations le même jour</span><span>${st.ebc?'Barres : couleur de la réservation dans EBMS':'Une couleur par salon · pastille : couleur dans EBMS'}</span></div>
+    ${rows.length?`<div class="eb" id="ebsc" style="--w:${W}px;--wo:${wd(0)}" onscroll="ebScroll(this)"><div class="ebin" style="width:calc(var(--lw) + ${N*W}px)">
+      <div class="ebh"><div class="ebl">${rows.length} espace${rows.length>1?'s':''}</div><div class="ebt"><div class="ebm">${mois}</div><div class="ebd${W<13?' mini':''}">${jours}</div></div></div>
+      ${body}${fer}${t>=0&&t<N?`<i class="ebnow" style="left:calc(var(--lw) + ${(t+.5)*W}px)"></i>`:''}</div></div>`
+      :`<p class="empty">${q?'Aucune réservation ne correspond à la recherche.':'Aucun espace à afficher.'}</p>`}
+    <p class="hint">Planning EBMS ${ebDu(ebYmd(X.a0),ebYmd(X.a0+N-1))} · dernier import le ${der.majLe?fD(der.majLe.slice(0,10),{day:'numeric',month:'long',year:'numeric'}):'?'}${der.majPar?' par '+esc(der.majPar):''} ·
+      <a href="#" onclick="ebPeriodes();return false">${X.per.length} période${X.per.length>1?'s':''} importée${X.per.length>1?'s':''}</a>. C'est une copie de l'export : pour la mettre à jour, réimporte le trimestre concerné. Touche une barre pour voir le détail d'une réservation.</p>`;
+  const sc=$('#ebsc');if(sc){if(st.sl==null)st.sl=Math.max(0,(Math.max(0,Math.min(N-1,t))-2)*W);sc.scrollLeft=st.sl;sc.scrollTop=st.st||0}
+}
+// Fiche d'une réservation : ses phases sur chaque espace
+function ebOpen(i){const X=ebData(),ev=X&&X.evs[i];if(!ev)return;const d=n=>ebYmd(X.a0+n), fj=n=>fD(d(n),{day:'numeric',month:'short'});
+  const L=[];
+  ev.b.forEach(b=>{const e=X.esp[b.e],P=[];
+    e.p.forEach(p=>{if(p.s>b.f||p.f<b.s)return;const k=EB_PK(p),x=Math.max(p.s,b.s),y=Math.min(p.f,b.f),l=P[P.length-1];if(l&&l.k===k&&l.f+1>=x)l.f=Math.max(l.f,y);else P.push({k,s:x,f:y})});
+    L.push(`<tr><td><b>${esc(ebNom(e.n))}</b></td><td>${fj(b.s)}${b.f>b.s?' → '+fj(b.f):''}</td><td>${P.filter(p=>p.k!=='x').map(p=>`<span class="ebpt ebp-${p.k}">${EB_PKL[p.k]} ${fj(p.s)}${p.f>p.s?' → '+fj(p.f):''}</span>`).join(' ')}${b.m.length?' <span class="ebpt ebdbl">autre réservation sur l\'espace</span>':''}</td></tr>`)});
+  const ordre=['m','e','d'].filter(k=>ev.ph[k]), ne=new Set(ev.b.map(b=>b.e)).size;
+  modal(`<div class="ebfh" style="--c:${ev.k}"><h2>${esc(ev.t)}</h2><p>${esc(ebDu(d(ev.s),d(ev.f)))} · ${ne} espace${ne>1?'s':''} <i class="ebsw" style="background:#${ev.c}" title="Couleur de la réservation dans EBMS"></i></p></div>
+    <div class="ebphs">${ordre.map(k=>`<div class="ebph ebp-${k}"><small>${EB_PKL[k]}</small><b>${esc(ev.ph[k].s===ev.ph[k].f?fD(d(ev.ph[k].s),{weekday:'short',day:'numeric',month:'short'}):fj(ev.ph[k].s)+' → '+fj(ev.ph[k].f))}</b></div>`).join('')}</div>
+    <div class="ebscr"><table class="ebtab"><thead><tr><th>Espace</th><th>Réservé</th><th>Phases</th></tr></thead><tbody>${L.join('')}</tbody></table></div>
+    <p class="hint">Dates reprises de l'export EBMS ; en haut, la première et la dernière date de chaque phase, tous espaces confondus. En cas de doute, EBMS fait foi.</p>
+    <div class="acts"><button class="btn" onclick="closeModal();ebAller(${ev.s}-1)">Voir sur le planning</button><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`);
+  $('.ov').classList.add('ebov')}
+// Import : lecture des fichiers dans la page, récapitulatif, puis enregistrement
+let EBP=null;
+function ebPick(){const i=$('#ebfile');if(!i)return;i.value='';i.click()}
+async function ebFiles(files){const F=[...(files||[])];if(!F.length)return;
+  try{await loadXLSX();const P=[],ko=[];
+    for(const f of F){try{P.push(ebLire(XLSX.read(await f.arrayBuffer(),{cellStyles:true}),f.name))}catch(e){ko.push(f.name+' : '+(e.message||e))}}
+    if(!P.length)return toast(ko[0]||'Fichier illisible',1);
+    P.sort((a,b)=>a.debut.localeCompare(b.debut));EBP=P;
+    const deja=new Set((D.Ebms||[]).map(x=>x.debut+'|'+x.fin));
+    modal(`<h2>Import du planning EBMS</h2>
+      <div class="eqlist">${P.map(p=>`<div class="eqrow"><span><b>${esc(ebDu(p.debut,p.fin))}</b><br><small>${esc(p.fichier)} · ${p.titres.length} réservation${p.titres.length>1?'s':''} sur ${new Set(p.T.map(x=>x[0])).size} espaces${deja.has(p.debut+'|'+p.fin)?' · remplace la période déjà importée':''}</small></span></div>`).join('')}</div>
+      ${ko.length?`<p class="err">Pas lu : ${ko.map(esc).join(' ; ')}</p>`:''}
+      <p class="hint">Le planning sera visible par toute l'équipe dans Planning global › Planning EBMS. Sur les jours déjà importés, le nouvel export remplace l'ancien.</p><div class="err" id="ferr"></div>
+      <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Annuler</button><button class="btn pri" id="ebgo" onclick="ebSave()">Importer</button></div>`)}
+  catch(e){toast(e.message||String(e),1)}}
+async function ebSave(){const P=EBP;if(!P||!P.length)return;const b=$('#ebgo');
+  if(!FB||!FB.saveEbms){$('#ferr').textContent='Recharge la page pour terminer la mise à jour de l\'appli, puis réessaie.';return}
+  try{if(b){b.disabled=true;b.textContent='Enregistrement…'}await FB.saveEbms(P);EBP=null;UI.pg.eb&&(UI.pg.eb.sl=null);closeModal(true);toast('✓ Planning EBMS à jour');render()}
+  catch(e){if(b){b.disabled=false;b.textContent='Importer'}const z=$('#ferr');if(z)z.textContent=e.message||String(e);else toast(e.message||String(e),1)}}
+function ebPeriodes(){const X=ebData();if(!X)return;
+  modal(`<h2>Périodes EBMS importées</h2>
+    <div class="eqlist">${[...X.per].sort((a,b)=>a.debut.localeCompare(b.debut)).map(p=>`<div class="eqrow"><span><b>${esc(ebDu(p.debut,p.fin))}</b><br><small>${esc(p.fichier||'')}${p.majLe?' · importé le '+fD(p.majLe.slice(0,10),{day:'numeric',month:'short',year:'numeric'}):''}${p.majPar?' par '+esc(p.majPar):''}</small></span>
+      <span class="sp"></span><button class="btn sm" data-id="${esc(p.id)}" onclick="ebDel(this)">Retirer</button></div>`).join('')}</div>
+    <p class="hint">« Retirer » enlève la période du planning de l'appli (rien ne change dans EBMS).</p><div class="err" id="ferr"></div>
+    <div class="acts"><span class="sp"></span><button class="btn" onclick="closeModal()">Fermer</button></div>`)}
+async function ebDel(b){if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='Confirmer';b.classList.add('pri');return}
+  try{b.disabled=true;await FB.delEbms(b.dataset.id);closeModal(true);toast('Période retirée');render()}catch(e){b.disabled=false;$('#ferr').textContent=e.message||String(e)}}
 
 /* ================== DOCUMENTS TECHNIQUES ================== */
 // Bibliothèque : une fiche par document (titre, catégorie, halls…) avec le lien vers le fichier, rangé dans Google Drive ou Teams / SharePoint.

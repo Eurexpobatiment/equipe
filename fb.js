@@ -136,7 +136,8 @@ export function start(D, onChange, onErr) {
     // Projets : mes projets + ceux partagés avec moi (deux requêtes qui peuvent se recouper)
     if (PARTAGES.indexOf(name) >= 0) { const vu = new Set(); L = L.filter(x => !vu.has(x.id) && vu.add(x.id)); }
     // Documents : l'index des dossiers Teams est rangé dans la même collection (fiches à part)
-    if (name === 'Documents') { D.DocsIndex = L.filter(x => x.kind === 'index'); D[name] = L.filter(x => x.kind !== 'index'); }
+    // (le planning EBMS y est rangé aussi : kind « index » + ebms « oui », à part de l'index Teams)
+    if (name === 'Documents') { D.Ebms = L.filter(x => x.kind === 'index' && x.ebms === 'oui'); D.DocsIndex = L.filter(x => x.kind === 'index' && x.ebms !== 'oui'); D[name] = L.filter(x => x.kind !== 'index'); }
     // Nacelle : sa position posée à la main sur le plan est rangée dans la même collection (document « position », à part des réservations)
     else if (name === 'Nacelle') { D.NacellePos = L.filter(x => x.kind === 'position'); D[name] = L.filter(x => x.kind !== 'position'); }
     // Clefs : les cylindres posés sur le plan des clefs sont rangés dans la même collection (documents kind « plan », à part de l'inventaire)
@@ -548,6 +549,35 @@ export async function saveDocIndex(idx) {
     n: idx.files.length, data, titre: root.split('/').pop(), majLe: date, majPar: me }));
   await wrap(b.commit());
   journal('index', 'Documents', base, root + ' · ' + idx.files.length + ' fichiers');
+}
+
+/* ---------- Planning EBMS (Planning global › Planning EBMS) ----------
+ * Une période importée = un document Documents/ebms-AAAAMMJJ-AAAAMMJJ :
+ * { kind:'index', ebms:'oui', root, web:'', part:0, parts:1, debut, fin, n, data (JSON lu par ebData), titre, fichier, majLe, majPar }.
+ * kind « index » sans adresse SharePoint : mêmes règles que les fiches, et une ancienne copie de l'appli l'ignore (ni fiche, ni dossier Teams).
+ * Une période entièrement recouverte par un nouvel import est retirée. */
+const ebId = p => 'ebms-' + String(p.debut).replace(/-/g, '') + '-' + String(p.fin).replace(/-/g, '');
+export async function saveEbms(list) {
+  if (!me) throw new Error('Connexion nécessaire');
+  const okD = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+  const P = (list || []).filter(p => p && okD(p.debut) && okD(p.fin) && p.debut <= p.fin && Array.isArray(p.T) && Array.isArray(p.esp));
+  if (!P.length) throw new Error('Rien à enregistrer');
+  const date = now_(), ids = new Set(P.map(ebId)), b = F.writeBatch(db);
+  ((D_ && D_.Ebms) || []).filter(x => !ids.has(x.id) && P.some(p => p.debut <= x.debut && p.fin >= x.fin)).forEach(x => b.delete(ref('Documents', x.id)));
+  P.forEach(p => {
+    const data = JSON.stringify({ v: 1, debut: p.debut, fin: p.fin, fichier: p.fichier || '', esp: p.esp, titres: p.titres, cols: p.cols, T: p.T, P: p.P || [], J: p.J || [] });
+    if (data.length > 900000) throw new Error('Export trop volumineux : ' + p.debut + ' → ' + p.fin + ' (essaie une période plus courte)');
+    b.set(ref('Documents', ebId(p)), { kind: 'index', ebms: 'oui', root: 'ebms:' + p.debut, web: '', part: 0, parts: 1, debut: p.debut, fin: p.fin,
+      n: p.titres.length, data, titre: 'Planning EBMS ' + p.debut + ' → ' + p.fin, fichier: String(p.fichier || '').slice(0, 120), majLe: date, majPar: me });
+  });
+  await wrap(b.commit());
+  journal('import', 'Documents', 'ebms', 'Planning EBMS : ' + P.map(p => p.debut + ' → ' + p.fin).join(', '));
+}
+export async function delEbms(id) {
+  if (!me) throw new Error('Connexion nécessaire');
+  if (!/^ebms-\d{8}-\d{8}$/.test(String(id))) throw new Error('Période inconnue');
+  await wrap(F.deleteDoc(ref('Documents', String(id))));
+  journal('suppression', 'Documents', String(id), 'Planning EBMS : période retirée');
 }
 
 /* ---------- Tableau de bord des alertes (page d'accueil) ----------
