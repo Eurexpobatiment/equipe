@@ -6,6 +6,7 @@
  *    sont laissés de côté) qui a une phase d'exploitation (code E) ;
  *  - dates du salon = premier et dernier jour d'EXPLOITATION (montage et démontage laissés de côté) ;
  *  - halls du salon = ceux qui ont de l'exploitation (pas ceux réservés pour le seul montage ou la logistique) ;
+ *  - l'Accueil est coché quand le salon réserve « Accueil Principal » (ligne sans phase d'exploitation dans EBMS) ;
  *  - les réservations dont le titre contient « stockage » ne sont pas des salons ;
  *  - seuls les salons pas encore finis sont proposés ; rien n'est écrit sans validation.
  * Un salon créé garde dans ses notes « Créé depuis le planning EBMS : <titre EBMS> » : c'est ce qui le relie à sa
@@ -131,10 +132,12 @@
    * EBMS affiche aussi une réservation sur les lignes « parentes » et sur les combinaisons (le 2.1.A réservé apparaît sur
    * « H. 2 », « H. 2.1 » et « H. 2.1 A+B ») : seules les lignes les plus fines comptent. Un hall réservé en entier donne
    * toutes ses parties (« Hall 6.2 » → Hall 6.2A et Hall 6.2B). Les galeries suivent (« Gal. 4 » → Galerie 4).
-   * Accueils, passages, commissariats et locaux n'ont pas de comptage : ils ne sont pas repris.
+   * « Accueil Principal » donne l'Accueil de l'appli (hall « Acceuil » des Réglages) ; les autres accueils, les passages,
+   * commissariats et locaux n'ont pas de comptage : ils ne sont pas repris.
    * hallsListe : les halls de l'appli (Réglages › Surfaces), dans leur ordre. Retour : noms de l'appli, dans cet ordre. */
   var HALL = /^(?:H\.|Hall)\s*0?(\d+)(?:\.(\d+))?(?:[ .]([A-C](?:\+[A-C])*))?$/i;
   function cle(s) { return norm(s).replace(/[^a-z0-9.]/g, ''); }
+  function estAccueil(n) { return /^accueil princip/.test(norm(n)); }
   function hallsConso(espaces, hallsListe) {
     var P = (espaces || []).map(function (n) { return HALL.exec(String(n).trim()); }).filter(Boolean), sous = {}, H = {}, veut = {};
     P.forEach(function (m) { if (m[2]) sous[m[1]] = 1; });
@@ -149,6 +152,7 @@
       if (lettres) lettres.forEach(function (x) { veut[k + x.toLowerCase()] = 1; }); else veut[k + '*'] = 1;
     });
     (espaces || []).forEach(function (n) { var g = /^Gal(?:\.|erie)\s*0?(\d+)$/i.exec(String(n).trim()); if (g) veut['galerie' + Number(g[1])] = 1; });
+    if ((espaces || []).some(estAccueil)) { veut.acceuil = 1; veut.accueil = 1; }
     return (hallsListe || []).map(function (h) { return typeof h === 'string' ? h : h && h.hall; }).filter(function (nom) {
       var k = cle(nom); if (!k) return false;
       if (veut[k]) return true;
@@ -203,7 +207,7 @@
     var parNote = {}; S.forEach(function (s) { var t = titreNote(s); if (t) parNote['$' + norm(t)] = s; });
     var creer = [], dates = [], lies = 0;
     E.forEach(function (e) {
-      var s = parNote['$' + norm(e.titre)], halls = hallsConso(e.espE, hallsListe);
+      var s = parNote['$' + norm(e.titre)], halls = hallsConso(e.espE.concat(e.esp.filter(estAccueil)), hallsListe);   // l'accueil n'a pas de phase d'exploitation dans EBMS (code C) : réservé suffit
       if (s) {
         lies++;
         if (String(s.fige || '').toUpperCase() !== 'OUI' && (s.debut !== e.debut || s.fin !== e.fin))
